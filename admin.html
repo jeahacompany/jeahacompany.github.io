@@ -660,22 +660,29 @@ async function enterApp(){
   badge.textContent = role === 'admin' ? '관리자' : '고객사';
   badge.className = 'role-badge ' + (role === 'admin' ? 'role-admin' : 'role-client');
 
-  company = await call('getCompanySettings', token);
-
   if(role === 'admin'){
     document.getElementById('adminView').style.display = 'block';
+    // 순차 대신 한꺼번에(병렬) 로드 — 로그인 후 대기시간 대폭 단축
+    const [comp, qs, cls, delCls] = await Promise.all([
+      call('getCompanySettings', token),
+      call('getQuotes', token),
+      call('adminListClients', token),
+      call('adminListDeletedClients', token).catch(()=>[])
+    ]);
+    company = comp;
     document.getElementById('setBank').value = company.bank;
     document.getElementById('setAccount').value = company.account;
     document.getElementById('setHolder').value = company.holder;
-    quotes = await call('getQuotes', token);
-    renderAdminRecords();
-    await loadClients();
+    quotes = qs; renderAdminRecords();
+    clients = cls; deletedClients = delCls; renderClients(); renderDeletedClients();
   } else {
+    // 고객: 폼을 즉시 띄우고(회사설정·견적목록 안 기다림), 나머지는 백그라운드 병렬 로드
     document.getElementById('clientView').style.display = 'block';
     document.getElementById('quoteClientName').value = displayName;
-    quotes = await call('getQuotes', token);
     if(productRows.length === 0) addProductRow(); else renderProductTable();
-    renderMyRecords();
+    Promise.all([ call('getCompanySettings', token), call('getQuotes', token) ])
+      .then(([comp, qs])=>{ company = comp; quotes = qs; renderMyRecords(); renderPreview(); })
+      .catch(e=>{ if(!handleSessionError(e)) console.warn('데이터 로드 지연:', e && e.message); });
   }
 }
 
