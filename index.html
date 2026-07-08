@@ -377,15 +377,7 @@
           </div>
           <button class="btn" onclick="changeMyPassword()" style="margin-top:6px;">비밀번호 변경</button>
         </div>
-
-        <div class="card" style="max-width:520px; margin-top:18px;">
-          <h3>🆔 아이디 변경</h3>
-          <p class="hint" style="margin:-4px 0 12px;">로그인 아이디(업체명)를 바꿀 수 있습니다.<br>⚠️ 변경하면 <b>새 아이디로 다시 로그인</b>해야 하며, 기존 견적 내역은 그대로 따라옵니다.</p>
-          <div class="field-row">
-            <label style="width:100%;">새 아이디<input type="text" id="myNewId" placeholder="예: 하나농수산"></label>
-          </div>
-          <button class="btn secondary" onclick="changeMyId()" style="margin-top:6px;">아이디 변경</button>
-        </div>
+        <p class="hint" style="max-width:520px; margin-top:14px;">※ 로그인 <b>아이디(업체명)</b> 변경이 필요하시면 담당자에게 문의해 주세요.</p>
       </div>
     </div>
   </div>
@@ -874,7 +866,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // ---------- 관리자: 접속·업데이트 로그 ----------
 // 업데이트 내역 (개발/개선 기록 — 새 기능 추가할 때마다 위에 한 줄씩 추가)
 const UPDATE_LOG = [
-  { date:'2026-07-08', cat:'공지', title:'파트너센터 내 정보(아이디·비번 변경)', desc:'고객이 파트너센터에서 직접 로그인 아이디와 비밀번호를 변경할 수 있습니다. ("🔒 내 정보" 탭)' },
+  { date:'2026-07-08', cat:'공지', title:'파트너센터 내 정보(비밀번호 변경)', desc:'고객이 파트너센터 "🔒 내 정보" 탭에서 직접 비밀번호를 변경할 수 있습니다. (아이디 변경은 관리자만 가능)' },
   { date:'2026-07-08', cat:'관리자', title:'전체 기록 메모/상태 정리', desc:'메모는 관리 칸의 📝 버튼(누르면 팝업)으로 옮기고, 진행·입금·완료 상태를 가로로 나란히 배치해 한눈에 보이게 했습니다.' },
   { date:'2026-07-08', cat:'관리자', title:'캠페인 가이드 카톡용 복사', desc:'견적 보기에서 캠페인 가이드를 카톡 양식(번호 순서)으로 한 번에 복사할 수 있습니다. 카톡에 붙여넣기만 하면 됩니다. (캠페인 가이드는 관리자에서만 표시)' },
   { date:'2026-07-08', cat:'견적', title:'자체택배·빈박스 안내 문구', desc:'견적 요청 시 자체 택배를 선택하면 "빈 박스 발송 필수" 주의 안내가, 빈박스를 선택하면 "실제 배송 흐름이 정상 기록됩니다" 안내가 뜹니다.' },
