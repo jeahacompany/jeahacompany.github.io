@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>재하 리뷰 파트너 센터</title>
+<style>
+  :root{
+    --orange:#f5a623;
+    --orange-light:#fdeccb;
+    --tan:#fbe4b8;
+    --border:#333;
+    --red:#d32f2f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+    background:#f2f2f2;
+    margin:0;
+    padding:20px;
+    color:#222;
+  }
+  h1{font-size:20px; margin:0;}
+  .topbar{display:flex; justify-content:space-between; align-items:center; max-width:1100px; margin:0 auto 12px;}
+  .topbar .who{font-size:13px; color:#555;}
+  .role-badge{display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold; margin-left:6px;}
+  .role-admin{background:#e3d4fb; color:#5a2ea6;}
+  .role-client{background:#d4e8fb; color:#1a5a9e;}
+
+  #loginScreen{
+    max-width:360px; margin:80px auto; background:#fff; border:1px solid #ddd; border-radius:10px;
+    padding:32px; text-align:center;
+  }
+  #loginScreen h2{margin:0 0 20px; font-size:18px;}
+  #loginScreen input{width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px; font-size:14px;}
+  #loginError{color:var(--red); font-size:13px; min-height:18px; margin-bottom:8px;}
+
+  .tabs{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:16px; max-width:1100px; margin-left:auto; margin-right:auto;}
+  .tab-btn{flex:0 0 auto;}
+  .tab-btn{padding:10px 18px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:6px 6px 0 0; font-size:14px; font-weight:bold; color:#555;}
+  .tab-btn.active{background:var(--orange); color:#fff; border-color:var(--orange);}
+  .panel{background:#fff; border:1px solid #ddd; border-radius:0 8px 8px 8px; padding:20px; max-width:1100px; margin:0 auto;}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+
+  .field-row{display:flex; gap:20px; margin-bottom:16px; flex-wrap:wrap;}
+  .field-row label{display:flex; flex-direction:column; font-size:13px; font-weight:bold; color:#555; gap:4px;}
+  .field-row input, .field-row select{padding:6px 8px; border:1px solid #ccc; border-radius:4px; font-size:14px; font-family:inherit;}
+  .field-row input[readonly]{background:#f2f2f2; color:#777;}
+
+  .table-scroll{overflow-x:auto;}
+  table.builder{width:100%; border-collapse:collapse; margin-bottom:12px;}
+  table.builder th, table.builder td{border:1px solid #ddd; padding:6px; font-size:13px; text-align:center;}
+  table.builder th{background:#f7f7f7;}
+  table.builder input{width:100%; padding:4px; border:1px solid #ccc; border-radius:3px; font-size:13px;}
+
+  .campaign-card{border:2px solid var(--orange); border-radius:12px; padding:0 0 20px; margin-bottom:20px; background:#fff; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.06);}
+  .campaign-card .card-head{background:var(--orange); color:#fff; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:10px 10px 0 0;}
+  .campaign-card .card-head h4{margin:0; font-size:16px; color:#fff;}
+  .campaign-card .card-head .head-btns{display:flex; gap:6px;}
+  .csec{padding:16px 20px 4px;}
+  .csec + .csec{border-top:1px dashed #e6d3ad;}
+  .csec-title{font-size:13px; font-weight:bold; color:#a65b00; margin:0 0 12px; display:flex; align-items:center; gap:6px;}
+  .campaign-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:14px 16px; align-items:end;}
+  .campaign-grid label{display:flex; flex-direction:column; font-size:13px; font-weight:bold; color:#444; gap:5px;}
+  .campaign-grid label > *:last-child{margin-top:auto;}
+  .cnote{background:#fff8ec; border:1px solid var(--orange); border-left:4px solid var(--orange); border-radius:8px; padding:12px 16px; margin-bottom:14px; font-size:13px; color:#555; line-height:1.7;}
+  .cnote b{color:#a65b00;}
+  .campaign-grid input, .campaign-grid select, .campaign-grid textarea{padding:9px 11px; border:1px solid #ccc; border-radius:6px; font-size:14px; font-family:inherit; background:#fff;}
+  .campaign-grid input:focus, .campaign-grid select:focus, .campaign-grid textarea:focus{border-color:var(--orange); outline:none; box-shadow:0 0 0 2px var(--orange-light);}
+  .campaign-grid textarea{resize:vertical; min-height:70px;}
+  .campaign-full{grid-column:1 / -1;}
+  .opt-row{display:flex; gap:8px; margin-bottom:8px; align-items:center;}
+  .opt-row input{padding:9px 11px; border:1px solid #ccc; border-radius:6px; font-size:14px; font-family:inherit;}
+  .qty-pill{display:inline-block; background:var(--orange-light); color:#a65b00; font-weight:bold; font-size:13px; padding:5px 12px; border-radius:14px; margin-left:10px;}
+  .helpicon{display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; background:#bbb; color:#fff; font-size:11px; font-weight:bold; cursor:help; position:relative;}
+  .helpicon .tip{display:none; position:absolute; bottom:150%; left:-6px; transform:none; background:#333; color:#fff; font-size:12px; font-weight:normal; line-height:1.5; padding:8px 12px; border-radius:8px; width:min(240px, 78vw); max-width:240px; z-index:50; white-space:normal; text-align:left; box-shadow:0 3px 10px rgba(0,0,0,0.25);}
+  .helpicon .tip::after{content:''; position:absolute; top:100%; left:14px; transform:translateX(-50%); border:6px solid transparent; border-top-color:#333;}
+  .helpicon:hover .tip, .helpicon:focus .tip{display:block;}
+  .guide-card{border:2px solid var(--border); border-radius:6px; padding:16px 20px; background:#fff; margin-bottom:14px;}
+  .guide-card h3{margin:0 0 10px; font-size:15px; border-bottom:1px solid #ddd; padding-bottom:8px;}
+  .guide-card dl{margin:0; display:grid; grid-template-columns:140px 1fr; row-gap:6px; column-gap:10px; font-size:13px;}
+  .guide-card dt{color:#777; font-weight:bold;}
+  .guide-card dd{margin:0; white-space:pre-wrap;}
+
+  .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; z-index:1000;}
+  .modal-box{background:#f2f2f2; border-radius:10px; padding:20px; max-width:940px; width:100%;}
+  .modal-box .close-row{text-align:right; margin-bottom:8px;}
+
+  .btn{padding:8px 14px; border:none; border-radius:5px; background:var(--orange); color:#fff; font-weight:bold; cursor:pointer; font-size:13px; margin-right:6px;}
+  .btn.secondary{background:#888;}
+  .btn.danger{background:var(--red);}
+  .btn.ok{background:#2e7d32;}
+  .btn:hover{opacity:0.9;}
+  .btn:disabled{opacity:0.5; cursor:not-allowed;}
+  .btn:focus-visible, .tab-btn:focus-visible, input:focus-visible, .status-badge:focus-visible{outline:2px solid #1a73e8; outline-offset:2px;}
+
+  #previewArea{margin-top:24px; border:2px solid var(--border); max-width:900px; overflow-x:auto;}
+  #previewArea h2{text-align:center; padding:14px; margin:0; border-bottom:2px solid var(--border); font-size:17px;}
+  table.quote{width:100%; border-collapse:collapse;}
+  table.quote th, table.quote td{border:1px solid var(--border); padding:8px 6px; font-size:13px; text-align:center; font-variant-numeric:tabular-nums;}
+  table.quote thead th{background:var(--orange); color:#fff;}
+  table.quote td.label{background:var(--orange-light); font-weight:bold;}
+  tr.total-label td{background:var(--tan); font-weight:bold; font-size:14px;}
+  tr.total-amount td{color:var(--red); font-weight:bold; font-size:18px;}
+  tr.account-label td{background:var(--tan); font-weight:bold;}
+  tr.account-value td{padding:14px; font-weight:bold;}
+  tr.account-note td{padding:10px; font-size:12px; color:var(--red); font-weight:bold; background:#fff8ec;}
+
+  table.records{width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+  table.records th, table.records td{border-bottom:1px solid #eee; padding:11px 10px; font-size:13px; text-align:center; white-space:nowrap; vertical-align:middle;}
+  table.records thead th{background:var(--orange-light); color:#8a4b00; font-weight:bold; border-bottom:2px solid var(--orange);}
+  table.records tbody tr:hover{background:#fffdf7;}
+  table.records tbody tr:last-child td{border-bottom:none;}
+  table.records input[type=text], table.records input[type=number]{width:100%; min-width:64px; border:1px solid #ccc; border-radius:5px; padding:6px; font-size:13px; text-align:center;}
+  table.records input:focus{border-color:var(--orange); outline:none; box-shadow:0 0 0 2px var(--orange-light);}
+  table.records select{padding:5px 6px; border:1px solid #ccc; border-radius:5px; font-size:13px;}
+  table.records .btn{padding:6px 12px; font-size:12px; margin:0;}
+  .status-badge{padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold; cursor:pointer; display:inline-block;}
+  .status-yes{background:#d4edda; color:#256029;}
+  .status-no{background:#f8d7da; color:#a72031;}
+  .status-static{cursor:default;}
+
+  .settle-cards{display:flex; gap:14px; flex-wrap:wrap; margin:6px 0 4px;}
+  .settle-card{flex:1; min-width:150px; background:#fff; border:1px solid #eee; border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; gap:6px; box-shadow:0 1px 4px rgba(0,0,0,.05);}
+  .settle-card .lbl{font-size:13px; color:#888;}
+  .settle-card .val{font-size:24px; font-weight:800; color:#333;}
+  .settle-card.total{background:linear-gradient(135deg,var(--orange),#ff9a3c); border-color:var(--orange);}
+  .settle-card.total .lbl{color:#fff; opacity:.9;}
+  .settle-card.total .val{color:#fff;}
+  .margin-cell{color:#a65b00; font-weight:bold; cursor:pointer; white-space:nowrap;}
+  .margin-cell:hover{background:#fff1e3; text-decoration:underline;}
+  .settle-toolbar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:4px 0 14px;}
+  .settle-toolbar label{font-weight:bold;}
+  .settle-toolbar input[type=month]{padding:6px 8px; border:1px solid #ccc; border-radius:6px; font-size:14px; margin-left:6px;}
+  .settle-toolbar .scope-label{color:#a65b00; font-weight:bold;}
+  .settle-toolbar .range-btn.on{background:var(--orange); color:#fff; border-color:var(--orange);}
+  tr.settle-month td{background:#fff2e6; color:#a65b00; font-weight:800; text-align:left;}
+  tr.settle-subtotal td{background:#ffe4cc; font-weight:800; color:#a65b00;}
+
+  .notice-wrap{max-width:820px;}
+  .notice-head h2{margin:0 0 8px; color:var(--orange);}
+  .notice-head p{margin:0 0 18px; color:#555; line-height:1.6;}
+  .notice-tldr{background:#fff8f2; border:1px solid #ffd9b3; border-left:5px solid var(--orange); border-radius:10px; padding:14px 18px; margin-bottom:20px;}
+  .notice-tldr b{color:#a65b00;}
+  .notice-tldr ul{margin:8px 0 0; padding-left:20px; line-height:1.7;}
+  details.faq{border:1px solid #eee; border-radius:10px; margin-bottom:10px; background:#fff; overflow:hidden;}
+  details.faq[open]{border-color:#ffd9b3;}
+  details.faq summary{cursor:pointer; list-style:none; padding:14px 18px; font-weight:bold; font-size:15px; display:flex; align-items:center; gap:10px; color:#333;}
+  details.faq summary::-webkit-details-marker{display:none;}
+  details.faq summary::after{content:'▾'; margin-left:auto; color:var(--orange); transition:transform .2s;}
+  details.faq[open] summary::after{transform:rotate(180deg);}
+  details.faq[open] summary{background:#fff8f2; border-bottom:1px solid #ffe4cc;}
+  .faq-no{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--orange); color:#fff; font-size:13px; flex-shrink:0;}
+  .faq-badge{font-size:11px; font-weight:bold; color:#fff; background:#e8590c; padding:2px 8px; border-radius:10px; margin-left:auto;}
+  details.faq[open] summary .faq-badge{margin-left:0;}
+  .faq-body{padding:16px 18px; line-height:1.7; color:#444; font-size:14px;}
+  .faq-body ul,.faq-body ol{margin:8px 0; padding-left:22px;}
+  .faq-body li{margin:3px 0;}
+  .faq-example{background:#f7f9fb; border:1px solid #e3e8ee; border-radius:8px; padding:12px 14px; margin:12px 0;}
+  table.faq-mini{border-collapse:collapse; margin-top:8px; font-size:14px;}
+  table.faq-mini td{border:1px solid #dde3ea; padding:6px 16px;}
+  table.faq-mini td:last-child{text-align:right; font-weight:bold;}
+  table.faq-mini tr.sum td{background:#fff2e6; color:#c0392b;}
+  .notice-foot{background:#f3f7f4; border:1px solid #d7e6db; border-radius:10px; padding:14px 18px; margin-top:18px; font-size:14px; color:#3a6a4a; line-height:1.6;}
+
+  .subtabs{display:inline-flex; background:#eee; border-radius:10px; padding:4px; gap:4px; margin:18px 0 14px;}
+  .subtab{padding:8px 20px; border:none; background:transparent; border-radius:7px; font-size:14px; font-weight:bold; color:#777; cursor:pointer;}
+  .subtab.active{background:#fff; color:var(--orange); box-shadow:0 1px 3px rgba(0,0,0,0.12);}
+
+  .toolbar{display:flex; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px;}
+  .filter{padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px; min-width:200px;}
+  .filter:focus{border-color:var(--orange); outline:none; box-shadow:0 0 0 2px var(--orange-light);}
+  .hint{color:#777; font-size:13px; margin-top:16px;}
+  .card{border:1px solid #eee; border-radius:12px; padding:20px; margin-bottom:16px; background:#fafafa; box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+  .card h3{margin:0 0 14px; font-size:16px; color:#a65b00;}
+
+  @media print{
+    body *{visibility:hidden;}
+    #previewArea, #previewArea *{visibility:visible;}
+    #previewArea{position:absolute; top:0; left:0; width:100%; border:none;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h2>✨ 재하 리뷰 파트너 센터</h2>
+  <p style="font-size:13px; color:#999; margin:-12px 0 18px;">캠페인 견적 신청부터 진행 현황까지, 한 곳에서</p>
+  <div id="loginError"></div>
+  <input type="text" id="loginUser" placeholder="아이디" autocomplete="username">
+  <input type="password" id="loginPass" placeholder="비밀번호" autocomplete="current-password">
+  <button class="btn" style="width:100%" onclick="doLogin()">로그인</button>
+  <p style="font-size:13px; color:#777; margin-top:14px;">
+    계정은 담당자에게 문의해주세요.
+  </p>
+</div>
+
+<div id="appScreen" style="display:none;">
+  <div class="topbar">
+    <h1>✨ 재하 리뷰 파트너 센터</h1>
+    <div class="who"><span id="whoName"></span><span id="roleBadge" class="role-badge"></span> &nbsp; <button class="btn secondary" onclick="doLogout()">로그아웃</button></div>
+  </div>
+
+  <!-- ===================== 고객사 화면 ===================== -->
+  <div id="clientView" style="display:none;">
+    <div class="tabs">
+      <button class="tab-btn active" data-view="client" data-tab="request">견적 요청</button>
+      <button class="tab-btn" data-view="client" data-tab="history">내 견적 내역</button>
+      <button class="tab-btn" data-view="client" data-tab="notice">📢 공지 · 안내</button>
+    </div>
+    <div class="panel">
+      <div class="tab-content active" id="client-tab-request">
+        <div class="field-row">
+          <label>날짜<input type="date" id="quoteDate"></label>
+          <label>고객사명<input type="text" id="quoteClientName" readonly></label>
+        </div>
+
+        <div id="editBanner" style="display:none; background:#e3f2fd; border:1px solid #1a73e8; border-radius:8px; padding:12px 16px; margin-bottom:14px; font-size:14px; color:#1a5a9e; font-weight:bold;">
+          ✏️ <span id="editBannerNo"></span> 견적서를 수정하고 있습니다. 아래에서 내용을 고친 뒤 <b>수정 저장</b>을 눌러주세요.
+          <button class="btn secondary" style="margin-left:10px; padding:4px 12px;" onclick="cancelEdit()">수정 취소</button>
+        </div>
+
+        <div class="cnote" style="margin-bottom:18px;">
+          <b>📌 견적 산정 안내</b><br>
+          &middot; 제품값에는 <b>부가세 10%</b>가 적용됩니다. &nbsp;<span style="color:#888;">예) 결제금액 10,000원 → 11,000원 청구</span><br>
+          &middot; 제품값 <b>9,900원 이하</b> 상품은 리뷰어 참여율 확보를 위해 <b>건당 500원(부가세 별도)</b>의 추가 비용이 발생합니다. &nbsp;<span style="color:#888;">예) 2,800원 → 3,300원</span><br>
+          &middot; <b>쿠팡·스마트스토어(네이버)</b> 외 플랫폼(<b>지마켓·옥션·11번가·토스쇼핑</b> 등)은 운영 특성상 <b>건당 500원(부가세 별도)</b>의 추가 비용이 발생합니다.
+        </div>
+        <div id="campaignCards"></div>
+
+        <button class="btn ok" id="saveQuoteBtn" onclick="saveQuote()" style="font-size:17px; padding:14px 32px; width:100%; max-width:900px; display:block;">💾 견적서 발급 (기록에 저장)</button>
+
+        <div id="previewArea">
+          <h2 id="previewTitle">견적서</h2>
+          <table class="quote" id="previewTable"></table>
+        </div>
+
+        <div id="guideArea" style="margin-top:24px; max-width:900px;"></div>
+      </div>
+
+      <div class="tab-content" id="client-tab-history">
+        <div class="table-scroll">
+        <table class="records" id="myRecordsTable">
+          <thead>
+            <tr><th>견적번호</th><th>날짜</th><th>합계금액</th><th>진행상태</th><th>입금여부</th><th>작업완료</th><th>관리</th></tr>
+          </thead>
+          <tbody id="myRecordsTbody"></tbody>
+        </table>
+        </div>
+        <p class="hint">※ 진행 전까지는 <b>수정</b>이 가능합니다. 담당자가 진행을 시작하면 수정이 잠깁니다. 입금/작업완료 상태는 담당자가 확인 후 표시합니다.</p>
+      </div>
+
+      <!-- ===================== 공지 · 안내 ===================== -->
+      <div class="tab-content" id="client-tab-notice">
+        <div class="notice-wrap">
+          <div class="notice-head">
+            <h2>리뷰 진행 방식 및 견적 안내</h2>
+            <p>안녕하세요, 재하 리뷰입니다. 파트너분들께서 자주 문의주시는 내용을 아래에 정리해 두었습니다.<br>궁금하신 항목을 눌러 펼쳐서 확인해 주세요. 추가 문의는 언제든 담당자 또는 단톡방으로 남겨주시면 됩니다. 🙌</p>
+          </div>
+
+          <div class="notice-tldr">
+            <b>한눈에 요약</b>
+            <ul>
+              <li>리뷰어는 <b>실제 소비자처럼 대표님 상품을 직접 구매</b>합니다 → 대표님 플랫폼 매출로 그대로 집계</li>
+              <li>제품금액에 붙는 <b>10%는 마진이 아니라 부가가치세(VAT)</b>입니다 (일반과세 · 세금계산서 발행)</li>
+              <li>대표님이 리뷰어에게 직접 송금하는 게 아니라, <b>구매확인·검수·페이백 정산을 당사가 일괄 관리</b>합니다</li>
+              <li>상품이 두 번 팔리는 게 아니라, <b>플랫폼 매출(상품)</b> + <b>당사 청구(마케팅·정산 용역)</b> 두 가지 성격의 거래입니다</li>
+            </ul>
+          </div>
+
+          <details class="faq" open>
+            <summary><span class="faq-no">1</span> 리뷰 마케팅 비용은 무엇인가요?</summary>
+            <div class="faq-body">
+              견적서의 <b>리뷰 마케팅 비용</b>은 단순 리뷰 작성 대가가 아니라, 리뷰 진행 전반을 운영하는 <b>마케팅 용역 비용</b>입니다.
+              <ul>
+                <li>리뷰어 모집 및 관리</li>
+                <li>리뷰 진행 및 일정 관리</li>
+                <li>리뷰 검수 (가이드 준수 여부 확인)</li>
+                <li>CS 대응</li>
+                <li>페이백 정산</li>
+              </ul>
+              즉, 리뷰 한 건이 문제없이 완료되기까지의 <b>전 과정을 대행</b>하는 비용입니다.
+            </div>
+          </details>
+
+          <details class="faq">
+            <summary><span class="faq-no">2</span> 제품은 어떻게 구매되나요?</summary>
+            <div class="faq-body">
+              리뷰는 <b>실제 구매 기반</b>으로 진행됩니다. 리뷰어는 일반 소비자와 동일하게 대표님의 상품을 플랫폼(쿠팡, 스마트스토어 등)에서 <b>직접 구매</b>합니다.<br><br>
+              따라서 상품 판매는 기존과 동일하게 이루어지며, 해당 금액은 <b>대표님의 플랫폼 매출로 그대로 집계</b>됩니다.
+            </div>
+          </details>
+
+          <details class="faq">
+            <summary><span class="faq-no">3</span> 왜 제품금액을 당사에 지급하나요?</summary>
+            <div class="faq-body">
+              가장 많이 문의주시는 부분입니다. 리뷰는 공개 모집이 아닌, 당사가 자체 운영하는 <b>리뷰어 풀(pool)</b>을 통해 진행됩니다.<br><br>
+              리뷰어 개인정보 보호와 운영 정책상 아래는 진행하지 않습니다.
+              <ul>
+                <li>리뷰어 개인정보 제공</li>
+                <li>광고주–리뷰어 직접 연락</li>
+                <li>광고주의 직접 페이백 지급</li>
+              </ul>
+              그래서 <b>상품 구매 확인 → 리뷰 작성 확인 → 검수 → 구매금액 페이백</b>까지 모든 정산을 당사가 일괄 관리합니다. 대표님이 리뷰어 한 분 한 분께 직접 송금하시는 방식이 아니라, <b>당사가 전체를 일괄 정산하는 시스템</b>입니다.
+            </div>
+          </details>
+
+          <details class="faq">
+            <summary><span class="faq-no">4</span> 제품금액에 10%가 추가되는 이유는? <span class="faq-badge">가장 많은 문의</span></summary>
+            <div class="faq-body">
+              제품금액에 추가되는 <b>10%는 당사의 마진이나 추가 수수료가 아닙니다.</b> 당사는 <b>일반과세 사업자</b>로, 제품 구매금액은 <b>공급가액</b>, 추가되는 10%는 <b>부가가치세(VAT)</b>입니다.
+              <div class="faq-example">
+                <b>예시</b> — 리뷰어 구매금액이 7,900원 × 10개 = 79,000원이라면<br>
+                <table class="faq-mini">
+                  <tr><td>공급가액</td><td>79,000원</td></tr>
+                  <tr><td>부가가치세(VAT)</td><td>7,900원</td></tr>
+                  <tr class="sum"><td>합계</td><td>86,900원</td></tr>
+                </table>
+              </div>
+              이는 세법에 따라 <b>세금계산서를 발행</b>하기 위한 일반적인 거래 방식이며, 추가되는 10%는 당사의 수익이 아니라 부가가치세입니다.
+            </div>
+          </details>
+
+          <details class="faq">
+            <summary><span class="faq-no">5</span> 매출이 두 번 잡히는 건가요?</summary>
+            <div class="faq-body">
+              아닙니다. 성격이 다른 두 가지 거래일 뿐, 상품이 두 번 팔리는 것이 아닙니다.
+              <ol>
+                <li>리뷰어가 플랫폼에서 상품 구매 → <b>대표님의 플랫폼 매출</b> 발생</li>
+                <li>당사가 리뷰어에게 구매금액을 <b>페이백</b></li>
+                <li>당사가 대표님께 <b>리뷰 마케팅 비용 + 제품 구매 정산금액</b>을 세금계산서로 청구</li>
+              </ol>
+              즉, <b>플랫폼에서는 상품 매출</b>이, <b>당사와는 리뷰 진행을 위한 마케팅·정산 비용</b>이 발생하는 구조입니다.
+            </div>
+          </details>
+
+          <details class="faq">
+            <summary><span class="faq-no">6</span> 결제대행 비용은 왜 필요한가요?</summary>
+            <div class="faq-body">
+              당사는 자체 운영하는 리뷰어 네트워크를 통해 진행하며, 리뷰어 개인정보 보호와 운영 안정성을 위해 리뷰어 정보를 외부에 제공하지 않습니다.<br><br>
+              그래서 <b>상품 구매 확인 · 리뷰 작성 확인 · 페이백 지급 · 정산 관리</b>까지 모두 당사가 일괄 진행하며, 견적서의 <b>결제대행 비용</b>은 이러한 정산 및 운영을 위한 비용입니다.
+            </div>
+          </details>
+
+          <div class="notice-foot">
+            📌 당사는 일반과세 사업자로 <b>세금계산서를 발행</b>하며, 공급가액과 부가세를 구분하여 청구합니다. 그 외 궁금하신 점은 언제든 담당자에게 문의해 주세요.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== 관리자 화면 ===================== -->
+  <div id="adminView" style="display:none;">
+    <div class="tabs">
+      <button class="tab-btn active" data-view="admin" data-tab="records">전체 기록</button>
+      <button class="tab-btn" data-view="admin" data-tab="clients">고객 관리</button>
+      <button class="tab-btn" data-view="admin" data-tab="settlement">💰 정산</button>
+      <button class="tab-btn" data-view="admin" data-tab="company">회사 설정</button>
+    </div>
+    <div class="panel">
+      <div class="tab-content active" id="admin-tab-records">
+        <div class="subtabs">
+          <button class="subtab active" id="recSubActive" onclick="showRecSub('active')">전체 기록</button>
+          <button class="subtab" id="recSubDeleted" onclick="showRecSub('deleted')">🗑 삭제 기록</button>
+        </div>
+
+        <div id="recSub-active">
+          <div class="toolbar">
+            <input type="text" class="filter" id="clientFilter" placeholder="고객사명 검색" oninput="renderAdminRecords()">
+          </div>
+          <div class="table-scroll">
+          <table class="records" id="adminRecordsTable">
+            <thead>
+              <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>진행</th><th>입금여부</th><th>작업완료</th><th>메모</th><th>보기</th><th>삭제</th></tr>
+            </thead>
+            <tbody id="adminRecordsTbody"></tbody>
+          </table>
+          </div>
+        </div>
+
+        <div id="recSub-deleted" style="display:none;">
+          <div class="table-scroll">
+          <table class="records" id="deletedRecordsTable">
+            <thead>
+              <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>합계금액</th><th>보기</th><th>복구</th></tr>
+            </thead>
+            <tbody id="deletedRecordsTbody"></tbody>
+          </table>
+          </div>
+          <p class="hint">※ 삭제한 견적은 여기에 보관됩니다. <b>복구</b>하면 전체 기록으로 돌아갑니다.</p>
+        </div>
+      </div>
+
+      <div class="tab-content" id="admin-tab-clients">
+        <div class="card">
+          <h3>➕ 새 고객사 추가</h3>
+          <div class="field-row">
+            <label>고객사명 <span style="font-weight:normal; color:#999;">(로그인 아이디로 사용)</span><input type="text" id="newDisplayName" placeholder="예: 라이프커머스"></label>
+            <label>임시 비밀번호<input type="text" id="newTempPassword" placeholder="예: 0000"></label>
+            <label>단가 등급
+              <select id="newTier" onchange="applyTierPreset(this.value)">
+                <option value="a" selected>a (리뷰어 2,500 / 택배 1,850)</option>
+                <option value="b">b (리뷰어 2,700 / 택배 2,000)</option>
+                <option value="c">c (리뷰어 3,000 / 택배 2,200)</option>
+                <option value="">직접 입력</option>
+              </select>
+            </label>
+          </div>
+          <div class="field-row" style="border-top:1px dashed #ddd; padding-top:14px;">
+            <label>리뷰어 단가(원)<input type="number" id="newReviewFee" value="2500"></label>
+            <label>택배비(원)<input type="number" id="newCourierFee" value="1850"></label>
+            <label>결제대행 수수료(%)<input type="number" id="newFeePercent" value="3"></label>
+            <label style="flex-direction:row; align-items:center; gap:6px;"><input type="checkbox" id="newExempt" style="width:auto;"> 타플랫폼비 면제 <span class="helpicon" tabindex="0">?<span class="tip">체크하면 쿠팡·스마트스토어 외 플랫폼(지마켓·옥션 등)에서도 +500원이 안 붙습니다.</span></span></label>
+          </div>
+          <button class="btn" onclick="createClient()">고객사 추가</button>
+          <p class="hint" style="margin-top:10px;">※ <b>고객사명이 곧 로그인 아이디</b>입니다. 고객사는 이 이름과 비밀번호로 로그인합니다.</p>
+        </div>
+
+        <div class="subtabs">
+          <button class="subtab active" id="clientSubActive" onclick="showClientSub('active')">활성 고객사</button>
+          <button class="subtab" id="clientSubDeleted" onclick="showClientSub('deleted')">🗑 보관함</button>
+        </div>
+
+        <div id="clientSub-active">
+          <div class="table-scroll">
+          <table class="records" id="clientsTable">
+            <thead>
+              <tr><th>고객사명</th><th>비밀번호</th><th>사용중</th><th>등급</th><th>리뷰어단가</th><th>택배비</th><th>결제대행 수수료(%)</th><th>타플랫폼비<br>면제</th><th>저장</th><th>비번초기화</th><th>삭제</th></tr>
+            </thead>
+            <tbody id="clientsTbody"></tbody>
+          </table>
+          </div>
+        </div>
+
+        <div id="clientSub-deleted" style="display:none;">
+          <div class="table-scroll">
+          <table class="records" id="deletedClientsTable">
+            <thead>
+              <tr><th>고객사명</th><th>비밀번호</th><th>등급</th><th>복원</th></tr>
+            </thead>
+            <tbody id="deletedClientsTbody"></tbody>
+          </table>
+          </div>
+          <p class="hint">※ 삭제된 고객사는 여기에 보관됩니다. 로그인은 막히지만 데이터는 남아있어요. <b>복원</b>하면 다시 활성 목록으로 돌아갑니다.</p>
+        </div>
+      </div>
+
+      <div class="tab-content" id="admin-tab-settlement">
+        <div class="settle-toolbar">
+          <label>📅 월 선택 <input type="month" id="settleMonth" onchange="onSettleMonthChange()"></label>
+          <button class="btn range-btn" data-days="7" onclick="setSettleRange(7)">최근 7일</button>
+          <button class="btn range-btn" data-days="14" onclick="setSettleRange(14)">최근 14일</button>
+          <button class="btn range-btn" data-days="30" onclick="setSettleRange(30)">최근 30일</button>
+          <button class="btn secondary" onclick="resetSettleRange()">전체 기간</button>
+          <span id="settleScopeLabel" class="scope-label"></span>
+        </div>
+        <div class="settle-cards">
+          <div class="settle-card total"><span class="lbl">총 이익</span><span class="val" id="settleTotalProfit">0원</span></div>
+          <div class="settle-card"><span class="lbl">총 매출</span><span class="val" id="settleTotalSales">0원</span></div>
+          <div class="settle-card"><span class="lbl">건수</span><span class="val" id="settleTotalCount">0건</span></div>
+          <div class="settle-card"><span class="lbl">건당 평균이익</span><span class="val" id="settleAvgPer">0원</span></div>
+        </div>
+        <p class="muted" style="margin:4px 0 10px;">※ 이익 = (리뷰어·택배·결제대행·+500원 수익) − 원가. 제품값은 통과. 견적의 <b>세부</b>를 누르면 항목별 마진이 펼쳐집니다. 관리자만 볼 수 있습니다.</p>
+        <div class="table-scroll">
+        <table class="records" id="settleTable">
+          <thead>
+            <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>수량</th><th>매출</th><th>이익</th><th>건당이익</th><th>세부</th></tr>
+          </thead>
+          <tbody id="settleTbody"></tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="tab-content" id="admin-tab-company">
+        <div class="field-row">
+          <label>은행명<input type="text" id="setBank" placeholder="예: 신한은행"></label>
+          <label>계좌번호<input type="text" id="setAccount" placeholder="예: 110-564-622249"></label>
+          <label>예금주<input type="text" id="setHolder" placeholder="예: 정시헌(재하)"></label>
+        </div>
+        <button class="btn" onclick="saveCompany()">저장</button>
+        <p class="hint">※ 여기서 설정한 계좌 정보가 모든 고객사의 견적서에 표시됩니다.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="viewModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this) closeQuoteModal()">
+  <div class="modal-box">
+    <div class="close-row"><button class="btn secondary" onclick="closeQuoteModal()">닫기</button></div>
+    <div id="viewModalBody"></div>
+  </div>
+</div>
+
+<script>
+let token = sessionStorage.getItem('qa_token') || null;
+let role = null, displayName = '', rates = { reviewFeePerUnit:0, marginPercent:0, feePercent:0, courierFeePerUnit:0 };
+let company = { bank:'', account:'', holder:'' };
+let quotes = [];
+let settleDays = 0; // 정산 탭 최근 N일 필터 (0=미사용)
+let productRows = [];
+let clients = [];
+let deletedClients = [];
+let editingQuoteId = null;
+
+const API_URL = 'https://script.google.com/macros/s/AKfycbzKMY47yUaqPyPV6jlpvw95DSpGMqp0-Jhjht7lFvZJTHrTgwNpMJHc45OdRoH8ustG/exec';
+async function call(fnName, ...args){
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn: fnName, args })
+  });
+  if(!res.ok) throw new Error('서버 연결에 실패했습니다. (' + res.status + ')');
+  const data = await res.json();
+  if(!data.ok) throw new Error(data.error || '알 수 없는 오류가 발생했습니다.');
+  return data.result;
+}
+function esc(s){ return (s ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function won(n){ return Math.round(n||0).toLocaleString('ko-KR'); }
+
+const TIERS = {
+  a: { review: 2500, courier: 1850 },
+  b: { review: 2700, courier: 2000 },
+  c: { review: 3000, courier: 2200 }
+};
+function tierOf(c){
+  for(const k in TIERS){
+    if(Number(c.reviewFeePerUnit) === TIERS[k].review && Number(c.courierFeePerUnit) === TIERS[k].courier) return k;
+  }
+  return '';
+}
+
+// ---------- 마진(이익) 계산: 관리자 전용 ----------
+// 원가(건당). 나중에 바뀌면 이 두 숫자만 고치면 됩니다.
+const REVIEWER_COST = 2200; // 리뷰어 마케팅 건당 원가 (부가세 포함)
+const COURIER_COST = 1750;  // 택배비 건당 원가
+// 견적 1건의 항목별 마진 분해 (모든 마진 계산의 단일 출처)
+// 마진 = 고객이 낸 금액(공급가액×1.1) − 원가
+function marginBreakdown(items){
+  const out = [];
+  (items||[]).forEach(x=>{
+    const qty = Number(x.qty)||0;
+    const supply = Number(x.supply)||0;
+    const revenue = Math.round(supply * 1.1); // 부가세 포함 = 고객이 실제 내는 금액
+    const it = String(x.item||'');
+    if(it.indexOf('리뷰어') === 0){
+      const cost = REVIEWER_COST*qty;
+      out.push({label:it, qty, revenue, cost, margin:revenue-cost, note:`고객가 − 원가(${won(REVIEWER_COST)}원×${qty})`});
+    } else if(it.indexOf('택배비') === 0){
+      if(supply > 0){
+        const cost = COURIER_COST*qty;
+        out.push({label:it, qty, revenue, cost, margin:revenue-cost, note:`고객가 − 원가(${won(COURIER_COST)}원×${qty})`});
+      } else {
+        out.push({label:it, qty:'', revenue:0, cost:0, margin:0, note:'자체택배 (마진 없음)'});
+      }
+    } else if(it.indexOf('플랫폼 추가비용') === 0){
+      out.push({label:it, qty, revenue, cost:0, margin:revenue, note:'전액 이익 (+500원 마진)'});
+    } else if(it.indexOf('제품값 9,900') === 0 || it.indexOf('제품값 1만원') === 0){
+      out.push({label:it, qty, revenue, cost:0, margin:revenue, note:'전액 이익 (+500원 마진)'});
+    } else if(it.indexOf('제품값') === 0){
+      out.push({label:it, qty, revenue, cost:revenue, margin:0, note:'통과 (원가=판매가, 마진 0)'});
+    } else if(it.indexOf('결제대행') === 0){
+      out.push({label:it, qty:'', revenue, cost:0, margin:revenue, note:'전액 이익'});
+    }
+  });
+  return out;
+}
+function quoteMargin(items){
+  return marginBreakdown(items).reduce((s,r)=>s+r.margin, 0);
+}
+// 관리자 전용: 견적 상세 아래에 붙는 마진 상세표 HTML
+function marginDetailHtml(items){
+  const rows = marginBreakdown(items);
+  const totalMargin = rows.reduce((s,r)=>s+r.margin, 0);
+  const qty = quoteTotalQty(items);
+  const per = qty ? Math.round(totalMargin/qty) : 0;
+  const body = rows.map(r=>`<tr>
+    <td style="text-align:left;">${esc(r.label)}</td>
+    <td>${r.qty===''?'-':r.qty}</td>
+    <td>${won(r.revenue)}원</td>
+    <td>${r.cost?won(r.cost)+'원':'-'}</td>
+    <td style="font-weight:bold; color:${r.margin>0?'#a65b00':'#aaa'};">${r.margin>0?'+'+won(r.margin)+'원':'0'}</td>
+    <td style="font-size:11px; color:#888; text-align:left;">${r.note}</td>
+  </tr>`).join('');
+  return `
+  <div style="margin-top:22px; border:2px dashed var(--orange); border-radius:10px; padding:14px 16px; background:#fff8f2;">
+    <div style="font-weight:800; color:#a65b00; margin-bottom:4px;">🔒 마진 상세 <span style="font-size:12px; font-weight:normal;">(관리자 전용 · 고객에게는 절대 안 보임)</span></div>
+    <div class="table-scroll">
+    <table class="records" style="min-width:600px;">
+      <thead><tr><th>항목</th><th>수량</th><th>고객가(VAT포함)</th><th>원가</th><th>마진</th><th>설명</th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot>
+        <tr style="background:#ffe4cc;"><td colspan="4" style="text-align:right; font-weight:800;">총 마진</td><td style="font-weight:800; color:#a65b00; font-size:15px;">+${won(totalMargin)}원</td><td></td></tr>
+        <tr style="background:#ffe4cc;"><td colspan="4" style="text-align:right; font-weight:800;">건당 이익 (총마진 ÷ ${qty}건)</td><td style="font-weight:800; color:#a65b00; font-size:15px;">${won(per)}원</td><td></td></tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>`;
+}
+function quoteTotalQty(items){
+  const r = (items||[]).find(x=>String(x.item||'').indexOf('리뷰어')===0);
+  return r ? (Number(r.qty)||0) : 0;
+}
+// 클릭 없이(모달 없이) 표 안에서 바로 마진 상세를 펼치고 접기. prefix: 'm'(전체기록) / 's'(정산)
+function toggleMarginRow(id, prefix){
+  const p = prefix || 'm';
+  const detId = p + 'det-' + id;
+  const ex = document.getElementById(detId);
+  if(ex){ ex.remove(); return; }
+  const q = quotes.find(x=>x.id===id);
+  const mainTr = document.getElementById(p + 'row-' + id);
+  if(!q || !mainTr) return;
+  const tr = document.createElement('tr');
+  tr.id = detId;
+  tr.innerHTML = `<td colspan="${mainTr.children.length}" style="padding:0; background:#fff8f2;">${marginDetailHtml(q.items)}</td>`;
+  mainTr.after(tr);
+}
+
+// ---------- 로그인 / 로그아웃 ----------
+async function doLogin(){
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  document.getElementById('loginError').textContent = '';
+  if(!u || !p){ document.getElementById('loginError').textContent = '아이디와 비밀번호를 입력해주세요.'; return; }
+  try{
+    const res = await call('login', u, p);
+    if(res.ok){
+      token = res.token; displayName = res.displayName; role = res.role; rates = res.rates;
+      sessionStorage.setItem('qa_token', token);
+      await enterApp();
+    } else {
+      document.getElementById('loginError').textContent = res.message;
+    }
+  }catch(e){
+    document.getElementById('loginError').textContent = '로그인 중 오류가 발생했습니다: ' + e.message;
+  }
+}
+
+async function doLogout(){
+  try{ await call('logout', token); }catch(e){}
+  sessionStorage.removeItem('qa_token');
+  location.reload();
+}
+
+function handleSessionError(e){
+  if(e && e.message && e.message.indexOf('세션') !== -1){
+    alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+    sessionStorage.removeItem('qa_token');
+    location.reload();
+    return true;
+  }
+  return false;
+}
+
+async function enterApp(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('whoName').textContent = /[님)]$/.test(displayName) ? displayName : (displayName + '님');
+  const badge = document.getElementById('roleBadge');
+  badge.textContent = role === 'admin' ? '관리자' : '고객사';
+  badge.className = 'role-badge ' + (role === 'admin' ? 'role-admin' : 'role-client');
+
+  company = await call('getCompanySettings', token);
+
+  if(role === 'admin'){
+    document.getElementById('adminView').style.display = 'block';
+    document.getElementById('setBank').value = company.bank;
+    document.getElementById('setAccount').value = company.account;
+    document.getElementById('setHolder').value = company.holder;
+    quotes = await call('getQuotes', token);
+    renderAdminRecords();
+    await loadClients();
+  } else {
+    document.getElementById('clientView').style.display = 'block';
+    document.getElementById('quoteClientName').value = displayName;
+    quotes = await call('getQuotes', token);
+    if(productRows.length === 0) addProductRow(); else renderProductTable();
+    renderMyRecords();
+  }
+}
+
+// ---------- 탭 ----------
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const view = btn.dataset.view;
+    document.querySelectorAll(`.tab-btn[data-view="${view}"]`).forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll(`#${view}View .tab-content`).forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(view+'-tab-'+btn.dataset.tab).classList.add('active');
+    if(view==='client' && btn.dataset.tab==='history') renderMyRecords();
+    if(view==='admin' && btn.dataset.tab==='records') renderAdminRecords();
+    if(view==='admin' && btn.dataset.tab==='settlement') renderSettlement();
+  });
+});
+
+// ---------- 고객사: 캠페인 입력 & 견적 계산 ----------
+function blankCampaign(){
+  return {
+    product:'', url:'', platform:'선택', platformOther:'', campaignType:'빈박스',
+    deliveryMethod:'택배대행',
+    options:[{ name:'', cost:0, qty:1 }],
+    dailyQty:'', startDate:'', buyWindow:'자유', weekends:'제외',
+    trafficType:'링크',
+    photoQty:0, textQty:0, reviewGuide:''
+  };
+}
+function totalQty(r){ return (r.options||[]).reduce((s,o)=>s+(Number(o.qty)||0),0); }
+function normalizeCampaign(c){
+  const base = blankCampaign();
+  const out = Object.assign(base, c);
+  // 옛 형식(옵션 단일 필드) → 새 옵션 배열로 변환
+  if(!Array.isArray(out.options) || out.options.length === 0){
+    out.options = [{ name: c.optionDesc || '', cost: Number(c.cost)||0, qty: Number(c.qty)||1 }];
+  }
+  out.photoQty = Number(out.photoQty)||0;
+  out.textQty = Number(out.textQty)||0;
+  return out;
+}
+function addProductRow(){
+  productRows.push(blankCampaign());
+  renderProductTable();
+  focusFirstField(productRows.length-1, '.csec input.cf');
+}
+function removeProductRow(idx){ productRows.splice(idx,1); if(productRows.length === 0) productRows.push(blankCampaign()); renderProductTable(); }
+function onlyDigits(v){ const n = parseInt(String(v).replace(/[^0-9]/g,''),10); return isNaN(n)?0:n; }
+function reviewValHtml(r){
+  const sum = (Number(r.photoQty)||0)+(Number(r.textQty)||0), tq = totalQty(r);
+  return sum === tq
+    ? '<span style="color:#2e7d32;">✓ 리뷰 수량(포토+텍스트)이 총수량과 일치합니다</span>'
+    : '<span style="color:#d32f2f;">✗ 포토+텍스트 = ' + sum + '개 · 총수량 ' + tq + '개 — 수량을 맞춰주세요</span>';
+}
+function updateReviewVal(idx){ const el = document.getElementById('reviewVal-'+idx); if(el) el.innerHTML = reviewValHtml(productRows[idx]); }
+function updateQtyUI(idx){
+  const pill = document.getElementById('qtyPill-'+idx); if(pill) pill.textContent = '총수량 ' + totalQty(productRows[idx]) + '개';
+  updateReviewVal(idx);
+}
+function updateProductRow(idx, field, value){
+  productRows[idx][field] = (field==='photoQty'||field==='textQty') ? (value===''?0:parseFloat(value)) : value;
+  if(field === 'platform'){
+    const inp = document.getElementById('platformOther-'+idx);
+    if(inp) inp.style.display = (value==='기타') ? 'block' : 'none';
+    renderPreview();
+  } else if(field === 'photoQty' || field === 'textQty'){
+    updateReviewVal(idx); renderPreview();
+  } else renderPreview();
+}
+function updateOption(idx, oidx, field, value, el){
+  const o = productRows[idx].options[oidx];
+  if(field === 'name'){ o.name = value; renderPreview(); }
+  else if(field === 'cost'){ o.cost = onlyDigits(value); if(el) el.value = o.cost ? won(o.cost) : ''; renderPreview(); }
+  else if(field === 'qty'){ o.qty = onlyDigits(value); updateQtyUI(idx); renderPreview(); }
+}
+function addOption(idx){ productRows[idx].options.push({ name:'', cost:0, qty:1 }); renderProductTable(); focusFirstField(idx, '.opt-row:last-child input'); }
+function removeOption(idx, oidx){
+  const os = productRows[idx].options;
+  os.splice(oidx,1);
+  if(os.length === 0) os.push({ name:'', cost:0, qty:1 });
+  renderProductTable();
+}
+function platformLabel(r){
+  if(r.platform === '선택' || !r.platform) return '';
+  return r.platform === '기타' ? (r.platformOther || '기타') : r.platform;
+}
+// 쿠팡·스마트스토어(네이버) 외 플랫폼은 건당 +500원 추가비용
+const NO_SURCHARGE_PLATFORMS = ['쿠팡','스마트스토어'];
+function isSurchargePlatform(platform){
+  if(!platform || platform === '선택') return false;
+  return NO_SURCHARGE_PLATFORMS.indexOf(platform) === -1;
+}
+// 고객별 '타플랫폼비 면제' 여부. (marginPercent 컬럼을 면제 플래그로 재활용: 1=면제)
+function isPlatformFeeExempt(){ return Number(rates.marginPercent) === 1; }
+function sel(id, current, options){
+  return `<select class="cf" onchange="updateProductRow(${id.idx},'${id.field}',this.value)">` +
+    options.map(o=>`<option value="${esc(o)}" ${o===current?'selected':''}>${esc(o)}</option>`).join('') +
+    `</select>`;
+}
+// ---------- 자동 다음칸 이동 (엔터/선택하면 옆으로) ----------
+function focusNext(el){
+  const fields = [...document.querySelectorAll('#campaignCards .cf')].filter(f => f.offsetParent !== null && !f.disabled);
+  const i = fields.indexOf(el);
+  if(i >= 0 && i < fields.length - 1){
+    const n = fields[i+1];
+    n.focus();
+    if(n.select){ try{ n.select(); }catch(e){} }
+  }
+}
+function focusFirstField(idx, selector){
+  const cards = document.querySelectorAll('#campaignCards .campaign-card');
+  const card = cards[idx]; if(!card) return;
+  const el = card.querySelector(selector);
+  if(el) el.focus();
+}
+function initAutoAdvance(){
+  const cc = document.getElementById('campaignCards');
+  if(!cc || cc.dataset.aa) return;
+  cc.dataset.aa = '1';
+  cc.addEventListener('keydown', e=>{
+    if(e.key === 'Enter' && e.target.classList && e.target.classList.contains('cf') && e.target.tagName !== 'TEXTAREA'){
+      e.preventDefault();
+      focusNext(e.target);
+    }
+  });
+  cc.addEventListener('change', e=>{
+    if(e.target.tagName === 'SELECT' && e.target.classList.contains('cf')){
+      focusNext(e.target);
+    }
+  });
+}
+function help(text){
+  return `<span class="helpicon" tabindex="0">?<span class="tip">${esc(text)}</span></span>`;
+}
+function renderProductTable(){
+  const wrap = document.getElementById('campaignCards');
+  wrap.innerHTML = '';
+  productRows.forEach((r, idx)=>{
+    const card = document.createElement('div');
+    card.className = 'campaign-card';
+    const reviewSum = (Number(r.photoQty)||0)+(Number(r.textQty)||0);
+    const tq = totalQty(r);
+    card.innerHTML = `
+      <div class="card-head">
+        <h4>📋 캠페인 #${idx+1}</h4>
+        <div class="head-btns">
+          <button class="btn secondary" style="margin:0; background:rgba(255,255,255,0.25);" onclick="resetBuilder()">초기화</button>
+          <button class="btn danger" style="margin:0;" onclick="removeProductRow(${idx})">삭제</button>
+        </div>
+      </div>
+
+      <div class="csec">
+        <p class="csec-title">📦 상품 정보</p>
+        <div class="campaign-grid">
+          <label class="campaign-full">상품명 ${help('예) 갈비살, 단호박 처럼 상품명을 적어주세요.')}<input type="text" class="cf" value="${esc(r.product)}" onchange="updateProductRow(${idx},'product',this.value)" placeholder="예: 갈비살 / 단호박"></label>
+          <label class="campaign-full">상품 URL ${help('판매 사이트 주소를 정확하게 기입 부탁드립니다.')}<input type="text" class="cf" value="${esc(r.url)}" onchange="updateProductRow(${idx},'url',this.value)" placeholder="판매 사이트 주소를 정확하게 붙여넣어주세요"></label>
+          <label>플랫폼
+            ${sel({idx,field:'platform'}, r.platform, ['선택','쿠팡','스마트스토어','지마켓','옥션','11번가','토스쇼핑','기타'])}
+            <input type="text" class="cf" id="platformOther-${idx}" value="${esc(r.platformOther)}" onchange="updateProductRow(${idx},'platformOther',this.value)" placeholder="플랫폼명 입력" style="margin-top:6px; display:${r.platform==='기타'?'block':'none'};">
+          </label>
+          <label>캠페인 유형${sel({idx,field:'campaignType'}, r.campaignType, ['빈박스','실배송'])}</label>
+          <label>배송 방법${sel({idx,field:'deliveryMethod'}, r.deliveryMethod, ['택배대행','자체 택배'])}</label>
+        </div>
+      </div>
+
+      <div class="csec">
+        <p class="csec-title">🛒 구매 옵션 ${help('실제 판매 사이트의 옵션명(예: 3kg) · 결제금액 · 수량을 적어주세요. 옵션이 여러 개면 아래 + 버튼으로 추가할 수 있어요.')}</p>
+        <div style="display:flex; gap:8px; margin-bottom:6px; font-size:12px; font-weight:bold; color:#888;">
+          <span style="flex:2; min-width:120px;">옵션명</span><span style="flex:1; min-width:90px;">결제금액(원) ${help('리뷰어가 실제로 결제하는 최종 금액을 적어주세요. 배송비(택배비)가 붙는 상품이면 택배비까지 포함한 금액으로 입력해 주세요.')}</span><span style="flex:0 0 70px;">수량</span><span style="width:34px;"></span>
+        </div>
+        ${r.options.map((o, oidx)=>`
+          <div class="opt-row">
+            <input type="text" class="cf" value="${esc(o.name)}" placeholder="예: 3kg" style="flex:2; min-width:120px;" onchange="updateOption(${idx},${oidx},'name',this.value)">
+            <input type="text" class="cf" inputmode="numeric" value="${o.cost ? won(o.cost) : ''}" placeholder="10,000" style="flex:1; min-width:90px; text-align:right;" onchange="updateOption(${idx},${oidx},'cost',this.value,this)">
+            <input type="number" class="cf" value="${o.qty}" placeholder="수량" style="flex:0 0 70px;" onchange="updateOption(${idx},${oidx},'qty',this.value)">
+            <button type="button" class="btn danger" style="padding:6px 10px; margin:0;" onclick="removeOption(${idx},${oidx})">✕</button>
+          </div>`).join('')}
+        <button type="button" class="btn secondary" style="padding:7px 14px;" onclick="addOption(${idx})">+ 옵션 추가</button>
+        <span class="qty-pill" id="qtyPill-${idx}">총수량 ${tq}개</span>
+      </div>
+
+      <div class="csec">
+        <p class="csec-title">📅 진행 방식</p>
+        <div class="campaign-grid">
+          <label>시작일<input type="date" class="cf" value="${esc(r.startDate)}" onclick="try{this.showPicker()}catch(e){}" onchange="updateProductRow(${idx},'startDate',this.value)"></label>
+          <label>구매 일수량 ${help('하루에 몇 개씩 구매할지 정해요. 한 번에 몰아서 구매하면 부자연스러워 보이니 며칠에 나눠 진행하는 걸 추천해요.')}<input type="text" class="cf" value="${esc(r.dailyQty)}" onchange="updateProductRow(${idx},'dailyQty',this.value)" placeholder="예: 하루 5개씩"></label>
+          <label>구매 가능 시간 ${help('실제 배송이 모두 끝난 뒤에 구매를 진행해야 실구매자와 혼선이 생기지 않아요.')}<input type="text" class="cf" value="${esc(r.buyWindow)}" onchange="updateProductRow(${idx},'buyWindow',this.value)" placeholder="예: 자유 / 14시 이후"></label>
+          <label>주말 포함 여부${sel({idx,field:'weekends'}, r.weekends, ['포함','제외'])}</label>
+        </div>
+      </div>
+
+      <div class="csec">
+        <p class="csec-title">✍️ 리뷰 구성</p>
+        <div class="cnote">
+          <b>📸 포토리뷰 이미지 제출 안내</b><br>
+          포토리뷰용 이미지는 진행 확정 즉시 <b>단톡방으로 공유</b> 부탁드립니다. 이미지가 준비되어야 캠페인이 지연 없이 신속하게 반영됩니다.<br>
+          &middot; 사진은 <b>알집(ZIP)으로 압축</b>해서 카톡(단톡방)으로 전달해 주세요.<br>
+          &middot; 파일명은 <b>1, 2, 3 …</b> 처럼 <b>순번대로</b> 정리해 주시면 순서대로 사용됩니다.
+        </div>
+        <div class="campaign-grid">
+          <label>텍스트리뷰 수량<input type="number" class="cf" value="${r.textQty||0}" onchange="updateProductRow(${idx},'textQty',this.value)"></label>
+          <label>포토리뷰 수량<input type="number" class="cf" value="${r.photoQty||0}" onchange="updateProductRow(${idx},'photoQty',this.value)"></label>
+          <div class="campaign-full" id="reviewVal-${idx}" style="font-size:13px; font-weight:bold;">
+            ${reviewValHtml(r)}
+          </div>
+          <label class="campaign-full">리뷰 요청사항<textarea class="cf" onchange="updateProductRow(${idx},'reviewGuide',this.value)" placeholder="리뷰에 써줬으면 하는 말, 참고할 내용들을 자유롭게 적어주세요">${esc(r.reviewGuide)}</textarea></label>
+        </div>
+      </div>
+    `;
+    wrap.appendChild(card);
+  });
+  initAutoAdvance();
+  renderPreview();
+}
+
+function buildQuoteRows(){
+  const rows = [];
+  productRows.forEach(r=>{
+    const qty = totalQty(r);
+    rows.push({ item:'리뷰어 마케팅', product:r.product, seller:platformLabel(r), qty, unit:rates.reviewFeePerUnit, supply:rates.reviewFeePerUnit*qty, note:'' });
+    if(r.deliveryMethod === '택배대행'){
+      rows.push({ item:'택배비', product:r.product, seller:'', qty, unit:rates.courierFeePerUnit, supply:rates.courierFeePerUnit*qty, note:'' });
+    } else {
+      rows.push({ item:'택배비', product:r.product, seller:'', qty:'', unit:rates.courierFeePerUnit, supply:0, note:'자체 택배' });
+    }
+    (r.options||[]).forEach(o=>{
+      const oq = Number(o.qty)||0;
+      const unitPrice = Math.round(o.cost||0);
+      const pname = (r.product + (o.name ? ' ' + o.name : '')).trim();
+      rows.push({ item:'제품값', product:pname, seller:platformLabel(r), qty:oq, unit:unitPrice, supply:unitPrice*oq, feeBase:true, note:'' });
+      if((o.cost||0) > 0 && (o.cost||0) <= 9900 && oq > 0){
+        rows.push({ item:'제품값 9,900원 이하 (+500원)', product:pname, seller:'', qty:oq, unit:500, supply:500*oq, note:'' });
+      }
+    });
+    // 플랫폼 추가비용: 쿠팡·스마트스토어(네이버) 외 플랫폼은 건당 +500원 (면제 고객은 제외)
+    if(isSurchargePlatform(r.platform) && qty > 0 && !isPlatformFeeExempt()){
+      rows.push({ item:'플랫폼 추가비용 (+500원)', product:r.product, seller:platformLabel(r), qty, unit:500, supply:500*qty, note:'' });
+    }
+  });
+  if(productRows.length){
+    const feeBase = rows.filter(x=>x.feeBase).reduce((s,x)=>s+x.supply,0);
+    const fee = feeBase * rates.feePercent / 100;
+    rows.push({ item:`결제대행 (${rates.feePercent}%)`, product:'', seller:'', qty:'', unit:'', supply:fee, note:'' });
+  }
+  return rows;
+}
+
+function quoteTotals(rows){
+  const supply = rows.reduce((s,x)=>s+(x.supply||0),0);
+  const tax = supply * 0.1;
+  return { supply, tax, total: Math.round(supply + tax) };
+}
+
+function quoteTableHtml(rows, bank){
+  const t = quoteTotals(rows);
+  let html = `<thead><tr><th>항목</th><th>제품명</th><th>판매처</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th><th>합계</th></tr></thead><tbody>`;
+  rows.forEach(x=>{
+    html += `<tr><td class="label">${esc(x.item)}${x.note ? ' <span style="font-weight:normal; font-size:11px; color:#777;">('+esc(x.note)+')</span>' : ''}</td><td>${esc(x.product||'')}</td><td>${esc(x.seller||'')}</td><td>${(x.qty===''||x.qty==null)?'':x.qty}</td><td>${(x.unit===''||x.unit==null)?'':won(x.unit)}</td><td>${won(x.supply)}</td><td>${won((x.supply||0)*0.1)}</td><td>${won((x.supply||0)*1.1)}</td></tr>`;
+  });
+  html += `<tr class="total-label"><td colspan="5">소계</td><td>${won(t.supply)}</td><td>${won(t.tax)}</td><td>${won(t.supply + t.tax)}</td></tr>`;
+  html += `<tr class="total-label"><td colspan="5">합계 금액</td><td colspan="3" style="color:var(--red); font-size:17px;">${won(t.total)}</td></tr>`;
+  html += `<tr class="account-label"><td colspan="8">입금 계좌</td></tr>`;
+  html += `<tr class="account-value"><td colspan="8">${esc(bank.bank)} ${esc(bank.account)} ${esc(bank.holder)}</td></tr>`;
+  html += `<tr class="account-note"><td colspan="8">※ 상기 계좌로 입금이 확인된 후 캠페인 진행이 시작됩니다.<br>빠른 진행을 위해 입금 후 단톡방에 입금 내역 공유 부탁드립니다.</td></tr>`;
+  html += `</tbody>`;
+  return html;
+}
+
+function renderPreview(){
+  const dateVal = document.getElementById('quoteDate').value;
+  const dateShort = dateVal ? dateVal.slice(2).replace(/-/g,'. ') : '';
+  document.getElementById('previewTitle').textContent = (dateShort ? dateShort + ' ' : '') + displayName + ' 견적서';
+  document.getElementById('previewTable').innerHTML = quoteTableHtml(buildQuoteRows(), company);
+  renderGuide(productRows, 'guideArea');
+}
+document.getElementById('quoteDate').addEventListener('input', renderPreview);
+
+function campaignGuideHtml(campaigns){
+  return campaigns.map((r, idx)=>`
+    <div class="guide-card">
+      <h3>캠페인 가이드 #${idx+1} — ${esc(r.product || '(상품명 미입력)')}</h3>
+      <dl>
+        <dt>상품명</dt><dd>${esc(r.product)}</dd>
+        <dt>상품링크</dt><dd>${esc(r.url)}</dd>
+        <dt>플랫폼</dt><dd>${esc(platformLabel(r))}</dd>
+        <dt>캠페인유형</dt><dd>${esc(r.campaignType)}</dd>
+        <dt>배송방법</dt><dd>${esc(r.deliveryMethod)}</dd>
+        <dt>구매 옵션</dt><dd>${(r.options || [{name:r.optionDesc||'', cost:r.cost||0, qty:r.qty||0}]).map(o=>`${esc(o.name)||'-'} / ${won(o.cost)}원 × ${o.qty}개`).join('\n')}</dd>
+        <dt>총수량</dt><dd>${r.options ? totalQty(r) : (r.qty||0)}</dd>
+        <dt>시작일</dt><dd>${esc(r.startDate)}</dd>
+        <dt>구매 일수량</dt><dd>${esc(r.dailyQty)}</dd>
+        <dt>구매가능시간</dt><dd>${esc(r.buyWindow)}</dd>
+        <dt>주말포함여부</dt><dd>${esc(r.weekends)}</dd>
+        <dt>리뷰 구성</dt><dd>${(r.photoQty!=null || r.textQty!=null) ? '포토 '+(Number(r.photoQty)||0)+'개 / 텍스트 '+(Number(r.textQty)||0)+'개' : esc(r.reviewType||'')+(r.reviewMix ? ' / '+esc(r.reviewMix) : '')}</dd>
+        <dt>리뷰 요청사항</dt><dd>${esc(r.reviewGuide) || '-'}</dd>
+      </dl>
+    </div>
+  `).join('');
+}
+function renderGuide(campaigns, targetId){
+  document.getElementById(targetId).innerHTML = campaigns.length ? campaignGuideHtml(campaigns) : '';
+}
+
+function printQuote(){ window.print(); }
+function resetBuilder(){
+  if(!confirm('작성 중인 견적 내용을 초기화할까요?')) return;
+  productRows = [];
+  addProductRow();
+}
+
+async function saveQuote(){
+  const dateVal = document.getElementById('quoteDate').value;
+  if(!dateVal){ alert('날짜를 선택해주세요.'); return; }
+  if(productRows.length === 0 || productRows.every(r=>!r.product)){ alert('상품을 1개 이상 입력해주세요.'); return; }
+  const qtyMismatch = productRows.find(r => ((Number(r.photoQty)||0)+(Number(r.textQty)||0)) !== totalQty(r));
+  if(qtyMismatch){ alert('포토리뷰+텍스트리뷰 수량을 총수량과 맞춰주세요.\n(캠페인: ' + (qtyMismatch.product || '#'+(productRows.indexOf(qtyMismatch)+1)) + ')'); return; }
+
+  const rows = buildQuoteRows();
+  const t = quoteTotals(rows);
+  const btn = document.getElementById('saveQuoteBtn');
+  btn.disabled = true;
+  try{
+    if(editingQuoteId){
+      await call('updateQuote', token, editingQuoteId, { date: dateVal, items: rows, campaigns: productRows, total: t.total });
+      quotes = await call('getQuotes', token);
+      alert(`견적서가 수정되었습니다.\n합계금액(부가세 포함): ${won(t.total)}원`);
+      exitEditMode();
+    } else {
+      const res = await call('saveQuote', token, { date: dateVal, client: displayName, items: rows, campaigns: productRows, total: t.total, bankSnapshot: company });
+      quotes = await call('getQuotes', token);
+      alert(`견적서(${res.quoteNo})가 발급되었습니다.\n합계금액(부가세 포함): ${won(t.total)}원`);
+    }
+    document.querySelector('.tab-btn[data-view="client"][data-tab="history"]').click();
+  }catch(e){
+    if(!handleSessionError(e)) alert('저장 실패: ' + e.message);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function editQuote(id){
+  const q = quotes.find(x=>x.id===id);
+  if(!q) return;
+  if(q.inProgress){ alert('이미 진행 중인 견적은 수정할 수 없습니다.'); return; }
+  editingQuoteId = id;
+  productRows = (q.campaigns && q.campaigns.length ? q.campaigns : [{}]).map(normalizeCampaign);
+  if(q.date) document.getElementById('quoteDate').value = q.date;
+  const btn = document.getElementById('saveQuoteBtn');
+  btn.textContent = '✏️ 수정 저장 (' + q.quoteNo + ')';
+  document.getElementById('editBanner').style.display = 'block';
+  document.getElementById('editBannerNo').textContent = q.quoteNo;
+  document.querySelector('.tab-btn[data-view="client"][data-tab="request"]').click();
+  renderProductTable();
+  window.scrollTo(0, 0);
+}
+function exitEditMode(){
+  editingQuoteId = null;
+  document.getElementById('saveQuoteBtn').textContent = '💾 견적서 발급 (기록에 저장)';
+  document.getElementById('editBanner').style.display = 'none';
+  productRows = [ blankCampaign() ];
+  document.getElementById('quoteDate').valueAsDate = new Date();
+  renderProductTable();
+}
+function cancelEdit(){
+  if(!confirm('수정을 취소할까요? 변경한 내용은 저장되지 않습니다.')) return;
+  exitEditMode();
+  document.querySelector('.tab-btn[data-view="client"][data-tab="history"]').click();
+}
+
+function renderMyRecords(){
+  const tbody = document.getElementById('myRecordsTbody');
+  tbody.innerHTML = '';
+  quotes.filter(q=>!q.archived).slice().reverse().forEach(q=>{
+    const tr = document.createElement('tr');
+    const editable = !q.inProgress;
+    tr.innerHTML = `
+      <td>${q.quoteNo}</td>
+      <td>${q.date}</td>
+      <td>${won(q.total)}원</td>
+      <td><span class="status-badge status-static ${q.inProgress?'status-yes':'status-no'}">${q.inProgress?'진행중':'진행 전'}</span></td>
+      <td><span class="status-badge status-static ${q.deposited?'status-yes':'status-no'}">${q.deposited?'입금완료':'미입금'}</span></td>
+      <td><span class="status-badge status-static ${q.completed?'status-yes':'status-no'}">${q.completed?'완료':'미완료'}</span></td>
+      <td>
+        <button class="btn secondary" onclick="viewQuote('${q.id}')">보기</button>
+        ${editable ? `<button class="btn" onclick="editQuote('${q.id}')">수정</button>` : '<span style="font-size:11px; color:#999;">🔒 수정 불가</span>'}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function viewQuote(id){
+  const q = quotes.find(x=>x.id===id);
+  if(!q) return;
+
+  const guideHtml = (q.campaigns && q.campaigns.length) ? campaignGuideHtml(q.campaigns) : '';
+
+  document.getElementById('viewModalBody').innerHTML = `
+    <div id="previewArea" style="margin-top:0;">
+      <h2>${esc(q.quoteNo)} ${esc(q.client)} 견적서</h2>
+      <table class="quote">${quoteTableHtml(q.items, q.bankSnapshot)}</table>
+    </div>
+    <div style="margin-top:20px;">${guideHtml}</div>
+    ${role==='admin' ? marginDetailHtml(q.items) : ''}
+  `;
+  document.getElementById('viewModal').style.display = 'flex';
+}
+function closeQuoteModal(){
+  document.getElementById('viewModal').style.display = 'none';
+}
+
+// ---------- 관리자: 전체 기록 ----------
+function showRecSub(which){
+  const isActive = which === 'active';
+  document.getElementById('recSub-active').style.display = isActive ? 'block' : 'none';
+  document.getElementById('recSub-deleted').style.display = isActive ? 'none' : 'block';
+  document.getElementById('recSubActive').className = 'subtab' + (isActive ? ' active' : '');
+  document.getElementById('recSubDeleted').className = 'subtab' + (isActive ? '' : ' active');
+  if(!isActive) renderDeletedRecords();
+}
+function renderDeletedRecords(){
+  const tbody = document.getElementById('deletedRecordsTbody');
+  tbody.innerHTML = '';
+  const arch = quotes.filter(q=>q.archived);
+  if(!arch.length){ tbody.innerHTML = '<tr><td colspan="6" style="color:#999;">삭제된 견적이 없습니다.</td></tr>'; return; }
+  arch.slice().reverse().forEach(q=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${esc(q.quoteNo)}</td>
+      <td>${q.date}</td>
+      <td>${esc(q.client)}</td>
+      <td>${won(q.total)}원</td>
+      <td><button class="btn secondary" onclick="viewQuote('${q.id}')">보기</button></td>
+      <td><button class="btn" onclick="restoreQuoteAdmin('${q.id}')">복구</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+function renderAdminRecords(){
+  const filter = document.getElementById('clientFilter').value.trim().toLowerCase();
+  const tbody = document.getElementById('adminRecordsTbody');
+  tbody.innerHTML = '';
+  quotes
+    .filter(q => !q.archived)
+    .filter(q => !filter || (q.client||'').toLowerCase().includes(filter))
+    .slice().reverse()
+    .forEach(q=>{
+      const mg = quoteMargin(q.items);
+      const qy = quoteTotalQty(q.items);
+      const per = qy ? Math.round(mg/qy) : 0;
+      const tr = document.createElement('tr');
+      tr.id = 'mrow-' + q.id;
+      tr.innerHTML = `
+        <td>${q.quoteNo}</td>
+        <td>${q.date}</td>
+        <td>${esc(q.client)}</td>
+        <td>${won(q.total)}원</td>
+        <td>${qy}건</td>
+        <td class="margin-cell" title="클릭하면 항목별 세부 마진이 펼쳐집니다" onclick="toggleMarginRow('${q.id}','m')">+${won(mg)}원 ▾</td>
+        <td style="color:#a65b00;">${won(per)}원</td>
+        <td><span class="status-badge ${q.inProgress?'status-yes':'status-no'}" onclick="toggleField('${q.id}','inProgress')">${q.inProgress?'진행중':'진행 전'}</span></td>
+        <td><span class="status-badge ${q.deposited?'status-yes':'status-no'}" onclick="toggleField('${q.id}','deposited')">${q.deposited?'입금완료':'미입금'}</span></td>
+        <td><span class="status-badge ${q.completed?'status-yes':'status-no'}" onclick="toggleField('${q.id}','completed')">${q.completed?'완료':'미완료'}</span></td>
+        <td><input type="text" value="${esc(q.memo||'')}" onchange="updateMemo('${q.id}',this.value)"></td>
+        <td><button class="btn secondary" onclick="viewQuote('${q.id}')">보기</button></td>
+        <td><button class="btn danger" onclick="deleteQuoteAdmin('${q.id}')">삭제</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+}
+
+// ---------- 정산: 월 선택 + 견적별 세부 (관리자 전용) ----------
+function onSettleMonthChange(){ settleDays = 0; renderSettlement(); }
+function setSettleRange(days){ settleDays = days; const m = document.getElementById('settleMonth'); if(m) m.value = ''; renderSettlement(); }
+function resetSettleRange(){ settleDays = 0; const m = document.getElementById('settleMonth'); if(m) m.value = ''; renderSettlement(); }
+function renderSettlement(){
+  const sel = (document.getElementById('settleMonth')||{}).value || ''; // 'YYYY-MM' 또는 ''(전체)
+  // 최근 N일 필터 기준일 (월 선택이 없을 때만)
+  let cutoff = '';
+  if(!sel && settleDays > 0){
+    const d = new Date(); d.setDate(d.getDate() - (settleDays - 1));
+    cutoff = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  const active = quotes
+    .filter(q => !q.archived)
+    .filter(q => sel ? (String(q.date||'').slice(0,7) === sel) : (cutoff ? (String(q.date||'') >= cutoff) : true));
+  // 최근 N일 버튼 활성 표시
+  document.querySelectorAll('.range-btn').forEach(b=> b.classList.toggle('on', !sel && Number(b.dataset.days) === settleDays));
+  // 상단 카드 (선택 기간 기준)
+  let totalProfit = 0, totalSales = 0, totalQty = 0;
+  active.forEach(q=>{ totalProfit += quoteMargin(q.items); totalSales += Number(q.total)||0; totalQty += quoteTotalQty(q.items); });
+  const avgPer = totalQty ? Math.round(totalProfit/totalQty) : 0;
+  document.getElementById('settleTotalProfit').textContent = '+' + won(totalProfit) + '원';
+  document.getElementById('settleTotalSales').textContent = won(totalSales) + '원';
+  document.getElementById('settleTotalCount').textContent = active.length + '건';
+  document.getElementById('settleAvgPer').textContent = won(avgPer) + '원';
+  document.getElementById('settleScopeLabel').textContent = sel ? ('📌 ' + sel.replace('-','년 ') + '월 기준') : (settleDays ? ('📌 최근 ' + settleDays + '일 (' + cutoff + ' ~ 오늘)') : '📌 전체 기간');
+  const tbody = document.getElementById('settleTbody');
+  if(!active.length){ tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999; padding:20px;">해당 기간의 견적이 없습니다.</td></tr>'; return; }
+  // 날짜 최신순, 월이 바뀔 때마다 월 헤더 + 소계 표시
+  const sorted = active.slice().sort((a,b)=> String(b.date||'').localeCompare(String(a.date||'')));
+  let html = '', curMonth = null, mP=0, mS=0, mQ=0, mC=0;
+  const flush = ()=>{ if(curMonth!==null){ const p = mQ?Math.round(mP/mQ):0;
+    html += `<tr class="settle-subtotal"><td colspan="3" style="text-align:right;">${curMonth} 소계 (${mC}건)</td><td>${mQ}건</td><td>${won(mS)}원</td><td>+${won(mP)}원</td><td>${won(p)}원</td><td></td></tr>`; } };
+  sorted.forEach(q=>{
+    const ym = String(q.date||'').slice(0,7) || '미상';
+    if(ym !== curMonth){ flush(); curMonth = ym; mP=0;mS=0;mQ=0;mC=0;
+      html += `<tr class="settle-month"><td colspan="8">📆 ${ym}</td></tr>`; }
+    const mg = quoteMargin(q.items), qy = quoteTotalQty(q.items), per = qy?Math.round(mg/qy):0, sales = Number(q.total)||0;
+    mP+=mg; mS+=sales; mQ+=qy; mC++;
+    html += `<tr id="srow-${q.id}">
+      <td>${esc(q.quoteNo)}</td>
+      <td>${q.date}</td>
+      <td>${esc(q.client)}</td>
+      <td>${qy}건</td>
+      <td>${won(sales)}원</td>
+      <td style="color:#a65b00; font-weight:bold;">+${won(mg)}원</td>
+      <td style="color:#a65b00;">${won(per)}원</td>
+      <td><button class="btn secondary" style="padding:3px 10px; font-size:12px;" onclick="toggleMarginRow('${q.id}','s')">세부 ▾</button></td>
+    </tr>`;
+  });
+  flush();
+  tbody.innerHTML = html;
+}
+
+async function toggleField(id, field){
+  const q = quotes.find(x=>x.id===id);
+  if(!q) return;
+  q[field] = !q[field];          // 클릭 즉시 화면 반영 (낙관적 업데이트)
+  renderAdminRecords();
+  try{
+    await call('toggleField', token, id, field);  // 저장은 뒤에서
+  }catch(e){
+    q[field] = !q[field];        // 실패하면 되돌림
+    renderAdminRecords();
+    if(!handleSessionError(e)) alert('변경 실패: ' + e.message);
+  }
+}
+async function updateMemo(id, val){
+  try{ await call('updateMemo', token, id, val); const q = quotes.find(x=>x.id===id); if(q) q.memo = val; }
+  catch(e){ if(!handleSessionError(e)) alert('저장 실패: ' + e.message); }
+}
+async function deleteQuoteAdmin(id){
+  if(!confirm('이 견적을 삭제할까요?\n(완전히 지우는 게 아니라 삭제 기록으로 이동하며, 언제든 복구할 수 있어요.)')) return;
+  const q = quotes.find(x=>x.id===id);
+  if(q) q.archived = true;       // 즉시 목록에서 사라짐
+  renderAdminRecords(); renderDeletedRecords();
+  try{ await call('deleteQuote', token, id); }
+  catch(e){ if(q) q.archived = false; renderAdminRecords(); renderDeletedRecords(); if(!handleSessionError(e)) alert('삭제 실패: ' + e.message); }
+}
+async function restoreQuoteAdmin(id){
+  const q = quotes.find(x=>x.id===id);
+  if(q) q.archived = false;      // 즉시 복구 반영
+  renderDeletedRecords(); renderAdminRecords();
+  try{ await call('restoreQuote', token, id); }
+  catch(e){ if(q) q.archived = true; renderDeletedRecords(); renderAdminRecords(); if(!handleSessionError(e)) alert('복구 실패: ' + e.message); }
+}
+
+// ---------- 관리자: 고객 관리 ----------
+async function loadClients(){
+  clients = await call('adminListClients', token);
+  try { deletedClients = await call('adminListDeletedClients', token); } catch(e){ deletedClients = []; }
+  renderClients();
+  renderDeletedClients();
+}
+function showClientSub(which){
+  const isActive = which === 'active';
+  document.getElementById('clientSub-active').style.display = isActive ? 'block' : 'none';
+  document.getElementById('clientSub-deleted').style.display = isActive ? 'none' : 'block';
+  document.getElementById('clientSubActive').className = 'subtab' + (isActive ? ' active' : '');
+  document.getElementById('clientSubDeleted').className = 'subtab' + (isActive ? '' : ' active');
+}
+function renderClients(){
+  const tbody = document.getElementById('clientsTbody');
+  tbody.innerHTML = '';
+  clients.forEach((c, idx)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${esc(c.displayName)}</b></td>
+      <td>
+        <span id="pw-${idx}" style="font-variant-numeric:tabular-nums;">••••••</span>
+        <button class="btn secondary" style="padding:3px 8px; font-size:11px;" onclick="togglePassword(${idx})" id="pwBtn-${idx}">보기</button>
+      </td>
+      <td><input type="checkbox" ${c.active?'checked':''} onchange="updateClientField(${idx},'active',this.checked)"></td>
+      <td>
+        <select onchange="applyTierToRow(${idx}, this.value)">
+          <option value="" ${tierOf(c)===''?'selected':''}>직접</option>
+          <option value="a" ${tierOf(c)==='a'?'selected':''}>a</option>
+          <option value="b" ${tierOf(c)==='b'?'selected':''}>b</option>
+          <option value="c" ${tierOf(c)==='c'?'selected':''}>c</option>
+        </select>
+      </td>
+      <td><input type="number" value="${c.reviewFeePerUnit}" onchange="updateClientField(${idx},'reviewFeePerUnit',this.value)"></td>
+      <td><input type="number" value="${c.courierFeePerUnit}" onchange="updateClientField(${idx},'courierFeePerUnit',this.value)"></td>
+      <td><input type="number" value="${c.feePercent}" onchange="updateClientField(${idx},'feePercent',this.value)"></td>
+      <td title="체크 시 지마켓·옥션 등 타플랫폼 +500원이 이 고객에게는 안 붙습니다"><input type="checkbox" ${Number(c.marginPercent)===1?'checked':''} onchange="updateClientField(${idx},'marginPercent',this.checked?1:0)"></td>
+      <td><button class="btn secondary" onclick="saveClientRates(${idx})">저장</button></td>
+      <td><button class="btn secondary" onclick="resetClientPassword('${esc(c.username)}')">초기화</button></td>
+      <td><button class="btn danger" onclick="deleteClient('${esc(c.username)}','${esc(c.displayName)}')">삭제</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+function renderDeletedClients(){
+  const tbody = document.getElementById('deletedClientsTbody');
+  tbody.innerHTML = '';
+  if(!deletedClients.length){
+    tbody.innerHTML = '<tr><td colspan="4" style="color:#999;">보관된 고객사가 없습니다.</td></tr>';
+    return;
+  }
+  deletedClients.forEach((c)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${esc(c.displayName)}</b></td>
+      <td style="font-variant-numeric:tabular-nums;">${esc(c.password||'(없음)')}</td>
+      <td>${tierOf(c) ? tierOf(c) : '직접'}</td>
+      <td><button class="btn" onclick="restoreClient('${esc(c.username)}','${esc(c.displayName)}')">복원</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+async function deleteClient(username, displayName){
+  if(!confirm(displayName + ' 고객사를 삭제할까요?\n(완전히 지우는 게 아니라 보관함으로 이동하며, 언제든 복원할 수 있어요.)')) return;
+  try{ await call('adminDeleteClient', token, username); await loadClients(); }
+  catch(e){ if(!handleSessionError(e)) alert('삭제 실패: ' + e.message); }
+}
+async function restoreClient(username, displayName){
+  if(!confirm(displayName + ' 고객사를 복원할까요?')) return;
+  try{ await call('adminRestoreClient', token, username); await loadClients(); showClientSub('active'); }
+  catch(e){ if(!handleSessionError(e)) alert('복원 실패: ' + e.message); }
+}
+function togglePassword(idx){
+  const span = document.getElementById('pw-'+idx);
+  const btn = document.getElementById('pwBtn-'+idx);
+  if(span.textContent === '••••••'){
+    span.textContent = clients[idx].password || '(없음)';
+    btn.textContent = '숨기기';
+  } else {
+    span.textContent = '••••••';
+    btn.textContent = '보기';
+  }
+}
+function updateClientField(idx, field, value){
+  if(field==='active' || field==='marginPercent') clients[idx][field] = value; // active=boolean, marginPercent=면제플래그(1/0)
+  else clients[idx][field] = (value===''?0:parseFloat(value));
+}
+function applyTierPreset(t){
+  if(!TIERS[t]) return;
+  document.getElementById('newReviewFee').value = TIERS[t].review;
+  document.getElementById('newCourierFee').value = TIERS[t].courier;
+}
+function applyTierToRow(idx, t){
+  if(!TIERS[t]) return;
+  clients[idx].reviewFeePerUnit = TIERS[t].review;
+  clients[idx].courierFeePerUnit = TIERS[t].courier;
+  renderClients();
+}
+async function saveClientRates(idx){
+  const c = clients[idx];
+  try{
+    await call('adminSaveClientRates', token, c.username, { reviewFeePerUnit:c.reviewFeePerUnit, marginPercent:c.marginPercent, feePercent:c.feePercent, courierFeePerUnit:c.courierFeePerUnit, active:c.active });
+    alert(c.displayName + ' 단가가 저장되었습니다.');
+  }catch(e){ if(!handleSessionError(e)) alert('저장 실패: ' + e.message); }
+}
+async function resetClientPassword(username){
+  const pw = prompt(username + ' 계정의 새 비밀번호를 입력하세요.');
+  if(!pw) return;
+  try{ await call('adminResetClientPassword', token, username, pw); alert('비밀번호가 변경되었습니다.'); }
+  catch(e){ if(!handleSessionError(e)) alert('실패: ' + e.message); }
+}
+async function createClient(){
+  const companyName = document.getElementById('newDisplayName').value.trim();
+  const info = {
+    username: companyName,
+    displayName: companyName,
+    tempPassword: document.getElementById('newTempPassword').value.trim(),
+    reviewFeePerUnit: document.getElementById('newReviewFee').value,
+    marginPercent: document.getElementById('newExempt').checked ? 1 : 0, // 타플랫폼비 면제 플래그 (컬럼 재활용)
+    feePercent: document.getElementById('newFeePercent').value,
+    courierFeePerUnit: document.getElementById('newCourierFee').value
+  };
+  if(!info.displayName || !info.tempPassword){ alert('고객사명과 임시 비밀번호를 입력해주세요.'); return; }
+  try{
+    await call('adminCreateClient', token, info);
+    alert(info.displayName + ' 고객사가 추가되었습니다.\n로그인 아이디: ' + info.displayName + ' / 임시 비밀번호: ' + info.tempPassword);
+    document.getElementById('newDisplayName').value = '';
+    document.getElementById('newTempPassword').value = '';
+    document.getElementById('newExempt').checked = false;
+    await loadClients();
+  }catch(e){ if(!handleSessionError(e)) alert('생성 실패: ' + e.message); }
+}
+
+// ---------- 관리자: 회사 설정 ----------
+async function saveCompany(){
+  company.bank = document.getElementById('setBank').value.trim();
+  company.account = document.getElementById('setAccount').value.trim();
+  company.holder = document.getElementById('setHolder').value.trim();
+  try{ await call('saveCompanySettings', token, company); alert('저장되었습니다.'); }
+  catch(e){ if(!handleSessionError(e)) alert('저장 실패: ' + e.message); }
+}
+
+// ---------- 초기 진입 ----------
+document.getElementById('loginPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('quoteDate').valueAsDate = new Date();
+
+(async function init(){
+  if(token){
+    try{
+      const profile = await call('getMyProfile', token);
+      displayName = profile.displayName; role = profile.role; rates = profile.rates;
+      await enterApp();
+    }catch(e){
+      sessionStorage.removeItem('qa_token');
+      document.getElementById('loginScreen').style.display = 'block';
+      document.getElementById('appScreen').style.display = 'none';
+    }
+  }
+})();
+</script>
+</body>
+</html>
