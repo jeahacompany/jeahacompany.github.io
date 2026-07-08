@@ -261,9 +261,9 @@
           <div class="notice-tldr">
             <b>한눈에 요약</b>
             <ul>
-              <li>리뷰어는 <b>실제 소비자처럼 대표님 상품을 직접 구매</b>합니다 → 대표님 플랫폼 매출로 그대로 집계</li>
+              <li>리뷰어는 <b>실제 소비자처럼 파트너사 상품을 직접 구매</b>합니다 → 파트너사 플랫폼 매출로 그대로 집계</li>
               <li>제품금액에 붙는 <b>10%는 마진이 아니라 부가가치세(VAT)</b>입니다 (일반과세 · 세금계산서 발행)</li>
-              <li>대표님이 리뷰어에게 직접 송금하는 게 아니라, <b>구매확인·검수·페이백 정산을 당사가 일괄 관리</b>합니다</li>
+              <li>파트너사가 리뷰어에게 직접 송금하는 게 아니라, <b>구매확인·검수·페이백 정산을 당사가 일괄 관리</b>합니다</li>
               <li>상품이 두 번 팔리는 게 아니라, <b>플랫폼 매출(상품)</b> + <b>당사 청구(마케팅·정산 용역)</b> 두 가지 성격의 거래입니다</li>
             </ul>
           </div>
@@ -286,8 +286,8 @@
           <details class="faq">
             <summary><span class="faq-no">2</span> 제품은 어떻게 구매되나요?</summary>
             <div class="faq-body">
-              리뷰는 <b>실제 구매 기반</b>으로 진행됩니다. 리뷰어는 일반 소비자와 동일하게 대표님의 상품을 플랫폼(쿠팡, 스마트스토어 등)에서 <b>직접 구매</b>합니다.<br><br>
-              따라서 상품 판매는 기존과 동일하게 이루어지며, 해당 금액은 <b>대표님의 플랫폼 매출로 그대로 집계</b>됩니다.
+              리뷰는 <b>실제 구매 기반</b>으로 진행됩니다. 리뷰어는 일반 소비자와 동일하게 파트너사의 상품을 플랫폼(쿠팡, 스마트스토어 등)에서 <b>직접 구매</b>합니다.<br><br>
+              따라서 상품 판매는 기존과 동일하게 이루어지며, 해당 금액은 <b>파트너사의 플랫폼 매출로 그대로 집계</b>됩니다.
             </div>
           </details>
 
@@ -301,7 +301,7 @@
                 <li>광고주–리뷰어 직접 연락</li>
                 <li>광고주의 직접 페이백 지급</li>
               </ul>
-              그래서 <b>상품 구매 확인 → 리뷰 작성 확인 → 검수 → 구매금액 페이백</b>까지 모든 정산을 당사가 일괄 관리합니다. 대표님이 리뷰어 한 분 한 분께 직접 송금하시는 방식이 아니라, <b>당사가 전체를 일괄 정산하는 시스템</b>입니다.
+              그래서 <b>상품 구매 확인 → 리뷰 작성 확인 → 검수 → 구매금액 페이백</b>까지 모든 정산을 당사가 일괄 관리합니다. 파트너사가 리뷰어 한 분 한 분께 직접 송금하는 방식이 아니라, <b>당사가 전체를 일괄 정산하는 시스템</b>입니다.
             </div>
           </details>
 
@@ -326,9 +326,9 @@
             <div class="faq-body">
               아닙니다. 성격이 다른 두 가지 거래일 뿐, 상품이 두 번 팔리는 것이 아닙니다.
               <ol>
-                <li>리뷰어가 플랫폼에서 상품 구매 → <b>대표님의 플랫폼 매출</b> 발생</li>
+                <li>리뷰어가 플랫폼에서 상품 구매 → <b>파트너사의 플랫폼 매출</b> 발생</li>
                 <li>당사가 리뷰어에게 구매금액을 <b>페이백</b></li>
-                <li>당사가 대표님께 <b>리뷰 마케팅 비용 + 제품 구매 정산금액</b>을 세금계산서로 청구</li>
+                <li>당사가 파트너사에 <b>리뷰 마케팅 비용 + 제품 구매 정산금액</b>을 세금계산서로 청구</li>
               </ol>
               즉, <b>플랫폼에서는 상품 매출</b>이, <b>당사와는 리뷰 진행을 위한 마케팅·정산 비용</b>이 발생하는 구조입니다.
             </div>
@@ -627,7 +627,7 @@ async function doLogin(){
     if(res.ok){
       token = res.token; displayName = res.displayName; role = res.role; rates = res.rates;
       sessionStorage.setItem('qa_token', token);
-      await enterApp();
+      await enterApp(res);
     } else {
       document.getElementById('loginError').textContent = res.message;
     }
@@ -652,7 +652,8 @@ function handleSessionError(e){
   return false;
 }
 
-async function enterApp(){
+async function enterApp(res){
+  res = res || {};
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   document.getElementById('whoName').textContent = /[님)]$/.test(displayName) ? displayName : (displayName + '님');
@@ -660,12 +661,15 @@ async function enterApp(){
   badge.textContent = role === 'admin' ? '관리자' : '고객사';
   badge.className = 'role-badge ' + (role === 'admin' ? 'role-admin' : 'role-client');
 
+  // 로그인 응답에 이미 담겨온 데이터가 있으면 그대로 사용(요청 안 함), 없으면 따로 불러옴
+  const preCompany = res.company || null;
+  const preQuotes = Array.isArray(res.quotes) ? res.quotes : null;
+
   if(role === 'admin'){
     document.getElementById('adminView').style.display = 'block';
-    // 순차 대신 한꺼번에(병렬) 로드 — 로그인 후 대기시간 대폭 단축
     const [comp, qs, cls, delCls] = await Promise.all([
-      call('getCompanySettings', token),
-      call('getQuotes', token),
+      preCompany ? Promise.resolve(preCompany) : call('getCompanySettings', token),
+      preQuotes ? Promise.resolve(preQuotes) : call('getQuotes', token),
       call('adminListClients', token),
       call('adminListDeletedClients', token).catch(()=>[])
     ]);
@@ -676,13 +680,22 @@ async function enterApp(){
     quotes = qs; renderAdminRecords();
     clients = cls; deletedClients = delCls; renderClients(); renderDeletedClients();
   } else {
-    // 고객: 폼을 즉시 띄우고(회사설정·견적목록 안 기다림), 나머지는 백그라운드 병렬 로드
+    // 고객: 폼을 즉시 표시
     document.getElementById('clientView').style.display = 'block';
     document.getElementById('quoteClientName').value = displayName;
     if(productRows.length === 0) addProductRow(); else renderProductTable();
-    Promise.all([ call('getCompanySettings', token), call('getQuotes', token) ])
-      .then(([comp, qs])=>{ company = comp; quotes = qs; renderMyRecords(); renderPreview(); })
-      .catch(e=>{ if(!handleSessionError(e)) console.warn('데이터 로드 지연:', e && e.message); });
+    if(preCompany && preQuotes){
+      // 로그인 응답에 다 들어있음 → 추가 요청 0, 즉시 완료
+      company = preCompany; quotes = preQuotes; renderMyRecords(); renderPreview();
+    } else {
+      // 폴백: 없는 것만 백그라운드 병렬 로드
+      Promise.all([
+        preCompany ? Promise.resolve(preCompany) : call('getCompanySettings', token),
+        preQuotes ? Promise.resolve(preQuotes) : call('getQuotes', token)
+      ])
+        .then(([comp, qs])=>{ company = comp; quotes = qs; renderMyRecords(); renderPreview(); })
+        .catch(e=>{ if(!handleSessionError(e)) console.warn('데이터 로드 지연:', e && e.message); });
+    }
   }
 }
 
@@ -1392,7 +1405,7 @@ document.getElementById('quoteDate').valueAsDate = new Date();
     try{
       const profile = await call('getMyProfile', token);
       displayName = profile.displayName; role = profile.role; rates = profile.rates;
-      await enterApp();
+      await enterApp(profile);
     }catch(e){
       sessionStorage.removeItem('qa_token');
       document.getElementById('loginScreen').style.display = 'block';
