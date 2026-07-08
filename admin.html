@@ -805,6 +805,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // ---------- 관리자: 접속·업데이트 로그 ----------
 // 업데이트 내역 (개발/개선 기록 — 새 기능 추가할 때마다 위에 한 줄씩 추가)
 const UPDATE_LOG = [
+  { date:'2026-07-08', cat:'관리자', title:'캠페인 가이드 카톡용 복사', desc:'견적 보기에서 캠페인 가이드를 카톡 양식(번호 순서)으로 한 번에 복사할 수 있습니다. 카톡에 붙여넣기만 하면 됩니다. (캠페인 가이드는 관리자에서만 표시)' },
   { date:'2026-07-08', cat:'견적', title:'자체택배·빈박스 안내 문구', desc:'견적 요청 시 자체 택배를 선택하면 "빈 박스 발송 필수" 주의 안내가, 빈박스를 선택하면 "실제 배송 흐름이 정상 기록됩니다" 안내가 뜹니다.' },
   { date:'2026-07-08', cat:'관리자', title:'관리자 계정 추가 기능', desc:'회사 설정에서 관리자(직원) 계정을 직접 만들 수 있습니다.' },
   { date:'2026-07-08', cat:'관리자', title:'전체 기록 표 정리(짤림 해결)', desc:'전체 기록 표가 화면에서 잘리지 않도록 상태(진행·입금·완료)를 한 칸에 모으고 전체적으로 더 깔끔하게 정리했습니다.' },
@@ -1150,14 +1151,58 @@ function renderPreview(){
   const dateShort = dateVal ? dateVal.slice(2).replace(/-/g,'. ') : '';
   document.getElementById('previewTitle').textContent = (dateShort ? dateShort + ' ' : '') + displayName + ' 견적서';
   document.getElementById('previewTable').innerHTML = quoteTableHtml(buildQuoteRows(), company);
-  renderGuide(productRows, 'guideArea');
+  // 캠페인 가이드는 관리자 전용 → 고객 화면(견적 요청 미리보기)에는 표시하지 않음
+  const ga = document.getElementById('guideArea'); if(ga) ga.innerHTML = '';
 }
 document.getElementById('quoteDate').addEventListener('input', renderPreview);
 
-function campaignGuideHtml(campaigns){
+// 카톡에 바로 붙여넣는 캠페인 가이드 양식 (관리자 전용)
+function campaignKakaoText(r, clientName){
+  const opts = (r.options||[]).filter(o=>o.name||o.cost||o.qty).map(o=>`   - ${o.name||'옵션'} ${o.qty||0}개 ${won(o.cost)}원`).join('\n');
+  const pq = Number(r.photoQty)||0, tq = Number(r.textQty)||0;
+  const review = `포토 ${pq}건${tq?(' / 텍스트 '+tq+'건'):''}`;
+  return [
+    '[캠페인 가이드]',
+    '',
+    `1. 업체명: ${clientName||''}`,
+    `2. 상품명: ${r.product||''}`,
+    `3. 상품링크: ${r.url||''}`,
+    `4. 플랫폼: ${platformLabel(r)||''}`,
+    `5. 캠페인유형: ${r.campaignType||''}`,
+    `6. 옵션 및 결제금액:${opts?('\n'+opts):''}`,
+    `7. 총수량: ${totalQty(r)||''}`,
+    `8. 일수량: ${r.dailyQty||''}`,
+    `9. 시작일: ${r.startDate||''}`,
+    `10. 구매가능시간: ${r.buyWindow||''}`,
+    `11. 주말포함여부: ${r.weekends||''}`,
+    `12. 유입방식: ${r.trafficType||''}`,
+    `13. 키워드: ${r.keyword||''}`,
+    `14. 리뷰유형: ${review}`,
+    `15. 리뷰가이드: ${r.reviewGuide||''}`
+  ].join('\n');
+}
+function _copyText(text, okMsg){
+  const done = ()=> alert(okMsg || '복사되었습니다.');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>_fallbackCopy(text, done));
+  } else _fallbackCopy(text, done);
+}
+function _fallbackCopy(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{ document.execCommand('copy'); done && done(); }catch(e){ alert('복사에 실패했어요. 내용을 길게 눌러 직접 복사해주세요.'); }
+  document.body.removeChild(ta);
+}
+function copyCampaignKakao(idx){
+  const q = window._viewQuote; if(!q){ return; }
+  const r = (q.campaigns||[])[idx]; if(!r){ return; }
+  _copyText(campaignKakaoText(r, q.client), '📋 카톡용 캠페인 가이드가 복사되었습니다!\n카톡에 붙여넣기(Ctrl+V) 하세요.');
+}
+function campaignGuideHtml(campaigns, showCopy){
   return campaigns.map((r, idx)=>`
     <div class="guide-card">
-      <h3>캠페인 가이드 #${idx+1} — ${esc(r.product || '(상품명 미입력)')}</h3>
+      <h3>캠페인 가이드 #${idx+1} — ${esc(r.product || '(상품명 미입력)')}${showCopy ? `<button class="btn" style="float:right; padding:6px 14px; font-size:13px;" onclick="copyCampaignKakao(${idx})">📋 카톡용 복사</button>` : ''}</h3>
       <dl>
         <dt>상품명</dt><dd>${esc(r.product)}</dd>
         <dt>상품링크</dt><dd>${esc(r.url)}</dd>
@@ -1271,8 +1316,10 @@ function renderMyRecords(){
 function viewQuote(id){
   const q = quotes.find(x=>x.id===id);
   if(!q) return;
+  window._viewQuote = q;
 
-  const guideHtml = (q.campaigns && q.campaigns.length) ? campaignGuideHtml(q.campaigns) : '';
+  // 캠페인 가이드는 관리자에서만 표시(+ 카톡용 복사 버튼). 고객 화면엔 안 보임.
+  const guideHtml = (role==='admin' && q.campaigns && q.campaigns.length) ? campaignGuideHtml(q.campaigns, true) : '';
 
   document.getElementById('viewModalBody').innerHTML = `
     <div id="previewArea" style="margin-top:0;">
