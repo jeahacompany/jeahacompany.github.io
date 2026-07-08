@@ -189,6 +189,9 @@
   <div id="loginError"></div>
   <input type="text" id="loginUser" placeholder="아이디" autocomplete="username">
   <input type="password" id="loginPass" placeholder="비밀번호" autocomplete="current-password">
+  <label style="display:flex; align-items:center; gap:7px; font-size:13px; color:#555; margin:6px 2px 12px; cursor:pointer;">
+    <input type="checkbox" id="rememberMe" checked style="width:auto; margin:0;"> 로그인 정보 저장 <span style="color:#999;">(이 컴퓨터에서 자동 로그인)</span>
+  </label>
   <button class="btn" style="width:100%" onclick="doLogin()">로그인</button>
   <p style="font-size:13px; color:#777; margin-top:14px;">
     계정은 담당자에게 문의해주세요.
@@ -493,7 +496,7 @@
 </div>
 
 <script>
-let token = sessionStorage.getItem('qa_token') || null;
+let token = localStorage.getItem('qa_token') || null;
 let role = null, displayName = '', rates = { reviewFeePerUnit:0, marginPercent:0, feePercent:0, courierFeePerUnit:0 };
 let company = { bank:'', account:'', holder:'' };
 let quotes = [];
@@ -626,7 +629,11 @@ async function doLogin(){
     const res = await call('login', u, p);
     if(res.ok){
       token = res.token; displayName = res.displayName; role = res.role; rates = res.rates;
-      sessionStorage.setItem('qa_token', token);
+      localStorage.setItem('qa_token', token);
+      // 로그인 정보 저장: 체크 시 이 컴퓨터에 아이디/비번 저장(다음부터 자동 로그인), 해제 시 삭제
+      const remember = (document.getElementById('rememberMe')||{}).checked;
+      if(remember){ localStorage.setItem('qa_login', JSON.stringify({ u: u, p: p })); }
+      else { localStorage.removeItem('qa_login'); }
       await enterApp(res);
     } else {
       document.getElementById('loginError').textContent = res.message;
@@ -638,7 +645,8 @@ async function doLogin(){
 
 async function doLogout(){
   try{ await call('logout', token); }catch(e){}
-  sessionStorage.removeItem('qa_token');
+  localStorage.removeItem('qa_token');
+  localStorage.removeItem('qa_login'); // 저장된 로그인 정보도 삭제 (로그아웃 = 자동로그인 해제)
   try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf('qa_cache_')===0) localStorage.removeItem(k); }); }catch(e){}
   location.reload();
 }
@@ -646,7 +654,7 @@ async function doLogout(){
 function handleSessionError(e){
   if(e && e.message && e.message.indexOf('세션') !== -1){
     alert('세션이 만료되었습니다. 다시 로그인해주세요.');
-    sessionStorage.removeItem('qa_token');
+    localStorage.removeItem('qa_token');
     location.reload();
     return true;
   }
@@ -1422,22 +1430,34 @@ async function saveCompany(){
 document.getElementById('loginPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 document.getElementById('quoteDate').valueAsDate = new Date();
 
+function getSavedLogin(){ try{ return JSON.parse(localStorage.getItem('qa_login') || 'null'); }catch(e){ return null; } }
+
 (async function init(){
+  // 저장된 로그인 정보가 있으면 로그인칸에 미리 채워둠(체크박스도 켜둠)
+  const saved = getSavedLogin();
+  if(saved && saved.u){
+    document.getElementById('loginUser').value = saved.u;
+    document.getElementById('loginPass').value = saved.p || '';
+    const rm = document.getElementById('rememberMe'); if(rm) rm.checked = true;
+  }
+  // 1) 유효한 세션 토큰이 있으면 그걸로 바로 입장
   if(token){
     try{
       const profile = await call('getMyProfile', token);
       displayName = profile.displayName; role = profile.role; rates = profile.rates;
       await enterApp(profile);
-    }catch(e){
-      sessionStorage.removeItem('qa_token');
-      document.getElementById('loginScreen').style.display = 'block';
-      document.getElementById('appScreen').style.display = 'none';
-      try{ call('logout','warmup'); }catch(_){}  // 백엔드 예열
-    }
-  } else {
-    // 로그인 화면 → 미리 백엔드를 깨워둬서 로그인 누를 때 이미 준비되게 (콜드스타트 완화)
-    try{ call('logout','warmup'); }catch(_){}
+      return;
+    }catch(e){ localStorage.removeItem('qa_token'); }
   }
+  // 2) 토큰 없음/만료 → 저장된 정보로 자동 로그인 시도 (doLogin이 채워진 칸을 읽음)
+  if(saved && saved.u && saved.p){
+    await doLogin();
+    return;
+  }
+  // 3) 아무것도 없음 → 로그인 화면 + 백엔드 예열
+  document.getElementById('loginScreen').style.display = 'block';
+  document.getElementById('appScreen').style.display = 'none';
+  try{ call('logout','warmup'); }catch(_){}
 })();
 </script>
 </body>
