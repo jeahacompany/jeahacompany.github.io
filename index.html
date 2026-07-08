@@ -369,8 +369,18 @@
         </div>
 
         <div id="recSub-active">
-          <div class="toolbar">
+          <div class="toolbar" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
             <input type="text" class="filter" id="clientFilter" placeholder="고객사명 검색" oninput="renderAdminRecords()">
+            <select class="filter" id="statusFilter" onchange="renderAdminRecords()">
+              <option value="">전체 보기</option>
+              <option value="notCompleted">🔸 작업 미완료만</option>
+              <option value="completed">✅ 작업 완료만</option>
+              <option value="notDeposited">💰 미입금만</option>
+              <option value="deposited">💳 입금완료만</option>
+              <option value="inProgress">▶ 진행중만</option>
+              <option value="notInProgress">⏸ 진행 전만</option>
+            </select>
+            <span id="recCount" style="font-size:13px; color:#888; margin-left:auto;"></span>
           </div>
           <div class="table-scroll">
           <table class="records" id="adminRecordsTable">
@@ -1163,14 +1173,31 @@ function renderDeletedRecords(){
     tbody.appendChild(tr);
   });
 }
+function matchStatusFilter(q, sf){
+  switch(sf){
+    case 'notCompleted': return !q.completed;
+    case 'completed': return !!q.completed;
+    case 'notDeposited': return !q.deposited;
+    case 'deposited': return !!q.deposited;
+    case 'inProgress': return !!q.inProgress;
+    case 'notInProgress': return !q.inProgress;
+    default: return true;
+  }
+}
 function renderAdminRecords(){
   const filter = document.getElementById('clientFilter').value.trim().toLowerCase();
+  const sf = (document.getElementById('statusFilter')||{}).value || '';
   const tbody = document.getElementById('adminRecordsTbody');
   tbody.innerHTML = '';
-  quotes
+  const list = quotes
     .filter(q => !q.archived)
     .filter(q => !filter || (q.client||'').toLowerCase().includes(filter))
-    .slice().reverse()
+    .filter(q => matchStatusFilter(q, sf))
+    .slice().reverse();
+  const cnt = document.getElementById('recCount');
+  if(cnt) cnt.textContent = list.length + '건' + (sf || filter ? ' (필터 적용됨)' : '');
+  if(!list.length){ tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
+  list
     .forEach(q=>{
       const mg = quoteMargin(q.items);
       const qy = quoteTotalQty(q.items);
