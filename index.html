@@ -359,6 +359,7 @@
       <button class="tab-btn active" data-view="admin" data-tab="records">전체 기록</button>
       <button class="tab-btn" data-view="admin" data-tab="clients">고객 관리</button>
       <button class="tab-btn" data-view="admin" data-tab="settlement">💰 정산</button>
+      <button class="tab-btn" data-view="admin" data-tab="log">📋 접속·업데이트</button>
       <button class="tab-btn" data-view="admin" data-tab="company">회사 설정</button>
     </div>
     <div class="panel">
@@ -482,6 +483,29 @@
           </thead>
           <tbody id="settleTbody"></tbody>
         </table>
+        </div>
+      </div>
+
+      <div class="tab-content" id="admin-tab-log">
+        <div class="subtabs">
+          <button class="subtab active" id="logSubUpdate" onclick="showLogSub('update')">📋 업데이트 내역</button>
+          <button class="subtab" id="logSubAccess" onclick="showLogSub('access')">🖥 접속 로그</button>
+        </div>
+        <div id="logSub-update">
+          <p class="muted" style="margin:2px 0 14px;">재하 리뷰 시스템에 적용된 개선/업데이트 기록입니다. (관리자 전용)</p>
+          <div id="updateLogList"></div>
+        </div>
+        <div id="logSub-access" style="display:none;">
+          <div style="display:flex; align-items:center; gap:10px; margin:2px 0 12px; flex-wrap:wrap;">
+            <span class="muted">누가·언제·어디서(IP)·어떤 기기로 접속했는지 기록됩니다.</span>
+            <button class="btn secondary" onclick="loadAccessLog()" style="margin-left:auto;">새로고침</button>
+          </div>
+          <div class="table-scroll">
+          <table class="records" id="accessLogTable">
+            <thead><tr><th>사용자</th><th>구분</th><th>접속 시각</th><th>IP 주소</th><th>기기 · 브라우저</th></tr></thead>
+            <tbody id="accessLogTbody"></tbody>
+          </table>
+          </div>
         </div>
       </div>
 
@@ -644,6 +668,7 @@ async function doLogin(){
       const remember = (document.getElementById('rememberMe')||{}).checked;
       if(remember){ localStorage.setItem('qa_login', JSON.stringify({ u: u, p: p })); }
       else { localStorage.removeItem('qa_login'); }
+      recordAccess(); // 접속 기록(IP·기기) 남기기 — 실패해도 무시
       await enterApp(res);
     } else {
       document.getElementById('loginError').textContent = res.message;
@@ -750,8 +775,79 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(view==='client' && btn.dataset.tab==='history') renderMyRecords();
     if(view==='admin' && btn.dataset.tab==='records') renderAdminRecords();
     if(view==='admin' && btn.dataset.tab==='settlement') renderSettlement();
+    if(view==='admin' && btn.dataset.tab==='log'){ renderUpdateLog(); }
   });
 });
+
+// ---------- 관리자: 접속·업데이트 로그 ----------
+// 업데이트 내역 (개발/개선 기록 — 새 기능 추가할 때마다 위에 한 줄씩 추가)
+const UPDATE_LOG = [
+  { date:'2026-07-08', cat:'관리자', title:'접속·업데이트 로그 추가', desc:'관리자에 업데이트 내역과 접속 로그(누가·언제·어디서(IP)·어떤 기기로 접속했는지) 탭을 추가했습니다.' },
+  { date:'2026-07-08', cat:'관리자', title:'고객 아이디 변경 기능', desc:'고객 관리에서 로그인 아이디를 바꿀 수 있습니다. 변경하면 그 고객의 견적 기록도 새 아이디로 함께 이동합니다.' },
+  { date:'2026-07-08', cat:'속도', title:'로그인 정보 저장 · 자동 로그인', desc:'로그인 시 "로그인 정보 저장"을 켜두면 그 컴퓨터에서는 다음부터 아이디·비번 없이 자동 로그인됩니다. (고객·관리자 공통)' },
+  { date:'2026-07-08', cat:'속도', title:'전반적인 속도 개선', desc:'로그인하면 화면이 즉시 뜨고 데이터는 뒤에서 병렬로 불러옵니다. 서버 예열·재방문 캐시로 두 번째부터는 거의 즉시 표시됩니다. 상태 변경 클릭도 즉각 반응합니다.' },
+  { date:'2026-07-08', cat:'관리자', title:'전체 기록 상태 필터', desc:'전체 기록에서 작업 미완료만/완료만/미입금만/진행중만 골라 볼 수 있습니다.' },
+  { date:'2026-07-08', cat:'정산', title:'마진표 · 정산 탭', desc:'견적마다 이익·건당이익을 표시하고, 정산 탭에서 월별/최근 7·14·30일 이익을 모아 봅니다. (관리자 전용)' },
+  { date:'2026-07-08', cat:'견적', title:'플랫폼 추가비용 · 견적서 개선', desc:'쿠팡·스마트스토어 외 플랫폼(지마켓·옥션 등)은 건당 +500원이 자동 반영되며, 고객별로 면제할 수 있습니다. 견적서에 합계 칸과 안내 툴팁을 추가했습니다.' },
+  { date:'2026-07-08', cat:'공지', title:'고객 공지·안내 탭', desc:'리뷰 진행 방식, 부가세(10%) 안내 등을 고객이 직접 확인할 수 있는 공지 탭을 추가했습니다.' },
+  { date:'2026-07-08', cat:'기타', title:'새 주소로 이전', desc:'사이트를 jeahacompany.github.io 로 이전했습니다. (무료·영구, 속도 제한 없음)' },
+];
+const _catColor = { '속도':'#1a73e8', '관리자':'#a65b00', '정산':'#0f9d58', '견적':'#e8590c', '공지':'#8e24aa', '기타':'#777' };
+function renderUpdateLog(){
+  const el = document.getElementById('updateLogList');
+  if(!el) return;
+  el.innerHTML = UPDATE_LOG.map(u=>`
+    <div style="border:1px solid #eee; border-radius:10px; padding:14px 16px; margin-bottom:10px; background:#fff;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+        <span style="font-size:12px; color:#999; font-variant-numeric:tabular-nums;">${u.date}</span>
+        <span style="font-size:11px; font-weight:bold; color:#fff; background:${_catColor[u.cat]||'#777'}; padding:2px 9px; border-radius:10px;">${esc(u.cat)}</span>
+      </div>
+      <div style="font-weight:800; font-size:15px; margin-bottom:4px;">${esc(u.title)}</div>
+      <div style="font-size:13px; color:#555; line-height:1.6;">${esc(u.desc)}</div>
+    </div>`).join('');
+}
+function showLogSub(which){
+  const isUpdate = which === 'update';
+  document.getElementById('logSub-update').style.display = isUpdate ? 'block' : 'none';
+  document.getElementById('logSub-access').style.display = isUpdate ? 'none' : 'block';
+  document.getElementById('logSubUpdate').className = 'subtab' + (isUpdate ? ' active' : '');
+  document.getElementById('logSubAccess').className = 'subtab' + (isUpdate ? '' : ' active');
+  if(isUpdate) renderUpdateLog(); else loadAccessLog();
+}
+// user-agent → "Windows · Chrome" 형태
+function parseUA(ua){
+  ua = ua || '';
+  const os = /Windows/.test(ua)?'Windows' : /iPhone|iPad|iPod/.test(ua)?'iPhone' : /Android/.test(ua)?'Android' : /Macintosh|Mac OS/.test(ua)?'Mac' : /Linux/.test(ua)?'Linux' : '기타';
+  const br = /Edg/.test(ua)?'Edge' : /SamsungBrowser/.test(ua)?'삼성브라우저' : /OPR|Opera/.test(ua)?'Opera' : /Chrome|CriOS/.test(ua)?'Chrome' : /Firefox|FxiOS/.test(ua)?'Firefox' : /Safari/.test(ua)?'Safari' : '기타';
+  return os + ' · ' + br;
+}
+async function loadAccessLog(){
+  const tbody = document.getElementById('accessLogTbody');
+  if(!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999; padding:16px;">불러오는 중…</td></tr>';
+  try{
+    const rows = await call('listAccessLog', token);
+    if(!rows || !rows.length){ tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999; padding:16px;">접속 기록이 아직 없습니다.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r=>`
+      <tr>
+        <td><b>${esc(r.displayName || r.username || '')}</b> ${r.role==='admin'?'<span class="role-badge role-admin" style="font-size:10px;">관리자</span>':''}</td>
+        <td>${r.role==='admin'?'관리자':'고객사'}</td>
+        <td style="font-variant-numeric:tabular-nums;">${esc(r.time || '')}</td>
+        <td style="font-variant-numeric:tabular-nums;">${esc(r.ip || '-')}</td>
+        <td>${esc(parseUA(r.ua))}</td>
+      </tr>`).join('');
+  }catch(e){
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#c0392b; padding:16px;">접속 로그 기능은 백엔드 업데이트 후 표시됩니다.</td></tr>';
+  }
+}
+// 로그인 시 접속 기록 남기기 (외부에서 IP 조회 후 백엔드에 저장 · 실패해도 무시)
+async function recordAccess(){
+  try{
+    let ip = '';
+    try{ ip = await fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>d.ip); }catch(_){}
+    call('logAccess', token, ip || '', navigator.userAgent || '');
+  }catch(e){}
+}
 
 // ---------- 고객사: 캠페인 입력 & 견적 계산 ----------
 function blankCampaign(){
@@ -1330,7 +1426,7 @@ function renderClients(){
   clients.forEach((c, idx)=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><b>${esc(c.displayName)}</b></td>
+      <td><b>${esc(c.displayName)}</b><br><button class="btn secondary" style="padding:2px 7px; font-size:11px; margin-top:4px;" onclick="changeClientUsername('${esc(c.username)}','${esc(c.displayName)}')">✏️ 아이디 변경</button></td>
       <td>
         <span id="pw-${idx}" style="font-variant-numeric:tabular-nums;">••••••</span>
         <button class="btn secondary" style="padding:3px 8px; font-size:11px;" onclick="togglePassword(${idx})" id="pwBtn-${idx}">보기</button>
@@ -1415,6 +1511,18 @@ async function saveClientRates(idx){
     await call('adminSaveClientRates', token, c.username, { reviewFeePerUnit:c.reviewFeePerUnit, marginPercent:c.marginPercent, feePercent:c.feePercent, courierFeePerUnit:c.courierFeePerUnit, active:c.active });
     alert(c.displayName + ' 단가가 저장되었습니다.');
   }catch(e){ if(!handleSessionError(e)) alert('저장 실패: ' + e.message); }
+}
+async function changeClientUsername(oldUsername, displayName){
+  const nv = prompt('"' + displayName + '"의 새 로그인 아이디를 입력하세요.\n\n※ 이 고객의 견적 기록도 새 아이디로 함께 이동합니다.\n※ 변경 후 고객은 새 아이디로 로그인해야 합니다.', displayName);
+  if(nv === null) return;
+  const nn = nv.trim();
+  if(!nn){ alert('아이디를 입력해주세요.'); return; }
+  if(nn === oldUsername) return;
+  try{
+    await call('adminChangeUsername', token, oldUsername, nn);
+    alert('아이디가 "' + nn + '"(으)로 변경되었습니다.\n이 고객에게 새 아이디를 꼭 안내해주세요.');
+    await loadClients();
+  }catch(e){ if(!handleSessionError(e)) alert('아이디 변경 실패: ' + e.message); }
 }
 async function resetClientPassword(username){
   const pw = prompt(username + ' 계정의 새 비밀번호를 입력하세요.');
