@@ -107,7 +107,17 @@
   tr.account-note td{padding:10px; font-size:12px; color:var(--red); font-weight:bold; background:#fff8ec;}
 
   table.records{width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);}
-  table.records th, table.records td{border-bottom:1px solid #eee; padding:11px 10px; font-size:13px; text-align:center; white-space:nowrap; vertical-align:middle;}
+  table.records th, table.records td{border-bottom:1px solid #eee; padding:9px 8px; font-size:13px; text-align:center; white-space:nowrap; vertical-align:middle;}
+  #adminRecordsTable th, #adminRecordsTable td{padding:8px 6px; font-size:12.5px;}
+  #adminRecordsTable .status-badge{padding:3px 8px; font-size:11px;}
+  .status-stack{display:flex; flex-direction:column; gap:3px; align-items:center;}
+  .card-note{border-radius:10px; padding:12px 15px; margin-top:8px; font-size:13px; line-height:1.65;}
+  .card-note.info{background:#eef6ff; border:1px solid #cfe3fb; border-left:5px solid #1a73e8; color:#1a4b82;}
+  .card-note.warn{background:#fff6f0; border:1px solid #ffd9c2; border-left:5px solid #e8590c; color:#9a3b06;}
+  .card-note b{font-weight:800;}
+  .memo-input{min-width:70px !important;}
+  .row-actions{display:flex; gap:5px; justify-content:center;}
+  .row-actions .btn{padding:5px 9px !important; font-size:11px !important;}
   table.records thead th{background:var(--orange-light); color:#8a4b00; font-weight:bold; border-bottom:2px solid var(--orange);}
   table.records tbody tr:hover{background:#fffdf7;}
   table.records tbody tr:last-child td{border-bottom:none;}
@@ -386,7 +396,7 @@
           <div class="table-scroll">
           <table class="records" id="adminRecordsTable">
             <thead>
-              <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>진행</th><th>입금여부</th><th>작업완료</th><th>메모</th><th>보기</th><th>삭제</th></tr>
+              <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>상태<br><span style="font-weight:normal;font-size:11px;color:#999;">진행·입금·완료</span></th><th>메모</th><th>관리</th></tr>
             </thead>
             <tbody id="adminRecordsTbody"></tbody>
           </table>
@@ -510,13 +520,26 @@
       </div>
 
       <div class="tab-content" id="admin-tab-company">
-        <div class="field-row">
-          <label>은행명<input type="text" id="setBank" placeholder="예: 신한은행"></label>
-          <label>계좌번호<input type="text" id="setAccount" placeholder="예: 110-564-622249"></label>
-          <label>예금주<input type="text" id="setHolder" placeholder="예: 정시헌(재하)"></label>
+        <div class="card">
+          <h3>🏦 입금 계좌 설정</h3>
+          <div class="field-row">
+            <label>은행명<input type="text" id="setBank" placeholder="예: 신한은행"></label>
+            <label>계좌번호<input type="text" id="setAccount" placeholder="예: 110-564-622249"></label>
+            <label>예금주<input type="text" id="setHolder" placeholder="예: 정시헌(재하)"></label>
+          </div>
+          <button class="btn" onclick="saveCompany()">저장</button>
+          <p class="hint">※ 여기서 설정한 계좌 정보가 모든 고객사의 견적서에 표시됩니다.</p>
         </div>
-        <button class="btn" onclick="saveCompany()">저장</button>
-        <p class="hint">※ 여기서 설정한 계좌 정보가 모든 고객사의 견적서에 표시됩니다.</p>
+
+        <div class="card" style="margin-top:18px;">
+          <h3>🔑 관리자 계정 추가</h3>
+          <p class="hint" style="margin:-4px 0 12px;">관리자 계정은 전체 기록·정산·고객 관리 등 모든 관리 기능에 접근할 수 있습니다. 믿을 수 있는 직원에게만 발급하세요.</p>
+          <div class="field-row">
+            <label>관리자 아이디<input type="text" id="newAdminId" placeholder="예: manager2"></label>
+            <label>비밀번호<input type="text" id="newAdminPw" placeholder="비밀번호"></label>
+          </div>
+          <button class="btn" onclick="createAdmin()">관리자 추가</button>
+        </div>
       </div>
     </div>
   </div>
@@ -782,6 +805,9 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // ---------- 관리자: 접속·업데이트 로그 ----------
 // 업데이트 내역 (개발/개선 기록 — 새 기능 추가할 때마다 위에 한 줄씩 추가)
 const UPDATE_LOG = [
+  { date:'2026-07-08', cat:'견적', title:'자체택배·빈박스 안내 문구', desc:'견적 요청 시 자체 택배를 선택하면 "빈 박스 발송 필수" 주의 안내가, 빈박스를 선택하면 "실제 배송 흐름이 정상 기록됩니다" 안내가 뜹니다.' },
+  { date:'2026-07-08', cat:'관리자', title:'관리자 계정 추가 기능', desc:'회사 설정에서 관리자(직원) 계정을 직접 만들 수 있습니다.' },
+  { date:'2026-07-08', cat:'관리자', title:'전체 기록 표 정리(짤림 해결)', desc:'전체 기록 표가 화면에서 잘리지 않도록 상태(진행·입금·완료)를 한 칸에 모으고 전체적으로 더 깔끔하게 정리했습니다.' },
   { date:'2026-07-08', cat:'관리자', title:'접속·업데이트 로그 추가', desc:'관리자에 업데이트 내역과 접속 로그(누가·언제·어디서(IP)·어떤 기기로 접속했는지) 탭을 추가했습니다.' },
   { date:'2026-07-08', cat:'관리자', title:'고객 아이디 변경 기능', desc:'고객 관리에서 로그인 아이디를 바꿀 수 있습니다. 변경하면 그 고객의 견적 기록도 새 아이디로 함께 이동합니다.' },
   { date:'2026-07-08', cat:'속도', title:'로그인 정보 저장 · 자동 로그인', desc:'로그인 시 "로그인 정보 저장"을 켜두면 그 컴퓨터에서는 다음부터 아이디·비번 없이 자동 로그인됩니다. (고객·관리자 공통)' },
@@ -890,6 +916,23 @@ function updateQtyUI(idx){
   const pill = document.getElementById('qtyPill-'+idx); if(pill) pill.textContent = '총수량 ' + totalQty(productRows[idx]) + '개';
   updateReviewVal(idx);
 }
+// 자체택배/빈박스 선택 시 뜨는 안내 문구
+function cardNoteHtml(r){
+  let html = '';
+  if(r.campaignType === '빈박스'){
+    html += `<div class="card-note info">📦 <b>빈박스 진행 안내</b><br>
+      빈박스는 단순히 송장만 발행하고 배송이 끊기는 방식이 아니라, <b>실제 택배 배송 흐름(집화 → 간선상차 → 배송)이 정상적으로 스캔·기록되며</b> 리뷰어에게 발송됩니다. 배송 추적상 어떠한 문제도 없이 안전하게 진행되니 안심하셔도 됩니다.</div>`;
+  }
+  if(r.deliveryMethod === '자체 택배'){
+    html += `<div class="card-note warn">⚠️ <b>자체 택배 진행 시 필수 확인</b><br>
+      자체 택배는 리뷰어에게 <b>빈 박스</b>가 발송되어야 합니다. 내부 혼선으로 <b>실제 상품이 발송될 경우 발생하는 손실은 보상되지 않으며</b>, 제품 원가에 따른 비용 손실이 크므로 <b>발송 전 반드시 확인</b> 부탁드립니다.</div>`;
+  }
+  return html;
+}
+function refreshCardNote(idx){
+  const el = document.getElementById('cardNote-' + idx);
+  if(el) el.innerHTML = cardNoteHtml(productRows[idx]);
+}
 function updateProductRow(idx, field, value){
   productRows[idx][field] = (field==='photoQty'||field==='textQty') ? (value===''?0:parseFloat(value)) : value;
   if(field === 'platform'){
@@ -898,6 +941,8 @@ function updateProductRow(idx, field, value){
     renderPreview();
   } else if(field === 'photoQty' || field === 'textQty'){
     updateReviewVal(idx); renderPreview();
+  } else if(field === 'campaignType' || field === 'deliveryMethod'){
+    refreshCardNote(idx); renderPreview();
   } else renderPreview();
 }
 function updateOption(idx, oidx, field, value, el){
@@ -993,6 +1038,7 @@ function renderProductTable(){
           </label>
           <label>캠페인 유형${sel({idx,field:'campaignType'}, r.campaignType, ['빈박스','실배송'])}</label>
           <label>배송 방법${sel({idx,field:'deliveryMethod'}, r.deliveryMethod, ['택배대행','자체 택배'])}</label>
+          <div class="campaign-full" id="cardNote-${idx}">${cardNoteHtml(r)}</div>
         </div>
       </div>
 
@@ -1292,7 +1338,7 @@ function renderAdminRecords(){
     .slice().reverse();
   const cnt = document.getElementById('recCount');
   if(cnt) cnt.textContent = list.length + '건' + (sf || filter ? ' (필터 적용됨)' : '');
-  if(!list.length){ tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
+  if(!list.length){ tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
   list
     .forEach(q=>{
       const mg = quoteMargin(q.items);
@@ -1308,12 +1354,20 @@ function renderAdminRecords(){
         <td>${qy}건</td>
         <td class="margin-cell" title="클릭하면 항목별 세부 마진이 펼쳐집니다" onclick="toggleMarginRow('${q.id}','m')">+${won(mg)}원 ▾</td>
         <td style="color:#a65b00;">${won(per)}원</td>
-        <td><span class="status-badge ${q.inProgress?'status-yes':'status-no'}" onclick="toggleField('${q.id}','inProgress')">${q.inProgress?'진행중':'진행 전'}</span></td>
-        <td><span class="status-badge ${q.deposited?'status-yes':'status-no'}" onclick="toggleField('${q.id}','deposited')">${q.deposited?'입금완료':'미입금'}</span></td>
-        <td><span class="status-badge ${q.completed?'status-yes':'status-no'}" onclick="toggleField('${q.id}','completed')">${q.completed?'완료':'미완료'}</span></td>
-        <td><input type="text" value="${esc(q.memo||'')}" onchange="updateMemo('${q.id}',this.value)"></td>
-        <td><button class="btn secondary" onclick="viewQuote('${q.id}')">보기</button></td>
-        <td><button class="btn danger" onclick="deleteQuoteAdmin('${q.id}')">삭제</button></td>
+        <td>
+          <div class="status-stack">
+            <span class="status-badge ${q.inProgress?'status-yes':'status-no'}" onclick="toggleField('${q.id}','inProgress')">${q.inProgress?'진행중':'진행 전'}</span>
+            <span class="status-badge ${q.deposited?'status-yes':'status-no'}" onclick="toggleField('${q.id}','deposited')">${q.deposited?'입금완료':'미입금'}</span>
+            <span class="status-badge ${q.completed?'status-yes':'status-no'}" onclick="toggleField('${q.id}','completed')">${q.completed?'완료':'미완료'}</span>
+          </div>
+        </td>
+        <td><input type="text" class="memo-input" value="${esc(q.memo||'')}" onchange="updateMemo('${q.id}',this.value)" placeholder="메모"></td>
+        <td>
+          <div class="row-actions">
+            <button class="btn secondary" onclick="viewQuote('${q.id}')">보기</button>
+            <button class="btn danger" onclick="deleteQuoteAdmin('${q.id}')">삭제</button>
+          </div>
+        </td>
       `;
       tbody.appendChild(tr);
     });
@@ -1559,6 +1613,18 @@ async function saveCompany(){
   company.holder = document.getElementById('setHolder').value.trim();
   try{ await call('saveCompanySettings', token, company); alert('저장되었습니다.'); }
   catch(e){ if(!handleSessionError(e)) alert('저장 실패: ' + e.message); }
+}
+async function createAdmin(){
+  const id = document.getElementById('newAdminId').value.trim();
+  const pw = document.getElementById('newAdminPw').value.trim();
+  if(!id || !pw){ alert('관리자 아이디와 비밀번호를 입력해주세요.'); return; }
+  if(!confirm('"' + id + '" 관리자 계정을 만들까요?\n관리자는 모든 관리 기능(정산·마진 포함)에 접근할 수 있습니다.')) return;
+  try{
+    await call('adminCreateAdmin', token, { username: id, password: pw });
+    alert('관리자 계정이 추가되었습니다.\n아이디: ' + id + ' / 비밀번호: ' + pw);
+    document.getElementById('newAdminId').value = '';
+    document.getElementById('newAdminPw').value = '';
+  }catch(e){ if(!handleSessionError(e)) alert('추가 실패: ' + e.message); }
 }
 
 // ---------- 초기 진입 ----------
