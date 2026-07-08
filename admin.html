@@ -223,6 +223,7 @@
       <button class="tab-btn active" data-view="client" data-tab="request">견적 요청</button>
       <button class="tab-btn" data-view="client" data-tab="history">내 견적 내역</button>
       <button class="tab-btn" data-view="client" data-tab="notice">📢 공지 · 안내</button>
+      <button class="tab-btn" data-view="client" data-tab="account">🔒 내 정보</button>
     </div>
     <div class="panel">
       <div class="tab-content active" id="client-tab-request">
@@ -361,6 +362,29 @@
           <div class="notice-foot">
             📌 당사는 일반과세 사업자로 <b>세금계산서를 발행</b>하며, 공급가액과 부가세를 구분하여 청구합니다. 그 외 궁금하신 점은 언제든 담당자에게 문의해 주세요.
           </div>
+        </div>
+      </div>
+
+      <!-- ===================== 내 정보 (계정 설정) ===================== -->
+      <div class="tab-content" id="client-tab-account">
+        <div class="card" style="max-width:520px;">
+          <h3>🔑 비밀번호 변경</h3>
+          <p class="hint" style="margin:-4px 0 12px;">보안을 위해 주기적으로 비밀번호를 변경해 주세요.</p>
+          <div class="field-row" style="flex-direction:column; gap:10px;">
+            <label style="width:100%;">현재 비밀번호<input type="password" id="myCurPw" autocomplete="current-password" placeholder="지금 쓰는 비밀번호"></label>
+            <label style="width:100%;">새 비밀번호<input type="password" id="myNewPw" autocomplete="new-password" placeholder="새 비밀번호"></label>
+            <label style="width:100%;">새 비밀번호 확인<input type="password" id="myNewPw2" autocomplete="new-password" placeholder="새 비밀번호 다시 입력"></label>
+          </div>
+          <button class="btn" onclick="changeMyPassword()" style="margin-top:6px;">비밀번호 변경</button>
+        </div>
+
+        <div class="card" style="max-width:520px; margin-top:18px;">
+          <h3>🆔 아이디 변경</h3>
+          <p class="hint" style="margin:-4px 0 12px;">로그인 아이디(업체명)를 바꿀 수 있습니다.<br>⚠️ 변경하면 <b>새 아이디로 다시 로그인</b>해야 하며, 기존 견적 내역은 그대로 따라옵니다.</p>
+          <div class="field-row">
+            <label style="width:100%;">새 아이디<input type="text" id="myNewId" placeholder="예: 하나농수산"></label>
+          </div>
+          <button class="btn secondary" onclick="changeMyId()" style="margin-top:6px;">아이디 변경</button>
         </div>
       </div>
     </div>
@@ -723,6 +747,36 @@ async function doLogout(){
   try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf('qa_cache_')===0) localStorage.removeItem(k); }); }catch(e){}
   location.reload();
 }
+// 파트너센터: 내 비밀번호 변경
+async function changeMyPassword(){
+  const cur = document.getElementById('myCurPw').value;
+  const nw = document.getElementById('myNewPw').value;
+  const nw2 = document.getElementById('myNewPw2').value;
+  if(!cur || !nw){ alert('현재 비밀번호와 새 비밀번호를 입력해주세요.'); return; }
+  if(nw !== nw2){ alert('새 비밀번호가 서로 일치하지 않습니다.'); return; }
+  try{
+    await call('changeMyPassword', token, cur, nw);
+    // 자동 로그인 정보에 새 비번 반영
+    try{ const s = JSON.parse(localStorage.getItem('qa_login')||'null'); if(s){ s.p = nw; localStorage.setItem('qa_login', JSON.stringify(s)); } }catch(e){}
+    document.getElementById('myCurPw').value=''; document.getElementById('myNewPw').value=''; document.getElementById('myNewPw2').value='';
+    alert('비밀번호가 변경되었습니다.');
+  }catch(e){ if(!handleSessionError(e)) alert('변경 실패: ' + e.message); }
+}
+// 파트너센터: 내 아이디 변경 (변경 후 새 아이디로 재로그인)
+async function changeMyId(){
+  const nid = document.getElementById('myNewId').value.trim();
+  if(!nid){ alert('새 아이디를 입력해주세요.'); return; }
+  if(nid === displayName){ alert('현재 아이디와 같습니다.'); return; }
+  if(!confirm('아이디를 "' + nid + '"(으)로 바꿀까요?\n\n변경 후 새 아이디로 다시 로그인해야 합니다. (견적 내역은 그대로 유지됩니다)')) return;
+  try{
+    await call('changeMyUsername', token, nid);
+    // 저장된 자동 로그인 아이디도 새 아이디로
+    try{ const s = JSON.parse(localStorage.getItem('qa_login')||'null'); if(s){ s.u = nid; localStorage.setItem('qa_login', JSON.stringify(s)); } }catch(e){}
+    alert('아이디가 "' + nid + '"(으)로 변경되었습니다.\n새 아이디로 다시 로그인해주세요.');
+    localStorage.removeItem('qa_token');
+    location.reload();
+  }catch(e){ if(!handleSessionError(e)) alert('아이디 변경 실패: ' + e.message); }
+}
 
 function handleSessionError(e){
   if(e && e.message && e.message.indexOf('세션') !== -1){
@@ -820,6 +874,8 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // ---------- 관리자: 접속·업데이트 로그 ----------
 // 업데이트 내역 (개발/개선 기록 — 새 기능 추가할 때마다 위에 한 줄씩 추가)
 const UPDATE_LOG = [
+  { date:'2026-07-08', cat:'공지', title:'파트너센터 내 정보(아이디·비번 변경)', desc:'고객이 파트너센터에서 직접 로그인 아이디와 비밀번호를 변경할 수 있습니다. ("🔒 내 정보" 탭)' },
+  { date:'2026-07-08', cat:'관리자', title:'전체 기록 메모/상태 정리', desc:'메모는 관리 칸의 📝 버튼(누르면 팝업)으로 옮기고, 진행·입금·완료 상태를 가로로 나란히 배치해 한눈에 보이게 했습니다.' },
   { date:'2026-07-08', cat:'관리자', title:'캠페인 가이드 카톡용 복사', desc:'견적 보기에서 캠페인 가이드를 카톡 양식(번호 순서)으로 한 번에 복사할 수 있습니다. 카톡에 붙여넣기만 하면 됩니다. (캠페인 가이드는 관리자에서만 표시)' },
   { date:'2026-07-08', cat:'견적', title:'자체택배·빈박스 안내 문구', desc:'견적 요청 시 자체 택배를 선택하면 "빈 박스 발송 필수" 주의 안내가, 빈박스를 선택하면 "실제 배송 흐름이 정상 기록됩니다" 안내가 뜹니다.' },
   { date:'2026-07-08', cat:'관리자', title:'관리자 계정 추가 기능', desc:'회사 설정에서 관리자(직원) 계정을 직접 만들 수 있습니다.' },
