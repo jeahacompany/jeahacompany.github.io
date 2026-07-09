@@ -140,6 +140,8 @@
   .status-badge{padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold; cursor:pointer; display:inline-block;}
   .status-yes{background:#d4edda; color:#256029;}
   .status-no{background:#f8d7da; color:#a72031;}
+  .status-hold{background:#fff0d4; color:#a15c00; border:1px solid #ffc966;}
+  .status-hold-off{background:#eee; color:#888;}
   .status-static{cursor:default;}
 
   .settle-cards{display:flex; gap:14px; flex-wrap:wrap; margin:6px 0 4px;}
@@ -409,8 +411,10 @@
     <div class="panel">
       <div class="tab-content active" id="admin-tab-records">
         <div class="subtabs">
-          <button class="subtab active" id="recSubActive" onclick="showRecSub('active')">전체 기록</button>
-          <button class="subtab" id="recSubDeleted" onclick="showRecSub('deleted')">🗑 삭제 기록</button>
+          <button class="subtab active" id="recSub-all" onclick="showRecSub('all')">전체 캠페인</button>
+          <button class="subtab" id="recSub-completed" onclick="showRecSub('completed')">✅ 완료</button>
+          <button class="subtab" id="recSub-held" onclick="showRecSub('held')">⏸ 보류</button>
+          <button class="subtab" id="recSub-deleted-tab" onclick="showRecSub('deleted')">🗑 삭제</button>
         </div>
 
         <div id="recSub-active">
@@ -814,6 +818,14 @@ function toggleMarginRow(id, prefix){
 }
 
 // ---------- 로그인 / 로그아웃 ----------
+// 이 페이지가 관리자 사이트(admin.html)인지
+const IS_ADMIN_SITE = /admin\.html/i.test(location.pathname);
+// 사이트-역할 불일치 검사 (관리자 사이트엔 관리자만, 고객 사이트엔 고객만)
+function siteRoleError(r){
+  if(IS_ADMIN_SITE && r !== 'admin') return '이 곳은 관리자 전용 페이지입니다.\n고객사님은 파트너센터(메인 주소)로 접속해 주세요.';
+  if(!IS_ADMIN_SITE && r === 'admin') return '관리자 계정은 관리자 페이지(/admin.html)에서 로그인해 주세요.';
+  return null;
+}
 async function doLogin(){
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
@@ -822,6 +834,8 @@ async function doLogin(){
   try{
     const res = await call('login', u, p);
     if(res.ok){
+      const rErr = siteRoleError(res.role);
+      if(rErr){ document.getElementById('loginError').textContent = rErr; localStorage.removeItem('qa_login'); return; }
       token = res.token; displayName = res.displayName; role = res.role; rates = res.rates;
       localStorage.setItem('qa_token', token);
       // 로그인 정보 저장: 체크 시 이 컴퓨터에 아이디/비번 저장(다음부터 자동 로그인), 해제 시 삭제
@@ -972,6 +986,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // ---------- 관리자: 접속·업데이트 로그 ----------
 // 업데이트 내역 (개발/개선 기록 — 새 기능 추가할 때마다 위에 한 줄씩 추가)
 const UPDATE_LOG = [
+  { date:'2026-07-09', cat:'관리자', title:'로그인 분리 + 보류 캠페인 탭', desc:'관리자 페이지에는 관리자만, 고객 페이지에는 고객만 로그인되도록 분리했습니다. 전체 기록이 [전체 캠페인·완료·보류·삭제] 탭으로 나뉘고, 신청은 했지만 진행 안 하는 건은 "보류" 버튼으로 보류 탭에서 따로 관리할 수 있습니다.' },
   { date:'2026-07-09', cat:'견적', title:'견적서 텍스트·이미지 복사', desc:'견적서 위에서 "📋 텍스트 복사"(카톡용 글자) 또는 "📷 이미지로 복사"(견적서 표 그대로 이미지)를 눌러 카톡 등 어디든 바로 붙여넣을 수 있습니다. (견적 요청 화면·견적 보기 모두, 고객·관리자 공통)' },
   { date:'2026-07-09', cat:'관리자', title:'데이터 새로고침 버튼', desc:'회사 설정에 "🔄 새로고침" 버튼을 추가했습니다. 최신 견적·고객·상태를 다시 불러오며, 로그인 세션이 만료됐어도 자동으로 다시 로그인됩니다.' },
   { date:'2026-07-09', cat:'정산', title:'마진 세부 직접 수정', desc:'견적 세부(마진 상세)에서 항목별 원가를 직접 수정하면 마진·총마진·건당이익이 자동 계산되어 전체 기록·정산에 반영됩니다. "기본값으로 복원"도 가능합니다. (관리자 전용) / 완료 처리한 건은 날짜 D+N 배지가 사라지고, 정산 집계제외 시 색은 그대로 유지됩니다.' },
@@ -1592,13 +1607,16 @@ function closeQuoteModal(){
 }
 
 // ---------- 관리자: 전체 기록 ----------
+let recView = 'all'; // all | completed | held | deleted
 function showRecSub(which){
-  const isActive = which === 'active';
-  document.getElementById('recSub-active').style.display = isActive ? 'block' : 'none';
-  document.getElementById('recSub-deleted').style.display = isActive ? 'none' : 'block';
-  document.getElementById('recSubActive').className = 'subtab' + (isActive ? ' active' : '');
-  document.getElementById('recSubDeleted').className = 'subtab' + (isActive ? '' : ' active');
-  if(!isActive) renderDeletedRecords();
+  recView = which;
+  const isDeleted = which === 'deleted';
+  document.getElementById('recSub-active').style.display = isDeleted ? 'none' : 'block';
+  document.getElementById('recSub-deleted').style.display = isDeleted ? 'block' : 'none';
+  [['all','recSub-all'],['completed','recSub-completed'],['held','recSub-held'],['deleted','recSub-deleted-tab']].forEach(([v,id])=>{
+    const el = document.getElementById(id); if(el) el.className = 'subtab' + (v===which ? ' active' : '');
+  });
+  if(isDeleted) renderDeletedRecords(); else renderAdminRecords();
 }
 function renderDeletedRecords(){
   const tbody = document.getElementById('deletedRecordsTbody');
@@ -1644,11 +1662,13 @@ function renderAdminRecords(){
   tbody.innerHTML = '';
   const list = quotes
     .filter(q => !q.archived)
+    .filter(q => recView==='completed' ? q.completed : recView==='held' ? q.held : true)
     .filter(q => !filter || (q.client||'').toLowerCase().includes(filter))
     .filter(q => matchStatusFilter(q, sf))
     .slice().reverse();
   const cnt = document.getElementById('recCount');
-  if(cnt) cnt.textContent = list.length + '건' + (sf || filter ? ' (필터 적용됨)' : '');
+  const viewLbl = recView==='completed' ? '완료 ' : recView==='held' ? '보류 ' : '';
+  if(cnt) cnt.textContent = viewLbl + list.length + '건' + (sf || filter ? ' (필터 적용됨)' : '');
   if(!list.length){ tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
   list
     .forEach(q=>{
@@ -1674,6 +1694,7 @@ function renderAdminRecords(){
             <span class="status-badge ${q.inProgress?'status-yes':'status-no'}" onclick="toggleField('${q.id}','inProgress')">${q.inProgress?'진행중':'진행 전'}</span>
             <span class="status-badge ${q.deposited?'status-yes':'status-no'}" onclick="toggleField('${q.id}','deposited')">${q.deposited?'입금완료':'미입금'}</span>
             <span class="status-badge ${q.completed?'status-yes':'status-no'}" onclick="toggleField('${q.id}','completed')">${q.completed?'완료':'미완료'}</span>
+            <span class="status-badge ${q.held?'status-hold':'status-hold-off'}" onclick="toggleField('${q.id}','held')">${q.held?'⏸ 보류중':'보류'}</span>
           </div>
         </td>
         <td>
@@ -2057,13 +2078,16 @@ function getSavedLogin(){ try{ return JSON.parse(localStorage.getItem('qa_login'
     document.getElementById('loginPass').value = saved.p || '';
     const rm = document.getElementById('rememberMe'); if(rm) rm.checked = true;
   }
-  // 1) 유효한 세션 토큰이 있으면 그걸로 바로 입장
+  // 1) 유효한 세션 토큰이 있으면 그걸로 바로 입장 (단, 이 사이트에 맞는 역할일 때만)
   if(token){
     try{
       const profile = await call('getMyProfile', token);
-      displayName = profile.displayName; role = profile.role; rates = profile.rates;
-      await enterApp(profile);
-      return;
+      if(siteRoleError(profile.role)){ localStorage.removeItem('qa_token'); localStorage.removeItem('qa_login'); }
+      else {
+        displayName = profile.displayName; role = profile.role; rates = profile.rates;
+        await enterApp(profile);
+        return;
+      }
     }catch(e){ localStorage.removeItem('qa_token'); }
   }
   // 2) 토큰 없음/만료 → 저장된 정보로 자동 로그인 시도 (doLogin이 채워진 칸을 읽음)
