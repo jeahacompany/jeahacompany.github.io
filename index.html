@@ -119,6 +119,7 @@
   .margin-adjust input{border:1px solid #ccc; border-radius:6px; padding:8px 10px; font-size:14px; text-align:right;}
   .adj-badge{font-size:12px; font-weight:bold; color:#fff; background:#e8590c; padding:3px 10px; border-radius:10px;}
   .adj-tag{font-size:10px; font-weight:bold; color:#fff; background:#e8590c; padding:1px 6px; border-radius:8px; vertical-align:middle;}
+  .date-cell{cursor:help; text-decoration:underline dotted #c9c9c9; text-underline-offset:3px;}
   .card-note{border-radius:10px; padding:12px 15px; margin-top:8px; font-size:13px; line-height:1.65;}
   .card-note.info{background:#eef6ff; border:1px solid #cfe3fb; border-left:5px solid #1a73e8; color:#1a4b82;}
   .card-note.warn{background:#fff6f0; border:1px solid #ffd9c2; border-left:5px solid #e8590c; color:#9a3b06;}
@@ -504,12 +505,12 @@
           <span id="settleScopeLabel" class="scope-label"></span>
         </div>
         <div class="settle-cards">
-          <div class="settle-card total"><span class="lbl">총 이익</span><span class="val" id="settleTotalProfit">0원</span></div>
           <div class="settle-card"><span class="lbl">총 매출</span><span class="val" id="settleTotalSales">0원</span></div>
           <div class="settle-card"><span class="lbl">건수</span><span class="val" id="settleTotalCount">0건</span></div>
-          <div class="settle-card"><span class="lbl">건당 평균이익</span><span class="val" id="settleAvgPer">0원</span></div>
+          <div class="settle-card total"><span class="lbl">총 이익</span><span class="val" id="settleTotalProfit">0원</span></div>
+          <div class="settle-card"><span class="lbl">건당이익</span><span class="val" id="settleAvgPer">0원</span></div>
         </div>
-        <p class="muted" style="margin:4px 0 10px;">※ 이익 = (리뷰어·택배·결제대행·+500원 수익) − 원가. 제품값은 통과. 견적의 <b>세부</b>를 누르면 항목별 마진이 펼쳐집니다. 관리자만 볼 수 있습니다.</p>
+        <p class="muted" style="margin:4px 0 10px;">※ 이익 = (리뷰어·택배·결제대행·+500원 수익) − 원가. 제품값은 통과. <b>이익이 0인 건은 목록엔 표시되지만 건수·건당이익 집계에서는 제외</b>됩니다. 견적의 <b>세부</b>를 누르면 항목별 마진이 펼쳐집니다. 관리자만 볼 수 있습니다.</p>
         <div class="table-scroll">
         <table class="records" id="settleTable">
           <thead>
@@ -906,6 +907,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // ---------- 관리자: 접속·업데이트 로그 ----------
 // 업데이트 내역 (개발/개선 기록 — 새 기능 추가할 때마다 위에 한 줄씩 추가)
 const UPDATE_LOG = [
+  { date:'2026-07-09', cat:'정산', title:'정산 집계 개선 + D-day 표시', desc:'정산에서 이익이 0인 건은 목록엔 표시하되 건수·건당이익 집계에서는 제외됩니다. 카드는 총매출·건수·총이익·건당이익 순으로 정리했습니다. 전체 기록의 날짜(신청일)에 마우스를 올리면 며칠 지났는지(D+N) 표시됩니다.' },
   { date:'2026-07-08', cat:'정산', title:'건당이익 직접 조정', desc:'견적 세부(마진 상세)에서 건당이익을 관리자가 직접 조정할 수 있습니다. 조정하면 전체 기록·정산의 이익에 그대로 반영되며, "기본 계산값으로 복원"도 가능합니다. (관리자 전용)' },
   { date:'2026-07-08', cat:'기타', title:'데이터 자동 백업', desc:'모든 데이터는 입력 즉시 저장되고, 매일 새벽 4시 전체 데이터가 자동으로 백업됩니다. 회사 설정에서 "지금 즉시 백업"도 가능합니다.' },
   { date:'2026-07-08', cat:'공지', title:'파트너센터 내 정보(비밀번호 변경)', desc:'고객이 파트너센터 "🔒 내 정보" 탭에서 직접 비밀번호를 변경할 수 있습니다. (아이디 변경은 관리자만 가능)' },
@@ -1467,6 +1469,14 @@ function renderDeletedRecords(){
     tbody.appendChild(tr);
   });
 }
+// 신청일(견적 날짜)로부터 오늘까지 경과 일수
+function daysSince(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(String(dateStr) + 'T00:00:00');
+  if(isNaN(d.getTime())) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return Math.max(0, Math.round((today - d) / 86400000));
+}
 function matchStatusFilter(q, sf){
   switch(sf){
     case 'notCompleted': return !q.completed;
@@ -1496,11 +1506,13 @@ function renderAdminRecords(){
       const mg = quoteProfit(q);
       const qy = quoteTotalQty(q.items);
       const per = qy ? Math.round(mg/qy) : 0;
+      const dd = daysSince(q.date);
+      const ddTitle = dd===null ? '' : (dd===0 ? '신청 당일 (D-day)' : ('신청 후 ' + dd + '일 경과 (D+' + dd + ')'));
       const tr = document.createElement('tr');
       tr.id = 'mrow-' + q.id;
       tr.innerHTML = `
         <td>${q.quoteNo}</td>
-        <td>${q.date}</td>
+        <td class="date-cell" title="${ddTitle}">${q.date}</td>
         <td>${esc(q.client)}</td>
         <td>${won(q.total)}원</td>
         <td>${qy}건</td>
@@ -1542,36 +1554,41 @@ function renderSettlement(){
     .filter(q => sel ? (String(q.date||'').slice(0,7) === sel) : (cutoff ? (String(q.date||'') >= cutoff) : true));
   // 최근 N일 버튼 활성 표시
   document.querySelectorAll('.range-btn').forEach(b=> b.classList.toggle('on', !sel && Number(b.dataset.days) === settleDays));
-  // 상단 카드 (선택 기간 기준)
-  let totalProfit = 0, totalSales = 0, totalQty = 0;
-  active.forEach(q=>{ totalProfit += quoteProfit(q); totalSales += Number(q.total)||0; totalQty += quoteTotalQty(q.items); });
-  const avgPer = totalQty ? Math.round(totalProfit/totalQty) : 0;
+  // 상단 카드 — 총매출·총이익은 전체, 건수·건당이익은 "이익>0"인 건만 집계
+  let totalProfit = 0, totalSales = 0, countedNum = 0, countedQty = 0;
+  active.forEach(q=>{
+    const p = quoteProfit(q);
+    totalProfit += p; totalSales += Number(q.total)||0;
+    if(p > 0){ countedNum++; countedQty += quoteTotalQty(q.items); }
+  });
+  const avgPer = countedQty ? Math.round(totalProfit/countedQty) : 0;
   document.getElementById('settleTotalProfit').textContent = '+' + won(totalProfit) + '원';
   document.getElementById('settleTotalSales').textContent = won(totalSales) + '원';
-  document.getElementById('settleTotalCount').textContent = active.length + '건';
+  document.getElementById('settleTotalCount').textContent = countedNum + '건';
   document.getElementById('settleAvgPer').textContent = won(avgPer) + '원';
   document.getElementById('settleScopeLabel').textContent = sel ? ('📌 ' + sel.replace('-','년 ') + '월 기준') : (settleDays ? ('📌 최근 ' + settleDays + '일 (' + cutoff + ' ~ 오늘)') : '📌 전체 기간');
   const tbody = document.getElementById('settleTbody');
   if(!active.length){ tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999; padding:20px;">해당 기간의 견적이 없습니다.</td></tr>'; return; }
   // 날짜 최신순, 월이 바뀔 때마다 월 헤더 + 소계 표시
   const sorted = active.slice().sort((a,b)=> String(b.date||'').localeCompare(String(a.date||'')));
-  let html = '', curMonth = null, mP=0, mS=0, mQ=0, mC=0;
-  const flush = ()=>{ if(curMonth!==null){ const p = mQ?Math.round(mP/mQ):0;
-    html += `<tr class="settle-subtotal"><td colspan="3" style="text-align:right;">${curMonth} 소계 (${mC}건)</td><td>${mQ}건</td><td>${won(mS)}원</td><td>+${won(mP)}원</td><td>${won(p)}원</td><td></td></tr>`; } };
+  let html = '', curMonth = null, mP=0, mS=0, mCq=0, mCn=0;
+  const flush = ()=>{ if(curMonth!==null){ const p = mCq?Math.round(mP/mCq):0;
+    html += `<tr class="settle-subtotal"><td colspan="3" style="text-align:right;">${curMonth} 소계 (${mCn}건)</td><td>${mCq}건</td><td>${won(mS)}원</td><td>+${won(mP)}원</td><td>${won(p)}원</td><td></td></tr>`; } };
   sorted.forEach(q=>{
     const ym = String(q.date||'').slice(0,7) || '미상';
-    if(ym !== curMonth){ flush(); curMonth = ym; mP=0;mS=0;mQ=0;mC=0;
+    if(ym !== curMonth){ flush(); curMonth = ym; mP=0;mS=0;mCq=0;mCn=0;
       html += `<tr class="settle-month"><td colspan="8">📆 ${ym}</td></tr>`; }
     const mg = quoteProfit(q), qy = quoteTotalQty(q.items), per = qy?Math.round(mg/qy):0, sales = Number(q.total)||0;
-    mP+=mg; mS+=sales; mQ+=qy; mC++;
-    html += `<tr id="srow-${q.id}">
-      <td>${esc(q.quoteNo)}</td>
+    const counted = mg > 0;
+    mP+=mg; mS+=sales; if(counted){ mCq+=qy; mCn++; }
+    html += `<tr id="srow-${q.id}"${counted?'':' style="opacity:.55;"'}>
+      <td>${esc(q.quoteNo)}${counted?'':' <span class="adj-tag" style="background:#999;">집계제외</span>'}</td>
       <td>${q.date}</td>
       <td>${esc(q.client)}</td>
       <td>${qy}건</td>
       <td>${won(sales)}원</td>
       <td style="color:#a65b00; font-weight:bold;">+${won(mg)}원</td>
-      <td style="color:#a65b00;">${won(per)}원</td>
+      <td style="color:#a65b00;">${counted?won(per)+'원':'-'}</td>
       <td><button class="btn secondary" style="padding:3px 10px; font-size:12px;" onclick="toggleMarginRow('${q.id}','s')">세부 ▾</button></td>
     </tr>`;
   });
