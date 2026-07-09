@@ -550,7 +550,7 @@
           </div>
           <div class="table-scroll">
           <table class="records" id="accessLogTable">
-            <thead><tr><th>사용자</th><th>구분</th><th>접속 시각</th><th>IP 주소</th><th>기기 · 브라우저</th></tr></thead>
+            <thead><tr><th>사용자</th><th>구분</th><th>접속 시각</th><th>위치</th><th>IP 주소</th><th>기기 · 브라우저</th></tr></thead>
             <tbody id="accessLogTbody"></tbody>
           </table>
           </div>
@@ -1041,28 +1041,36 @@ function parseUA(ua){
 async function loadAccessLog(){
   const tbody = document.getElementById('accessLogTbody');
   if(!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999; padding:16px;">불러오는 중…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#999; padding:16px;">불러오는 중…</td></tr>';
   try{
     const rows = await call('listAccessLog', token);
-    if(!rows || !rows.length){ tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999; padding:16px;">접속 기록이 아직 없습니다.</td></tr>'; return; }
+    if(!rows || !rows.length){ tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#999; padding:16px;">접속 기록이 아직 없습니다.</td></tr>'; return; }
     tbody.innerHTML = rows.map(r=>`
       <tr>
         <td><b>${esc(r.displayName || r.username || '')}</b> ${r.role==='admin'?'<span class="role-badge role-admin" style="font-size:10px;">관리자</span>':''}</td>
         <td>${r.role==='admin'?'관리자':'고객사'}</td>
         <td style="font-variant-numeric:tabular-nums;">${esc(r.time || '')}</td>
+        <td>${esc(r.location || '-')}</td>
         <td style="font-variant-numeric:tabular-nums;">${esc(r.ip || '-')}</td>
         <td>${esc(parseUA(r.ua))}</td>
       </tr>`).join('');
   }catch(e){
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#c0392b; padding:16px;">접속 로그 기능은 백엔드 업데이트 후 표시됩니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#c0392b; padding:16px;">접속 로그 기능은 백엔드 업데이트 후 표시됩니다.</td></tr>';
   }
 }
 // 로그인 시 접속 기록 남기기 (외부에서 IP 조회 후 백엔드에 저장 · 실패해도 무시)
 async function recordAccess(){
   try{
-    let ip = '';
-    try{ ip = await fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>d.ip); }catch(_){}
-    call('logAccess', token, ip || '', navigator.userAgent || '');
+    let ip = '', loc = '';
+    try{
+      const d = await fetch('https://ipwho.is/').then(r=>r.json());
+      if(d && d.success !== false){
+        ip = d.ip || '';
+        loc = [d.city, d.region, d.country].filter(Boolean).join(', ');
+      }
+    }catch(_){}
+    if(!ip){ try{ ip = await fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>d.ip); }catch(_){} }
+    call('logAccess', token, ip || '', navigator.userAgent || '', loc || '');
   }catch(e){}
 }
 
