@@ -119,7 +119,10 @@
   .margin-adjust input{border:1px solid #ccc; border-radius:6px; padding:8px 10px; font-size:14px; text-align:right;}
   .adj-badge{font-size:12px; font-weight:bold; color:#fff; background:#e8590c; padding:3px 10px; border-radius:10px;}
   .adj-tag{font-size:10px; font-weight:bold; color:#fff; background:#e8590c; padding:1px 6px; border-radius:8px; vertical-align:middle;}
-  .date-cell{cursor:help; text-decoration:underline dotted #c9c9c9; text-underline-offset:3px;}
+  .dday-badge{display:inline-block; font-size:11px; font-weight:bold; padding:1px 7px; border-radius:9px; margin-left:5px; vertical-align:middle;}
+  .dday-badge.dday-ok{background:#e4f5ea; color:#0f7a3d;}
+  .dday-badge.dday-warn{background:#fff0e0; color:#c05600;}
+  .dday-badge.dday-late{background:#fde3e3; color:#c0392b;}
   .card-note{border-radius:10px; padding:12px 15px; margin-top:8px; font-size:13px; line-height:1.65;}
   .card-note.info{background:#eef6ff; border:1px solid #cfe3fb; border-left:5px solid #1a73e8; color:#1a4b82;}
   .card-note.warn{background:#fff6f0; border:1px solid #ffd9c2; border-left:5px solid #e8590c; color:#9a3b06;}
@@ -907,7 +910,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // ---------- 관리자: 접속·업데이트 로그 ----------
 // 업데이트 내역 (개발/개선 기록 — 새 기능 추가할 때마다 위에 한 줄씩 추가)
 const UPDATE_LOG = [
-  { date:'2026-07-09', cat:'정산', title:'정산 집계 개선 + D-day 표시', desc:'정산에서 이익이 0인 건은 목록엔 표시하되 건수·건당이익 집계에서는 제외됩니다. 카드는 총매출·건수·총이익·건당이익 순으로 정리했습니다. 전체 기록의 날짜(신청일)에 마우스를 올리면 며칠 지났는지(D+N) 표시됩니다.' },
+  { date:'2026-07-09', cat:'정산', title:'집계제외 버튼 + D+N 배지', desc:'정산에서 견적별로 "집계제외/집계포함"을 직접 눌러 건수·건당이익 집계에서 빼거나 넣을 수 있습니다(이익 0인 건은 자동 제외). 카드는 총매출·건수·총이익·건당이익 순. 전체 기록 날짜 옆에 신청 후 며칠 지났는지 색깔 배지(D+N)로 표시됩니다(3일↓초록·7일↓주황·그 이상 빨강).' },
   { date:'2026-07-08', cat:'정산', title:'건당이익 직접 조정', desc:'견적 세부(마진 상세)에서 건당이익을 관리자가 직접 조정할 수 있습니다. 조정하면 전체 기록·정산의 이익에 그대로 반영되며, "기본 계산값으로 복원"도 가능합니다. (관리자 전용)' },
   { date:'2026-07-08', cat:'기타', title:'데이터 자동 백업', desc:'모든 데이터는 입력 즉시 저장되고, 매일 새벽 4시 전체 데이터가 자동으로 백업됩니다. 회사 설정에서 "지금 즉시 백업"도 가능합니다.' },
   { date:'2026-07-08', cat:'공지', title:'파트너센터 내 정보(비밀번호 변경)', desc:'고객이 파트너센터 "🔒 내 정보" 탭에서 직접 비밀번호를 변경할 수 있습니다. (아이디 변경은 관리자만 가능)' },
@@ -1507,12 +1510,13 @@ function renderAdminRecords(){
       const qy = quoteTotalQty(q.items);
       const per = qy ? Math.round(mg/qy) : 0;
       const dd = daysSince(q.date);
-      const ddTitle = dd===null ? '' : (dd===0 ? '신청 당일 (D-day)' : ('신청 후 ' + dd + '일 경과 (D+' + dd + ')'));
+      const ddLevel = dd===null ? '' : (dd<=3 ? 'ok' : (dd<=7 ? 'warn' : 'late'));
+      const ddBadge = dd===null ? '' : ` <span class="dday-badge dday-${ddLevel}" title="신청 후 ${dd}일 경과">D+${dd}</span>`;
       const tr = document.createElement('tr');
       tr.id = 'mrow-' + q.id;
       tr.innerHTML = `
         <td>${q.quoteNo}</td>
-        <td class="date-cell" title="${ddTitle}">${q.date}</td>
+        <td>${q.date}${ddBadge}</td>
         <td>${esc(q.client)}</td>
         <td>${won(q.total)}원</td>
         <td>${qy}건</td>
@@ -1557,9 +1561,10 @@ function renderSettlement(){
   // 상단 카드 — 총매출·총이익은 전체, 건수·건당이익은 "이익>0"인 건만 집계
   let totalProfit = 0, totalSales = 0, countedNum = 0, countedQty = 0;
   active.forEach(q=>{
+    if(q.excluded) return;   // 수동 집계제외: 매출·이익·건수 전부 제외
     const p = quoteProfit(q);
     totalProfit += p; totalSales += Number(q.total)||0;
-    if(p > 0){ countedNum++; countedQty += quoteTotalQty(q.items); }
+    if(p > 0){ countedNum++; countedQty += quoteTotalQty(q.items); }  // 이익0: 건수·건당만 제외
   });
   const avgPer = countedQty ? Math.round(totalProfit/countedQty) : 0;
   document.getElementById('settleTotalProfit').textContent = '+' + won(totalProfit) + '원';
@@ -1579,17 +1584,21 @@ function renderSettlement(){
     if(ym !== curMonth){ flush(); curMonth = ym; mP=0;mS=0;mCq=0;mCn=0;
       html += `<tr class="settle-month"><td colspan="8">📆 ${ym}</td></tr>`; }
     const mg = quoteProfit(q), qy = quoteTotalQty(q.items), per = qy?Math.round(mg/qy):0, sales = Number(q.total)||0;
-    const counted = mg > 0;
-    mP+=mg; mS+=sales; if(counted){ mCq+=qy; mCn++; }
+    const counted = mg > 0 && !q.excluded;
+    if(!q.excluded){ mP+=mg; mS+=sales; if(mg>0){ mCq+=qy; mCn++; } }
+    const tag = q.excluded ? ' <span class="adj-tag" style="background:#999;">집계제외</span>' : (mg<=0 ? ' <span class="adj-tag" style="background:#999;">이익0·제외</span>' : '');
     html += `<tr id="srow-${q.id}"${counted?'':' style="opacity:.55;"'}>
-      <td>${esc(q.quoteNo)}${counted?'':' <span class="adj-tag" style="background:#999;">집계제외</span>'}</td>
+      <td>${esc(q.quoteNo)}${tag}</td>
       <td>${q.date}</td>
       <td>${esc(q.client)}</td>
       <td>${qy}건</td>
       <td>${won(sales)}원</td>
       <td style="color:#a65b00; font-weight:bold;">+${won(mg)}원</td>
       <td style="color:#a65b00;">${counted?won(per)+'원':'-'}</td>
-      <td><button class="btn secondary" style="padding:3px 10px; font-size:12px;" onclick="toggleMarginRow('${q.id}','s')">세부 ▾</button></td>
+      <td style="white-space:nowrap;">
+        <button class="btn secondary" style="padding:3px 9px; font-size:12px;" onclick="toggleMarginRow('${q.id}','s')">세부 ▾</button>
+        <button class="btn ${q.excluded?'':'secondary'}" style="padding:3px 9px; font-size:12px;" onclick="toggleExclude('${q.id}')" title="집계(건수·건당이익)에서 ${q.excluded?'다시 포함':'제외'}">${q.excluded?'집계포함':'집계제외'}</button>
+      </td>
     </tr>`;
   });
   flush();
@@ -1606,6 +1615,20 @@ async function toggleField(id, field){
   }catch(e){
     q[field] = !q[field];        // 실패하면 되돌림
     renderAdminRecords();
+    if(!handleSessionError(e)) alert('변경 실패: ' + e.message);
+  }
+}
+// 정산 집계 제외/포함 토글 (관리자)
+async function toggleExclude(id){
+  const q = quotes.find(x=>x.id===id);
+  if(!q) return;
+  q.excluded = !q.excluded;       // 즉시 반영
+  renderSettlement(); renderAdminRecords();
+  try{
+    await call('toggleField', token, id, 'excluded');
+  }catch(e){
+    q.excluded = !q.excluded;     // 실패 시 되돌림
+    renderSettlement(); renderAdminRecords();
     if(!handleSessionError(e)) alert('변경 실패: ' + e.message);
   }
 }
