@@ -1310,7 +1310,7 @@ function buildQuoteRows(){
   if(productRows.length){
     const feeBase = rows.filter(x=>x.feeBase).reduce((s,x)=>s+x.supply,0);
     const fee = feeBase * rates.feePercent / 100;
-    rows.push({ item:`결제대행 (${rates.feePercent}%)`, product:'', seller:'', qty:'', unit:'', supply:fee, note:'' });
+    rows.push({ item:`결제대행 (제품값의 ${rates.feePercent}%)`, product:'', seller:'', qty:'', unit:'', supply:fee, note:'' });
   }
   return rows;
 }
@@ -1593,7 +1593,7 @@ function viewQuote(id){
         <button class="btn" onclick="copyQuoteImage('viewQuoteCapture', this)">📷 이미지로 복사</button>
       </div>
       <div id="viewQuoteCapture" style="background:#fff;">
-        <h2 style="margin:0 0 8px;">${esc(q.quoteNo)} ${esc(q.client)} 견적서</h2>
+        <h2 style="margin:0 0 8px;">${(q.date ? String(q.date).slice(2).replace(/-/g,'. ') + ' ' : '')}${esc(q.client)} 견적서</h2>
         <table class="quote">${quoteTableHtml(q.items, q.bankSnapshot)}</table>
       </div>
     </div>
