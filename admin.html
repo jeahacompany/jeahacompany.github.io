@@ -678,59 +678,107 @@ function marginBreakdown(items){
 function quoteMargin(items){
   return marginBreakdown(items).reduce((s,r)=>s+r.margin, 0);
 }
-// 실제 적용 이익: 조정값(marginAdj)이 있으면 그 값, 없으면 계산값
+// 실제 적용 이익: ①세부 수정(marginDetail) ②건당이익 조정(marginAdj) ③기본 계산값 순
 function quoteProfit(q){
+  if(q && Array.isArray(q.marginDetail) && q.marginDetail.length){
+    return q.marginDetail.reduce((s,r)=> s + (Number(r.margin)||0), 0);
+  }
   const adj = q && q.marginAdj;
   if(adj === '' || adj === null || adj === undefined) return quoteMargin(q.items);
   const n = Number(adj);
   return isNaN(n) ? quoteMargin(q.items) : n;
 }
 function isMarginOverridden(q){
+  if(q && Array.isArray(q.marginDetail) && q.marginDetail.length) return true;
   const adj = q && q.marginAdj;
   return !(adj === '' || adj === null || adj === undefined) && !isNaN(Number(adj));
 }
-// 관리자 전용: 견적 상세 아래에 붙는 마진 상세표 HTML (+ 건당이익 조정)
+// 관리자 전용: 견적 상세 아래에 붙는 마진 상세표 (원가 직접 수정 가능)
 function marginDetailHtml(q){
   const items = q.items;
-  const rows = marginBreakdown(items);
-  const calcTotal = rows.reduce((s,r)=>s+r.margin, 0);
+  const base = marginBreakdown(items);
   const qty = quoteTotalQty(items) || 0;
-  const calcPer = qty ? Math.round(calcTotal/qty) : 0;
+  const saved = Array.isArray(q.marginDetail) ? q.marginDetail : null;
+  const rows = base.map((r,i)=>{
+    const rev = Number(r.revenue)||0;
+    const cost = (saved && saved[i] && saved[i].cost!=null) ? Number(saved[i].cost) : (Number(r.cost)||0);
+    return { label:r.label, qty:r.qty, revenue:rev, cost:cost, margin:rev-cost, note:r.note };
+  });
+  const total = rows.reduce((s,r)=>s+r.margin, 0);
+  const per = qty ? Math.round(total/qty) : 0;
   const overridden = isMarginOverridden(q);
-  const appliedTotal = overridden ? Number(q.marginAdj) : calcTotal;
-  const appliedPer = qty ? Math.round(appliedTotal/qty) : appliedTotal;
-  const body = rows.map(r=>`<tr>
+  const body = rows.map((r,i)=>`<tr>
     <td style="text-align:left;">${esc(r.label)}</td>
     <td>${r.qty===''?'-':r.qty}</td>
     <td>${won(r.revenue)}원</td>
-    <td>${r.cost?won(r.cost)+'원':'-'}</td>
-    <td style="font-weight:bold; color:${r.margin>0?'#a65b00':'#aaa'};">${r.margin>0?'+'+won(r.margin)+'원':'0'}</td>
+    <td><input type="number" class="md-cost" data-qid="${q.id}" data-i="${i}" data-rev="${r.revenue}" value="${r.cost}" oninput="recalcMarginDetail('${q.id}')" style="width:110px; text-align:right; padding:5px 7px; border:1px solid #ccc; border-radius:5px;"></td>
+    <td style="font-weight:bold;"><span class="md-margin" id="mdM-${q.id}-${i}" style="color:${r.margin>0?'#a65b00':(r.margin<0?'#c0392b':'#aaa')};">${(r.margin>=0?'+':'')+won(r.margin)}원</span></td>
     <td style="font-size:11px; color:#888; text-align:left;">${r.note}</td>
   </tr>`).join('');
   return `
   <div style="margin-top:22px; border:2px dashed var(--orange); border-radius:10px; padding:14px 16px; background:#fff8f2;">
-    <div style="font-weight:800; color:#a65b00; margin-bottom:4px;">🔒 마진 상세 <span style="font-size:12px; font-weight:normal;">(관리자 전용 · 고객에게는 절대 안 보임)</span></div>
+    <div style="font-weight:800; color:#a65b00; margin-bottom:4px;">🔒 마진 상세 <span style="font-size:12px; font-weight:normal;">(관리자 전용 · <b>원가를 직접 수정</b>하면 마진이 자동 계산돼요)</span></div>
     <div class="table-scroll">
     <table class="records" style="min-width:600px;">
-      <thead><tr><th>항목</th><th>수량</th><th>고객가(VAT포함)</th><th>원가</th><th>마진</th><th>설명</th></tr></thead>
+      <thead><tr><th>항목</th><th>수량</th><th>고객가(VAT포함)</th><th>원가 (수정 가능)</th><th>마진</th><th>설명</th></tr></thead>
       <tbody>${body}</tbody>
       <tfoot>
-        <tr style="background:#ffe4cc;"><td colspan="4" style="text-align:right; font-weight:800;">계산 총마진</td><td style="font-weight:800; color:#a65b00; font-size:15px;">+${won(calcTotal)}원</td><td></td></tr>
-        <tr style="background:#ffe4cc;"><td colspan="4" style="text-align:right; font-weight:800;">계산 건당이익 (÷ ${qty}건)</td><td style="font-weight:800; color:#a65b00; font-size:15px;">${won(calcPer)}원</td><td></td></tr>
+        <tr style="background:#ffe4cc;"><td colspan="4" style="text-align:right; font-weight:800;">총 마진</td><td style="font-weight:800; color:#a65b00; font-size:15px;"><span id="mdTotal-${q.id}">+${won(total)}원</span></td><td></td></tr>
+        <tr style="background:#ffe4cc;"><td colspan="4" style="text-align:right; font-weight:800;">건당 이익 (÷ ${qty}건)</td><td style="font-weight:800; color:#a65b00; font-size:15px;"><span id="mdPer-${q.id}">${won(per)}원</span></td><td></td></tr>
       </tfoot>
     </table>
     </div>
-    <div class="margin-adjust">
-      <div style="font-weight:800; color:#c0392b; margin-bottom:6px;">✏️ 건당이익 조정 <span style="font-size:12px; font-weight:normal; color:#888;">실제 적용될 건당이익을 직접 정할 수 있어요 (관리자 전용)</span></div>
-      <div class="adj-row">
-        <input type="number" id="adjPer-${q.id}" value="${appliedPer}" style="width:130px;"> <span style="color:#555;">원 / 건</span>
-        <button class="btn" onclick="saveMarginAdj('${q.id}')">수정 완료</button>
-        ${overridden ? `<button class="btn secondary" onclick="resetMarginAdj('${q.id}')">기본 계산값으로 복원</button>
-        <span class="adj-badge">현재 조정됨 (기본값 ${won(calcPer)}원)</span>` : ''}
-      </div>
-      <div style="font-size:12px; color:#888; margin-top:6px;">※ 여기서 정한 건당이익 × 수량이 전체 기록·정산의 이익에 그대로 반영됩니다.</div>
+    <div class="adj-row" style="margin-top:12px;">
+      <button class="btn" onclick="saveMarginDetail('${q.id}')">💾 마진 수정 완료</button>
+      ${overridden ? `<button class="btn secondary" onclick="resetMarginDetail('${q.id}')">기본값으로 복원</button> <span class="adj-badge">현재 수정됨</span>` : ''}
+      <span style="font-size:12px; color:#888;">※ 원가를 바꾸면 마진·총마진·건당이익이 즉시 다시 계산됩니다. "수정 완료"를 누르면 전체 기록·정산에 반영돼요.</span>
     </div>
   </div>`;
+}
+// 원가 입력 변경 시 마진·총마진·건당이익 즉시 재계산
+function recalcMarginDetail(id){
+  const q = quotes.find(x=>x.id===id);
+  const qty = q ? (quoteTotalQty(q.items)||0) : 0;
+  let total = 0;
+  document.querySelectorAll('.md-cost[data-qid="'+id+'"]').forEach(inp=>{
+    const rev = Number(inp.dataset.rev)||0, cost = Number(inp.value)||0, margin = rev - cost;
+    total += margin;
+    const mEl = document.getElementById('mdM-'+id+'-'+inp.dataset.i);
+    if(mEl){ mEl.textContent = (margin>=0?'+':'')+won(margin)+'원'; mEl.style.color = margin>0?'#a65b00':(margin<0?'#c0392b':'#aaa'); }
+  });
+  const tEl = document.getElementById('mdTotal-'+id); if(tEl) tEl.textContent = '+'+won(total)+'원';
+  const pEl = document.getElementById('mdPer-'+id); if(pEl) pEl.textContent = won(qty?Math.round(total/qty):0)+'원';
+}
+async function saveMarginDetail(id){
+  const q = quotes.find(x=>x.id===id); if(!q) return;
+  const base = marginBreakdown(q.items);
+  const detail = [];
+  document.querySelectorAll('.md-cost[data-qid="'+id+'"]').forEach(inp=>{
+    const i = Number(inp.dataset.i), rev = Number(inp.dataset.rev)||0, cost = Number(inp.value)||0;
+    const b = base[i] || {};
+    detail.push({ label:b.label||'', qty:b.qty, revenue:rev, cost:cost, margin:rev-cost, note:b.note||'' });
+  });
+  q.marginDetail = detail; q.marginAdj = ''; // 세부 수정이 우선
+  renderAdminRecords();
+  try{
+    await call('setMarginDetail', token, id, JSON.stringify(detail));
+    const det = document.getElementById('mdet-'+id); if(det){ toggleMarginRow(id,'m'); toggleMarginRow(id,'m'); }
+    const detS = document.getElementById('sdet-'+id); if(detS){ toggleMarginRow(id,'s'); toggleMarginRow(id,'s'); }
+    if(document.getElementById('admin-tab-settlement').classList.contains('active')) renderSettlement();
+    alert('마진 세부가 저장되었습니다.\n총마진 +' + won(detail.reduce((s,r)=>s+r.margin,0)) + '원 (전체 기록·정산에 반영됨)');
+  }catch(e){ if(!handleSessionError(e)) alert('저장 실패: ' + e.message); }
+}
+async function resetMarginDetail(id){
+  const q = quotes.find(x=>x.id===id); if(!q) return;
+  q.marginDetail = null; q.marginAdj = '';
+  renderAdminRecords();
+  try{
+    await call('setMarginDetail', token, id, '');
+    try{ await call('setMarginAdj', token, id, ''); }catch(_){}
+    const det = document.getElementById('mdet-'+id); if(det){ toggleMarginRow(id,'m'); toggleMarginRow(id,'m'); }
+    if(document.getElementById('admin-tab-settlement').classList.contains('active')) renderSettlement();
+    alert('기본 계산값으로 되돌렸습니다.');
+  }catch(e){ if(!handleSessionError(e)) alert('실패: ' + e.message); }
 }
 function quoteTotalQty(items){
   const r = (items||[]).find(x=>String(x.item||'').indexOf('리뷰어')===0);
@@ -910,6 +958,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // ---------- 관리자: 접속·업데이트 로그 ----------
 // 업데이트 내역 (개발/개선 기록 — 새 기능 추가할 때마다 위에 한 줄씩 추가)
 const UPDATE_LOG = [
+  { date:'2026-07-09', cat:'정산', title:'마진 세부 직접 수정', desc:'견적 세부(마진 상세)에서 항목별 원가를 직접 수정하면 마진·총마진·건당이익이 자동 계산되어 전체 기록·정산에 반영됩니다. "기본값으로 복원"도 가능합니다. (관리자 전용) / 완료 처리한 건은 날짜 D+N 배지가 사라지고, 정산 집계제외 시 색은 그대로 유지됩니다.' },
   { date:'2026-07-09', cat:'정산', title:'집계제외 버튼 + D+N 배지', desc:'정산에서 견적별로 "집계제외/집계포함"을 직접 눌러 건수·건당이익 집계에서 빼거나 넣을 수 있습니다(이익 0인 건은 자동 제외). 카드는 총매출·건수·총이익·건당이익 순. 전체 기록 날짜 옆에 신청 후 며칠 지났는지 색깔 배지(D+N)로 표시됩니다(3일↓초록·7일↓주황·그 이상 빨강).' },
   { date:'2026-07-08', cat:'정산', title:'건당이익 직접 조정', desc:'견적 세부(마진 상세)에서 건당이익을 관리자가 직접 조정할 수 있습니다. 조정하면 전체 기록·정산의 이익에 그대로 반영되며, "기본 계산값으로 복원"도 가능합니다. (관리자 전용)' },
   { date:'2026-07-08', cat:'기타', title:'데이터 자동 백업', desc:'모든 데이터는 입력 즉시 저장되고, 매일 새벽 4시 전체 데이터가 자동으로 백업됩니다. 회사 설정에서 "지금 즉시 백업"도 가능합니다.' },
@@ -1511,7 +1560,8 @@ function renderAdminRecords(){
       const per = qy ? Math.round(mg/qy) : 0;
       const dd = daysSince(q.date);
       const ddLevel = dd===null ? '' : (dd<=3 ? 'ok' : (dd<=7 ? 'warn' : 'late'));
-      const ddBadge = dd===null ? '' : ` <span class="dday-badge dday-${ddLevel}" title="신청 후 ${dd}일 경과">D+${dd}</span>`;
+      // 완료된 건은 D+N 숨김 (더 이상 진행속도 볼 필요 없음)
+      const ddBadge = (dd===null || q.completed) ? '' : ` <span class="dday-badge dday-${ddLevel}" title="신청 후 ${dd}일 경과">D+${dd}</span>`;
       const tr = document.createElement('tr');
       tr.id = 'mrow-' + q.id;
       tr.innerHTML = `
@@ -1586,8 +1636,8 @@ function renderSettlement(){
     const mg = quoteProfit(q), qy = quoteTotalQty(q.items), per = qy?Math.round(mg/qy):0, sales = Number(q.total)||0;
     const counted = mg > 0 && !q.excluded;
     if(!q.excluded){ mP+=mg; mS+=sales; if(mg>0){ mCq+=qy; mCn++; } }
-    const tag = q.excluded ? ' <span class="adj-tag" style="background:#999;">집계제외</span>' : (mg<=0 ? ' <span class="adj-tag" style="background:#999;">이익0·제외</span>' : '');
-    html += `<tr id="srow-${q.id}"${counted?'':' style="opacity:.55;"'}>
+    const tag = (!q.excluded && mg<=0) ? ' <span class="adj-tag" style="background:#999;">이익0</span>' : '';
+    html += `<tr id="srow-${q.id}">
       <td>${esc(q.quoteNo)}${tag}</td>
       <td>${q.date}</td>
       <td>${esc(q.client)}</td>
