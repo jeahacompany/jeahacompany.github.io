@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>도반글로벌 · 마케팅 현황</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI','Malgun Gothic',sans-serif; }
+  body { background:#f4f6f9; color:#222; padding-bottom:70px; }
+  .wrap { max-width:560px; margin:0 auto; padding:20px 16px 20px; }
+  .tabbar { position:fixed; bottom:0; left:0; right:0; max-width:560px; margin:0 auto; background:#fff;
+            border-top:1px solid #eee; display:flex; z-index:20; box-shadow:0 -2px 10px rgba(0,0,0,.04); }
+  .tabbar button { flex:1; border:none; background:none; padding:9px 0 11px; font-size:11px; color:#999; cursor:pointer; }
+  .tabbar button.on { color:#e8590c; font-weight:700; }
+  .tabbar .ic { display:block; font-size:19px; margin-bottom:2px; }
+  .head { text-align:center; padding:26px 0 18px; }
+  .head .co { color:#e8590c; font-weight:700; font-size:13px; letter-spacing:2px; }
+  .head h1 { font-size:24px; margin-top:6px; }
+  .head .sub { color:#888; font-size:13px; margin-top:4px; }
+  .bar-wrap { background:#fff; border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .bar-top { display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px; }
+  .bar { height:10px; background:#eee; border-radius:5px; overflow:hidden; }
+  .bar div { height:100%; background:linear-gradient(90deg,#ff922b,#e8590c); border-radius:5px; }
+  .sec { background:#fff; border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .sec h3 { font-size:14px; color:#e8590c; margin-bottom:10px; }
+  .row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #f4f4f4; font-size:14px; }
+  .row:last-child { border-bottom:none; }
+  .row .grow { flex:1; }
+  .row small { display:block; color:#999; font-size:12px; }
+  .st { font-size:12px; font-weight:600; padding:3px 10px; border-radius:12px; white-space:nowrap; }
+  .st-완료 { background:#d3f9d8; color:#237a3b; }
+  .st-진행중 { background:#fff3cd; color:#9a6700; }
+  .st-대기 { background:#e9ecef; color:#666; }
+  .log { padding:9px 0; border-bottom:1px solid #f4f4f4; font-size:14px; }
+  .log:last-child { border-bottom:none; }
+  .log .d { color:#e8590c; font-size:12px; font-weight:600; }
+  footer { text-align:center; color:#aaa; font-size:12px; margin-top:26px; line-height:1.7; }
+  .none { text-align:center; color:#aaa; padding:20px; font-size:13px; }
+  .cc-group { margin-bottom:14px; }
+  .cc-group:last-child { margin-bottom:0; }
+  .cc-gh { font-size:13px; font-weight:700; color:#444; margin-bottom:8px; }
+  .cc-gh span { color:#e8590c; font-size:12px; font-weight:500; margin-left:4px; }
+  .cc { border:1px solid #eee; border-radius:12px; padding:12px 14px; margin-bottom:8px; }
+  .cc.done { border-color:#c3f0cd; background:#f6fff8; }
+  .cc-top { display:flex; justify-content:space-between; align-items:center; }
+  .cc-name { font-weight:700; font-size:15px; }
+  .cc-meta { font-size:12px; color:#999; margin-top:3px; }
+  .cc-st { font-size:11px; font-weight:600; padding:3px 9px; border-radius:11px; white-space:nowrap; }
+  .cst-예정 { background:#fff3cd; color:#9a6700; }
+  .cst-완료 { background:#d3f9d8; color:#237a3b; }
+  .cc-links { display:flex; gap:8px; flex-wrap:wrap; margin-top:9px; }
+  .cc-link { display:inline-block; font-size:13px; font-weight:600; color:#e8590c; text-decoration:none;
+             background:#fff4ec; padding:7px 14px; border-radius:9px; }
+  .cc-link.sub { color:#555; background:#f1f3f5; }
+  .cc-link:hover { background:#ffe8d6; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+// 백엔드 주소 (Apps Script 웹앱 exec) — 배포 URL 바뀌면 이 한 줄만 교체
+var API_URL = 'https://script.google.com/macros/s/AKfycbz5vefvosq2qYIMY3ZO1YalFqqEtTII9YJshUwSe4TeWjEcJtv_LAdWpf3JMkmAsEVEcw/exec';
+var data = null;
+var app = document.getElementById('app');
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+function contentSection(list){
+  if(!list.length) return '';
+  var GROUPS=[['인플루언서','📷 인플루언서'],['블로그','✍️ 블로그'],['체험단','🎬 체험단']];
+  var card=function(s){
+    var up = !!s.완료;
+    var links = '';
+    if(s.URL) links += '<a class="cc-link" href="'+esc(s.URL)+'" target="_blank">📎 '+(s.종류==='블로그'?'후기':'콘텐츠')+' 보러가기</a>';
+    if(s.영수증URL) links += '<a class="cc-link sub" href="'+esc(s.영수증URL)+'" target="_blank">🧾 영수증 리뷰</a>';
+    return '<div class="cc'+(up?' done':'')+'">' +
+      '<div class="cc-top"><span class="cc-name">'+esc(s.계정명)+'</span>' +
+        '<span class="cc-st '+(up?'cst-완료':'cst-예정')+'">'+(up?'게시완료':'진행중')+'</span></div>' +
+      (s.일정?'<div class="cc-meta">'+esc(s.일정)+'</div>':'') +
+      (links?'<div class="cc-links">'+links+'</div>':'') +
+    '</div>';
+  };
+  var groups = GROUPS.map(function(g){
+    var arr=list.filter(function(s){return (s.종류||'인플루언서')===g[0];});
+    if(!arr.length) return '';
+    var up=arr.filter(function(s){return !!s.완료;}).length;
+    return '<div class="cc-group"><div class="cc-gh">'+g[1]+' <span>'+up+'/'+arr.length+' 완료</span></div>' +
+      arr.map(card).join('') + '</div>';
+  }).join('');
+  return '<div class="sec"><h3>콘텐츠 진행</h3>'+groups+'</div>';
+}
+
+function showTab(n, btn){
+  ['home','content','log','doc'].forEach(function(t){ var e=document.getElementById('tab-'+t); if(e) e.style.display = t===n?'':'none'; });
+  Array.from(document.querySelectorAll('.tabbar button')).forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on'); window.scrollTo(0,0);
+}
+
+// ─── 점주 로그인 게이트 ───
+var AUTHKEY = 'doban_client_' + (location.search || '');
+function needLogin(){ return data && data.로그인ID && sessionStorage.getItem(AUTHKEY)!=='ok'; }
+function renderLogin(msg){
+  app.innerHTML =
+    '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>'+esc(data.매장명)+'</h1><div class="sub">마케팅 현황 로그인</div></div>' +
+    '<div class="sec" style="max-width:340px;margin:0 auto">' +
+      '<input id="lid" placeholder="아이디" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:9px;margin-bottom:8px;font-size:15px">' +
+      '<input id="lpw" type="password" placeholder="비밀번호" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:9px;font-size:15px" onkeydown="if(event.key===\'Enter\')doLogin()">' +
+      (msg?'<div style="color:#c92a2a;font-size:13px;margin-top:8px">'+msg+'</div>':'') +
+      '<button onclick="doLogin()" style="width:100%;margin-top:12px;padding:12px;background:#e8590c;color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:600;cursor:pointer">로그인</button>' +
+    '</div>' +
+    '<footer>도반글로벌 유한회사 · 010-2944-1236</footer>';
+}
+function doLogin(){
+  var id=document.getElementById('lid').value.trim(), pw=document.getElementById('lpw').value.trim();
+  if(id===data.로그인ID && pw===data.로그인PW){ sessionStorage.setItem(AUTHKEY,'ok'); renderApp(); }
+  else renderLogin('아이디 또는 비밀번호가 틀렸습니다');
+}
+
+function notFound(msg){
+  app.innerHTML = '<div class="head"><h1>페이지를 찾을 수 없어요</h1><div class="sub">'+(msg||'링크를 다시 확인해주세요')+'</div></div>';
+}
+
+// ─── 데이터 로드: 주소의 ?c=공유코드 → 백엔드에서 fetch ───
+function boot(){
+  var code = new URLSearchParams(location.search).get('c');
+  if(!code){ notFound('공유 코드가 없습니다 (?c=코드)'); return; }
+  app.innerHTML = '<div class="head"><div class="co">DOBAN GLOBAL</div><div class="sub" style="margin-top:20px">불러오는 중…</div></div>';
+  fetch(API_URL + '?c=' + encodeURIComponent(code) + '&json=1')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d || d.ok===false || !d.result){ notFound('없는 코드이거나 준비 중입니다'); return; }
+      data = d.result;
+      if(needLogin()) renderLogin('');
+      else renderApp();
+    })
+    .catch(function(e){ notFound('서버 연결에 실패했습니다'); });
+}
+
+function renderApp() {
+  var done = data.작업.filter(function(t){return t.상태==='완료';}).length;
+  var total = data.작업.length;
+  var pct = total ? Math.round(done/total*100) : 0;
+
+  var homeTab =
+    '<div class="bar-wrap"><div class="bar-top"><b>전체 진행률</b><span>'+done+'/'+total+' 완료 ('+pct+'%)</span></div>' +
+    '<div class="bar"><div style="width:'+pct+'%"></div></div></div>' +
+    '<div class="sec"><h3>작업 항목</h3>' +
+    (data.작업.map(function (t) {
+      return '<div class="row"><div class="grow">'+esc(t.품목)+
+        '<small>'+esc(t.세부내용)+(t.완료일?' · 완료일 '+esc(t.완료일):'')+'</small></div>' +
+        '<span class="st st-'+esc(t.상태)+'">'+esc(t.상태)+'</span></div>';
+    }).join('') || '<div class="none">등록된 작업이 없습니다</div>') + '</div>';
+
+  var logTab = '<div class="sec"><h3>진행 기록</h3>' +
+    ((data.로그||[]).slice().reverse().map(function (l) {
+      return '<div class="log"><span class="d">'+esc(l.날짜)+'</span><br>'+esc(l.내용)+'</div>';
+    }).join('') || '<div class="none">아직 기록이 없습니다</div>') + '</div>';
+
+  var docTab = '<div class="sec"><h3>계약서</h3><div class="none">준비 중입니다.<br>계약서·전자서명이 곧 여기에 표시됩니다.</div></div>';
+
+  app.innerHTML =
+    '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>'+esc(data.매장명)+'</h1>' +
+    '<div class="sub">마케팅 진행 현황</div></div>' +
+    '<div id="tab-home" class="tabpane">'+homeTab+'</div>' +
+    '<div id="tab-content" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [])+'</div>' +
+    '<div id="tab-log" class="tabpane" style="display:none">'+logTab+'</div>' +
+    '<div id="tab-doc" class="tabpane" style="display:none">'+docTab+'</div>' +
+    '<footer>도반글로벌 유한회사<br>광주광역시 광산구 왕버들로 101, 2층 · 010-2944-1236</footer>' +
+    '<nav class="tabbar">' +
+      '<button class="on" onclick="showTab(\'home\',this)"><span class="ic">📊</span>진행현황</button>' +
+      '<button onclick="showTab(\'content\',this)"><span class="ic">📷</span>콘텐츠</button>' +
+      '<button onclick="showTab(\'log\',this)"><span class="ic">📝</span>기록</button>' +
+      '<button onclick="showTab(\'doc\',this)"><span class="ic">📄</span>계약서</button>' +
+    '</nav>';
+}
+
+boot();
+</script>
+</body>
+</html>
