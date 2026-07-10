@@ -524,7 +524,7 @@
           <div class="settle-card total"><span class="lbl">총 이익</span><span class="val" id="settleTotalProfit">0원</span></div>
           <div class="settle-card"><span class="lbl">건당이익</span><span class="val" id="settleAvgPer">0원</span></div>
         </div>
-        <p class="muted" style="margin:4px 0 10px;">※ 이익 = (리뷰어·택배·결제대행·+500원 수익) − 원가. 제품값은 통과. <b>이익이 0인 건은 목록엔 표시되지만 건수·건당이익 집계에서는 제외</b>됩니다. 견적의 <b>세부</b>를 누르면 항목별 마진이 펼쳐집니다. 관리자만 볼 수 있습니다.</p>
+        <p class="muted" style="margin:4px 0 10px;">※ 이익 = (리뷰어·택배·결제대행·+500원 수익) − 원가. 제품값은 통과. <b>이익이 0원인 건은 목록엔 표시되지만 매출·건수·이익 집계에서 자동 제외</b>됩니다. 견적의 <b>세부</b>를 누르면 항목별 마진이 펼쳐집니다. 관리자만 볼 수 있습니다.</p>
         <div class="table-scroll">
         <table class="records" id="settleTable">
           <thead>
@@ -1736,6 +1736,8 @@ function renderAdminRecords(){
 function onSettleMonthChange(){ settleDays = 0; renderSettlement(); }
 function setSettleRange(days){ settleDays = days; const m = document.getElementById('settleMonth'); if(m) m.value = ''; renderSettlement(); }
 function resetSettleRange(){ settleDays = 0; const m = document.getElementById('settleMonth'); if(m) m.value = ''; renderSettlement(); }
+// 수동 집계제외이거나 이익이 0원 이하면 → 정산 집계에서 완전히 제외(매출·이익·건수·건당)
+function isSettleExcluded(q){ return q.excluded || quoteProfit(q) <= 0; }
 function renderSettlement(){
   const sel = (document.getElementById('settleMonth')||{}).value || ''; // 'YYYY-MM' 또는 ''(전체)
   // 최근 N일 필터 기준일 (월 선택이 없을 때만)
@@ -1752,10 +1754,9 @@ function renderSettlement(){
   // 상단 카드 — 총매출·총이익은 전체, 건수·건당이익은 "이익>0"인 건만 집계
   let totalProfit = 0, totalSales = 0, countedNum = 0, countedQty = 0;
   active.forEach(q=>{
-    if(q.excluded) return;   // 수동 집계제외: 매출·이익·건수 전부 제외
-    const p = quoteProfit(q);
-    totalProfit += p; totalSales += Number(q.total)||0;
-    if(p > 0){ countedNum++; countedQty += quoteTotalQty(q.items); }  // 이익0: 건수·건당만 제외
+    if(isSettleExcluded(q)) return;   // 수동 제외 또는 이익0 → 매출·이익·건수 전부 제외
+    totalProfit += quoteProfit(q); totalSales += Number(q.total)||0;
+    countedNum++; countedQty += quoteTotalQty(q.items);
   });
   const avgPer = countedQty ? Math.round(totalProfit/countedQty) : 0;
   document.getElementById('settleTotalProfit').textContent = '+' + won(totalProfit) + '원';
@@ -1775,9 +1776,11 @@ function renderSettlement(){
     if(ym !== curMonth){ flush(); curMonth = ym; mP=0;mS=0;mCq=0;mCn=0;
       html += `<tr class="settle-month"><td colspan="8">📆 ${ym}</td></tr>`; }
     const mg = quoteProfit(q), qy = quoteTotalQty(q.items), per = qy?Math.round(mg/qy):0, sales = Number(q.total)||0;
-    const counted = mg > 0 && !q.excluded;
-    if(!q.excluded){ mP+=mg; mS+=sales; if(mg>0){ mCq+=qy; mCn++; } }
-    const tag = (!q.excluded && mg<=0) ? ' <span class="adj-tag" style="background:#999;">이익0</span>' : '';
+    const autoZero = !q.excluded && mg <= 0;      // 이익0 → 자동 집계제외
+    const excluded = q.excluded || autoZero;
+    const counted = !excluded;
+    if(!excluded){ mP+=mg; mS+=sales; mCq+=qy; mCn++; }
+    const tag = autoZero ? ' <span class="adj-tag" style="background:#999;">이익0 자동제외</span>' : '';
     html += `<tr id="srow-${q.id}">
       <td>${esc(q.quoteNo)}${tag}</td>
       <td>${q.date}</td>
@@ -1788,7 +1791,9 @@ function renderSettlement(){
       <td style="color:#a65b00;">${counted?won(per)+'원':'-'}</td>
       <td style="white-space:nowrap;">
         <button class="btn secondary" style="padding:3px 9px; font-size:12px;" onclick="toggleMarginRow('${q.id}','s')">세부 ▾</button>
-        <button class="btn ${q.excluded?'':'secondary'}" style="padding:3px 9px; font-size:12px;" onclick="toggleExclude('${q.id}')" title="집계(건수·건당이익)에서 ${q.excluded?'다시 포함':'제외'}">${q.excluded?'집계포함':'집계제외'}</button>
+        ${autoZero
+          ? `<span class="btn secondary" style="padding:3px 9px; font-size:12px; opacity:.55; cursor:default;" title="이익이 0원이라 집계에서 자동 제외됩니다">집계제외(자동)</span>`
+          : `<button class="btn ${q.excluded?'':'secondary'}" style="padding:3px 9px; font-size:12px;" onclick="toggleExclude('${q.id}')" title="집계에서 ${q.excluded?'다시 포함':'제외'}">${q.excluded?'집계포함':'집계제외'}</button>`}
       </td>
     </tr>`;
   });
