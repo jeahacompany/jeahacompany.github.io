@@ -474,6 +474,7 @@
             <label>택배비(원)<input type="text" inputmode="numeric" id="newCourierFee" value="1,850" oninput="fmtMoneyField(this)"></label>
             <label>결제대행 수수료(%)<input type="number" id="newFeePercent" value="3"></label>
             <label style="flex-direction:row; align-items:center; gap:6px;"><input type="checkbox" id="newExempt" style="width:auto;"> 타플랫폼비 면제 <span class="helpicon" tabindex="0">?<span class="tip">체크하면 쿠팡·스마트스토어 외 플랫폼(지마켓·옥션 등)에서도 +500원이 안 붙습니다.</span></span></label>
+            <label style="flex-direction:row; align-items:center; gap:6px;"><input type="checkbox" id="newCheapExempt" style="width:auto;"> 제품값 +500 면제 <span class="helpicon" tabindex="0">?<span class="tip">체크하면 제품값 9,900원 이하 상품의 +500원 추가비용이 안 붙습니다.</span></span></label>
           </div>
           <button class="btn" onclick="createClient()">고객사 추가</button>
           <p class="hint" style="margin-top:10px;">※ <b>고객사명이 곧 로그인 아이디</b>입니다. 고객사는 이 이름과 비밀번호로 로그인합니다.</p>
@@ -488,7 +489,7 @@
           <div class="table-scroll">
           <table class="records" id="clientsTable">
             <thead>
-              <tr><th>고객사명</th><th>비밀번호</th><th>사용중</th><th>등급</th><th>리뷰어단가</th><th>택배비</th><th>결제대행 수수료(%)</th><th>타플랫폼비<br>면제</th><th>저장</th><th>비번초기화</th><th>삭제</th></tr>
+              <tr><th>고객사명</th><th>비밀번호</th><th>사용중</th><th>등급</th><th>리뷰어단가</th><th>택배비</th><th>결제대행 수수료(%)</th><th>타플랫폼비<br>면제</th><th>제품값<br>+500 면제</th><th>저장</th><th>비번초기화</th><th>삭제</th></tr>
             </thead>
             <tbody id="clientsTbody"></tbody>
           </table>
@@ -622,7 +623,7 @@
 
 <script>
 let token = localStorage.getItem('qa_token') || null;
-let role = null, displayName = '', rates = { reviewFeePerUnit:0, marginPercent:0, feePercent:0, courierFeePerUnit:0 };
+let role = null, displayName = '', rates = { reviewFeePerUnit:0, marginPercent:0, feePercent:0, courierFeePerUnit:0, cheapExempt:0 };
 let company = { bank:'', account:'', holder:'' };
 let quotes = [];
 let settleDays = 0; // 정산 탭 최근 N일 필터 (0=미사용)
@@ -1181,6 +1182,8 @@ function isSurchargePlatform(platform){
 }
 // 고객별 '타플랫폼비 면제' 여부. (marginPercent 컬럼을 면제 플래그로 재활용: 1=면제)
 function isPlatformFeeExempt(){ return Number(rates.marginPercent) === 1; }
+// 고객별 '제품값 9,900원 이하 (+500원)' 면제 여부. (cheapExempt 컬럼: 1=면제)
+function isCheapFeeExempt(){ return Number(rates.cheapExempt) === 1; }
 function sel(id, current, options){
   return `<select class="cf" onchange="updateProductRow(${id.idx},'${id.field}',this.value)">` +
     options.map(o=>`<option value="${esc(o)}" ${o===current?'selected':''}>${esc(o)}</option>`).join('') +
@@ -1317,8 +1320,8 @@ function buildQuoteRows(){
       const oq = Number(o.qty)||0;
       const unitPrice = Math.round(o.cost||0);
       const pname = (r.product + (o.name ? ' ' + o.name : '')).trim();
-      rows.push({ item:'제품값', product:pname, seller:platformLabel(r), qty:oq, unit:unitPrice, supply:unitPrice*oq, feeBase:true, note:'' });
-      if((o.cost||0) > 0 && (o.cost||0) <= 9900 && oq > 0){
+      rows.push({ item:'제품값', product:pname, seller:platformLabel(r), qty:oq, unit:unitPrice, supply:unitPrice*oq, feeBase:(unitPrice > 500), note:'' });
+      if((o.cost||0) > 0 && (o.cost||0) <= 9900 && oq > 0 && !isCheapFeeExempt()){
         rows.push({ item:'제품값 9,900원 이하 (+500원)', product:pname, seller:'', qty:oq, unit:500, supply:500*oq, note:'' });
       }
     });
@@ -1926,6 +1929,7 @@ function renderClients(){
       <td><input type="text" inputmode="numeric" value="${won(c.courierFeePerUnit)}" oninput="fmtMoneyField(this); updateClientField(${idx},'courierFeePerUnit',numOf(this.value))"></td>
       <td><input type="number" value="${c.feePercent}" onchange="updateClientField(${idx},'feePercent',this.value)"></td>
       <td title="체크 시 지마켓·옥션 등 타플랫폼 +500원이 이 고객에게는 안 붙습니다"><input type="checkbox" ${Number(c.marginPercent)===1?'checked':''} onchange="updateClientField(${idx},'marginPercent',this.checked?1:0)"></td>
+      <td title="체크 시 제품값 9,900원 이하 상품의 +500원이 이 고객에게는 안 붙습니다"><input type="checkbox" ${Number(c.cheapExempt)===1?'checked':''} onchange="updateClientField(${idx},'cheapExempt',this.checked?1:0)"></td>
       <td><button class="btn secondary" onclick="saveClientRates(${idx})">저장</button></td>
       <td><button class="btn secondary" onclick="resetClientPassword('${esc(c.username)}')">초기화</button></td>
       <td><button class="btn danger" onclick="deleteClient('${esc(c.username)}','${esc(c.displayName)}')">삭제</button></td>
@@ -1973,7 +1977,7 @@ function togglePassword(idx){
   }
 }
 function updateClientField(idx, field, value){
-  if(field==='active' || field==='marginPercent') clients[idx][field] = value; // active=boolean, marginPercent=면제플래그(1/0)
+  if(field==='active' || field==='marginPercent' || field==='cheapExempt') clients[idx][field] = value; // active=boolean, marginPercent/cheapExempt=면제플래그(1/0)
   else clients[idx][field] = (value===''?0:parseFloat(value));
 }
 function applyTierPreset(t){
@@ -1990,7 +1994,7 @@ function applyTierToRow(idx, t){
 async function saveClientRates(idx){
   const c = clients[idx];
   try{
-    await call('adminSaveClientRates', token, c.username, { reviewFeePerUnit:c.reviewFeePerUnit, marginPercent:c.marginPercent, feePercent:c.feePercent, courierFeePerUnit:c.courierFeePerUnit, active:c.active });
+    await call('adminSaveClientRates', token, c.username, { reviewFeePerUnit:c.reviewFeePerUnit, marginPercent:c.marginPercent, feePercent:c.feePercent, courierFeePerUnit:c.courierFeePerUnit, cheapExempt:c.cheapExempt, active:c.active });
     alert(c.displayName + ' 단가가 저장되었습니다.');
   }catch(e){ if(!handleSessionError(e)) alert('저장 실패: ' + e.message); }
 }
@@ -2020,6 +2024,7 @@ async function createClient(){
     tempPassword: document.getElementById('newTempPassword').value.trim(),
     reviewFeePerUnit: numOf(document.getElementById('newReviewFee').value),
     marginPercent: document.getElementById('newExempt').checked ? 1 : 0, // 타플랫폼비 면제 플래그 (컬럼 재활용)
+    cheapExempt: document.getElementById('newCheapExempt').checked ? 1 : 0, // 제품값 9,900↓ +500 면제
     feePercent: document.getElementById('newFeePercent').value,
     courierFeePerUnit: numOf(document.getElementById('newCourierFee').value)
   };
