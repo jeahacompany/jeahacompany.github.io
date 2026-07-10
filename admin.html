@@ -1320,7 +1320,7 @@ function buildQuoteRows(){
       const oq = Number(o.qty)||0;
       const unitPrice = Math.round(o.cost||0);
       const pname = (r.product + (o.name ? ' ' + o.name : '')).trim();
-      rows.push({ item:'제품값', product:pname, seller:platformLabel(r), qty:oq, unit:unitPrice, supply:unitPrice*oq, feeBase:(unitPrice > 500), note:'' });
+      rows.push({ item:'제품값', product:pname, seller:platformLabel(r), qty:oq, unit:unitPrice, supply:unitPrice*oq, feeBase:true, note:'' });
       if((o.cost||0) > 0 && (o.cost||0) <= 9900 && oq > 0 && !isCheapFeeExempt()){
         rows.push({ item:'제품값 9,900원 이하 (+500원)', product:pname, seller:'', qty:oq, unit:500, supply:500*oq, note:'' });
       }
