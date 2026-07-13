@@ -705,7 +705,7 @@ var STATUS_OPTS = ['-','예정','진행중','완료'];
 var SEED_COLS = {
   '인플루언서': [
     {k:'계정명', label:'채널명', type:'text'},
-    {k:'진행여부', label:'진행 여부', type:'status'},
+    {k:'진행여부', label:'진행 상태', type:'status', opts:['-','촬영예정','편집중','게시완료']},
     {k:'촬영일정', label:'촬영 일정', type:'date'},
     {k:'촬영시간', label:'촬영 시간', type:'time'},
     {k:'촬영여부', label:'촬영 여부', type:'status'},
@@ -715,6 +715,7 @@ var SEED_COLS = {
   ],
   '블로그': [
     {k:'계정명', label:'닉네임', type:'text'},
+    {k:'진행여부', label:'진행 상태', type:'status', opts:['-','방문예정','작성중','게시완료']},
     {k:'방문일정', label:'방문 일정', type:'date'},
     {k:'방문시간', label:'방문 시간', type:'time'},
     {k:'방문여부', label:'방문 여부', type:'status'},
@@ -1410,7 +1411,7 @@ function showDTab(t){ DTAB=t;
 }
 function seedCellHTML(s,col){
   var v=s[col.k]==null?'':s[col.k];
-  if(col.type==='status') return '<select class="ss-st st-'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">'+STATUS_OPTS.map(function(o){return '<option'+(o===v?' selected':'')+'>'+o+'</option>';}).join('')+'</select>';
+  if(col.type==='status'){ var opts=col.opts||STATUS_OPTS; return '<select class="ss-st st-'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">'+opts.map(function(o){return '<option'+(o===v?' selected':'')+'>'+o+'</option>';}).join('')+'</select>'; }
   if(col.type==='url') return '<div class="ss-url"><input value="'+esc(v)+'" placeholder="URL" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">'+(v?'<a href="'+esc(v)+'" target="_blank">🔗</a>':'')+'</div>';
   var tp = col.type==='date' ? 'date' : (col.type==='time' ? 'time' : 'text');
   return '<input type="'+tp+'" value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';

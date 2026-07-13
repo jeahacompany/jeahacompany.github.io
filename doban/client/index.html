@@ -45,8 +45,15 @@
   .cc-top { display:flex; justify-content:space-between; align-items:center; }
   .cc-name { font-weight:700; font-size:15px; }
   .cc-meta { font-size:12px; color:#999; margin-top:3px; }
+  .cc-body { margin-top:8px; display:flex; flex-direction:column; gap:5px; }
+  .cc-line { font-size:13px; color:#444; display:flex; align-items:center; gap:6px; }
+  .cc-line .cc-ico { width:18px; text-align:center; }
+  .cc-line .cc-lb { color:#999; min-width:38px; }
+  .cc-line b { color:#222; font-weight:700; }
+  .cc-tbd { color:#bbb; font-size:12px; }
   .cc-st { font-size:11px; font-weight:600; padding:3px 9px; border-radius:11px; white-space:nowrap; }
   .cst-예정 { background:#fff3cd; color:#9a6700; }
+  .cst-편집 { background:#e7f0ff; color:#2c6ee0; }
   .cst-완료 { background:#d3f9d8; color:#237a3b; }
   .cc-links { display:flex; gap:8px; flex-wrap:wrap; margin-top:9px; }
   .cc-link { display:inline-block; font-size:13px; font-weight:600; color:#e8590c; text-decoration:none;
@@ -81,33 +88,57 @@ function saveInfo(id, field, val){
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
-function contentSection(list){
-  if(!list.length) return '';
-  var GROUPS=[['인플루언서','📷 인플루언서'],['블로그','✍️ 블로그'],['체험단','🎬 체험단']];
+function contentSection(list, only){
+  var title = only==='insta' ? '📷 인스타' : only==='blog' ? '✍️ 블로그' : '콘텐츠 진행';
+  var GROUPS = only==='insta' ? [['인스타','📷 인스타']] : only==='blog' ? [['블로그','✍️ 블로그']] : [['인스타','📷 인스타'],['블로그','✍️ 블로그']];
+  var isBlog=function(s){ return s.종류==='블로그' || s.종류==='체험단'; };
+  if(only==='insta') list = list.filter(function(s){return !isBlog(s);});
+  else if(only==='blog') list = list.filter(isBlog);
+  if(!list.length) return '<div class="sec"><h3>'+title+'</h3><div class="none">아직 등록된 콘텐츠가 없습니다</div></div>';
+  var fmt=function(d,t){ if(!d) return ''; return esc(d)+(t&&String(t).indexOf('--')<0?' '+esc(t):''); };
+  var line=function(ico,label,val,tbd){ return '<div class="cc-line"><span class="cc-ico">'+ico+'</span><span class="cc-lb">'+label+'</span>'+(val?'<b>'+val+'</b>':'<span class="cc-tbd">'+tbd+'</span>')+'</div>'; };
+  var status=function(s,blog){ // 관리자 진행여부 우선 → 없으면 촬영/방문여부로 판별
+    var p = s.진행여부;
+    if(p==='게시완료' || s.URL || s.인스타URL || s.완료) return { label:'게시 완료', cls:'완료', color:'#237a3b' };
+    if(p==='편집중' || p==='작성중') return { label: blog?'글 작성 중':'편집 중', cls:'편집', color:'#2c6ee0' };
+    if(p==='촬영예정' || p==='방문예정') return { label: blog?'방문 예정':'촬영 예정', cls:'예정', color:'#9a6700' };
+    var did = blog ? (s.방문여부==='완료') : (s.촬영여부==='완료');
+    if(did) return { label: blog?'글 작성 중':'편집 중', cls:'편집', color:'#2c6ee0' };
+    return { label: blog?'방문 예정':'촬영 예정', cls:'예정', color:'#9a6700' };
+  };
   var card=function(s){
-    var up = !!s.완료;
+    var blog=isBlog(s), st=status(s,blog), up=(st.cls==='완료');
+    var shoot = blog ? fmt(s.방문일정,s.방문시간) : fmt(s.촬영일정,s.촬영시간);
+    if(!shoot && s.일정) shoot = esc(s.일정);
+    var upload = s.업로드일정 ? esc(s.업로드일정) : '';
+    var url = s.URL || s.인스타URL || '';
+    var body =
+      line(blog?'🏠':'📸', blog?'방문':'촬영', shoot, blog?'방문 일정 조율 중':'촬영 일정 조율 중') +
+      (blog ? '' : line('📤','업로드', upload, up?'':'촬영 후 안내')) +
+      line('🔖','상태', '<span style="color:'+st.color+';font-weight:700">'+st.label+'</span>', '');
     var links = '';
-    if(s.URL) links += '<a class="cc-link" href="'+esc(s.URL)+'" target="_blank">📎 '+(s.종류==='블로그'?'후기':'콘텐츠')+' 보러가기</a>';
+    if(url) links += '<a class="cc-link" href="'+esc(url)+'" target="_blank">🔗 '+(blog?'후기 보기':'콘텐츠 보기')+'</a>';
     if(s.영수증URL) links += '<a class="cc-link sub" href="'+esc(s.영수증URL)+'" target="_blank">🧾 영수증 리뷰</a>';
     return '<div class="cc'+(up?' done':'')+'">' +
-      '<div class="cc-top"><span class="cc-name">'+esc(s.계정명)+'</span>' +
-        '<span class="cc-st '+(up?'cst-완료':'cst-예정')+'">'+(up?'게시완료':'진행중')+'</span></div>' +
-      (s.일정?'<div class="cc-meta">'+esc(s.일정)+'</div>':'') +
+      '<div class="cc-top"><span class="cc-name">'+esc(s.계정명||'섭외 진행 중')+'</span>' +
+        '<span class="cc-st cst-'+st.cls+'">'+st.label+'</span></div>' +
+      '<div class="cc-body">'+body+'</div>' +
       (links?'<div class="cc-links">'+links+'</div>':'') +
     '</div>';
   };
   var groups = GROUPS.map(function(g){
-    var arr=list.filter(function(s){return (s.종류||'인플루언서')===g[0];});
-    if(!arr.length) return '';
+    var arr = g[0]==='인스타' ? list.filter(function(s){return !isBlog(s);}) : list.filter(isBlog);
     var up=arr.filter(function(s){return !!s.완료;}).length;
-    return '<div class="cc-group"><div class="cc-gh">'+g[1]+' <span>'+up+'/'+arr.length+' 완료</span></div>' +
-      arr.map(card).join('') + '</div>';
+    var gh = only ? '' : '<div class="cc-gh">'+g[1]+' <span>'+up+'/'+arr.length+' 완료</span></div>'; // 탭 분리 시 그룹헤더 생략
+    var inner = arr.length ? arr.map(card).join('') : '<div class="none">아직 등록된 '+g[0]+' 콘텐츠가 없습니다</div>';
+    return '<div class="cc-group">'+gh+inner+'</div>';
   }).join('');
-  return '<div class="sec"><h3>콘텐츠 진행</h3>'+groups+'</div>';
+  var head = only ? '<h3>'+title+' <span style="font-size:12px;color:#e8590c;font-weight:600">'+list.filter(function(s){return !!s.완료;}).length+'/'+list.length+' 완료</span></h3>' : '<h3>'+title+'</h3>';
+  return '<div class="sec">'+head+groups+'</div>';
 }
 
 function showTab(n, btn){
-  ['home','content','info','log','doc'].forEach(function(t){ var e=document.getElementById('tab-'+t); if(e) e.style.display = t===n?'':'none'; });
+  ['home','insta','blog','info','log','doc'].forEach(function(t){ var e=document.getElementById('tab-'+t); if(e) e.style.display = t===n?'':'none'; });
   Array.from(document.querySelectorAll('.tabbar button')).forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on'); window.scrollTo(0,0);
 }
@@ -228,14 +259,16 @@ function renderApp() {
     '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>'+esc(data.매장명)+'</h1>' +
     '<div class="sub">마케팅 진행 현황 <a onclick="clientLogout()" style="color:#c92a2a;cursor:pointer;font-size:12px;margin-left:8px;text-decoration:underline">로그아웃</a></div></div>' +
     '<div id="tab-home" class="tabpane">'+homeTab+'</div>' +
-    '<div id="tab-content" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [])+'</div>' +
+    '<div id="tab-insta" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [], 'insta')+'</div>' +
+    '<div id="tab-blog" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [], 'blog')+'</div>' +
     '<div id="tab-info" class="tabpane" style="display:none">'+infoTab+'</div>' +
     '<div id="tab-log" class="tabpane" style="display:none">'+logTab+'</div>' +
     '<div id="tab-doc" class="tabpane" style="display:none">'+docTab+'</div>' +
     '<footer>도반글로벌 유한회사<br>광주광역시 광산구 왕버들로 101, 2층 · 010-2944-1236</footer>' +
     '<nav class="tabbar">' +
       '<button class="on" onclick="showTab(\'home\',this)"><span class="ic">📊</span>진행현황</button>' +
-      '<button onclick="showTab(\'content\',this)"><span class="ic">📷</span>콘텐츠</button>' +
+      '<button onclick="showTab(\'insta\',this)"><span class="ic">📷</span>인스타</button>' +
+      '<button onclick="showTab(\'blog\',this)"><span class="ic">✍️</span>블로그</button>' +
       '<button onclick="showTab(\'info\',this)"><span class="ic">📋</span>내정보</button>' +
       '<button onclick="showTab(\'log\',this)"><span class="ic">📝</span>기록</button>' +
       '<button onclick="showTab(\'doc\',this)"><span class="ic">📄</span>계약서</button>' +
