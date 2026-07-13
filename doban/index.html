@@ -146,6 +146,12 @@
   table.ss .ss-act a { text-decoration:none; }
   .add-row { margin-top:6px; font-size:12px; color:#e8590c; background:#fff; border:1px dashed #e8590c; border-radius:7px; padding:6px 12px; cursor:pointer; }
   .add-row:hover { background:#fff8f4; }
+  table.ss.info-tbl { min-width:0; }
+  table.ss .inf-val { display:flex; align-items:center; }
+  table.ss .inf-val input { flex:1; }
+  .inf-cp { border:none; background:#f1f3f5; cursor:pointer; font-size:12px; padding:5px 7px; border-radius:5px; margin-right:3px; }
+  .inf-cp:hover { background:#ffe8d6; }
+  .inf-go { text-decoration:none; background:#e8590c; color:#fff; font-weight:700; border-radius:5px; padding:3px 8px; margin-right:3px; font-size:13px; }
   .row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f4f4f4; gap:8px; font-size:14px; }
   .row:last-child { border-bottom:none; }
   .row .grow { flex:1; }
@@ -459,6 +465,7 @@ function execTaskOf(id){ return tasksOf(id).reduce(function(s,t){return s+(Numbe
 function roundExec(id,r){ return tasksOf(id).filter(function(t){return roundOf(t)===r;}).reduce(function(s,t){return s+(Number(t.실행비용)||0);},0); }
 function totalExecOf(id){ return execTaskOf(id) + costSum(id); } // 작업 실행비 + 기타 실행비
 function seedsOf(id){ return (DB.섭외||[]).filter(function(s){return s.광고주ID===id;}); }
+function infosOf(id){ return (DB.정보||[]).filter(function(s){return s.광고주ID===id;}).sort(function(a,b){return (Number(a.순서)||0)-(Number(b.순서)||0);}); }
 var STATUS_OPTS = ['-','예정','진행중','완료'];
 // 종류별 표 컬럼 (실제 시트 그대로). type: text/date/time/status/url
 var SEED_COLS = {
@@ -829,6 +836,18 @@ function openClient(id) {
     '<div class="row"><div class="grow"><span>광고주 공유 링크</span><small>점주는 이 링크 + 위 ID/비번으로 자기 매장만 봅니다</small></div>' +
       '<button class="btn-ghost" onclick="copyShare(\''+share+'\')">링크 복사</button></div></div>' +
 
+  '<div class="sec"><h3>📋 계정 정보 <span style="font-size:11px;color:#999;font-weight:400">· 아이디/비번·주소 등, 점주도 편집</span></h3>' +
+    '<div class="ss-wrap"><table class="ss info-tbl"><thead><tr><th style="width:100px">항목</th><th>값</th><th style="width:140px">바로가기 링크</th><th></th></tr></thead><tbody>' +
+    (infosOf(id).length ? infosOf(id).map(function(f){
+      return '<tr>' +
+        '<td style="font-weight:600;color:#555">'+esc(f.항목)+'</td>' +
+        '<td><div class="inf-val"><input id="inf_'+f.ID+'" value="'+esc(f.값)+'" placeholder="입력" onchange="setInfo(\''+f.ID+'\',\'값\',this.value)"><button class="inf-cp" onclick="copyVal(\'inf_'+f.ID+'\')">📋</button></div></td>' +
+        '<td><div class="inf-val"><input value="'+esc(f.링크||'')+'" placeholder="URL" onchange="setInfo(\''+f.ID+'\',\'링크\',this.value)">'+(f.링크?'<a class="inf-go" href="'+esc(f.링크)+'" target="_blank">→</a>':'')+'</div></td>' +
+        '<td class="ss-act"><button class="del" onclick="del(\'정보\',\''+f.ID+'\')">✕</button></td></tr>';
+    }).join('') : '<tr><td colspan="4" style="text-align:center;color:#bbb;padding:8px">정보 항목이 없어요</td></tr>') +
+    '</tbody></table></div>' +
+    '<button class="add-row" onclick="addInfoRow()">+ 항목 추가 (옥외광고 등)</button></div>' +
+
   '<div class="sec"><h3>견적·작업 · 계약 총액 '+won(contractOf(id))+'원 ' +
       '<button class="mg-toggle" onclick="SHOWMARGIN=!SHOWMARGIN;openClient(\''+id+'\')">'+(SHOWMARGIN?'원가·마진 숨기기':'원가·마진 보기')+'</button></h3>' +
     '<div class="round-tabs">' +
@@ -965,6 +984,9 @@ function setExec(taskId, field, val){
 function cycleSeed(sid, cur){ busy(gs('updateSeed',{ID:sid, 상태:SEED_FLOW[cur]||'섭외'})); }
 function setSeed(sid, field, val){ if(field==='단가') val=Number(String(val).replace(/[^0-9]/g,''))||0; var o={ID:sid}; o[field]=val; busy(gs('updateSeed',o)); }
 function addSeedRow(종류){ busy(gs('addSeed',{광고주ID:CUR,종류:종류,계정명:'',상태:'섭외'})); }
+function setInfo(id, field, val){ var o={ID:id}; o[field]=val; busy(gs('setInfo',o)); }
+function addInfoRow(){ var name=prompt('추가할 항목 이름 (예: 옥외광고, 옥외광고 비밀번호)'); if(!name) return; busy(gs('addInfo',{광고주ID:CUR,항목:name.trim(),순서:99})); }
+function copyVal(inputId){ var el=document.getElementById(inputId); if(!el) return; navigator.clipboard.writeText(el.value).then(function(){toast('복사됨: '+(el.value||'(빈 값)'));}); }
 function addLog(){
   var 내용=document.getElementById('nl내용').value.trim(); if(!내용) return toast('내용을 입력하세요');
   busy(gs('addLog',{광고주ID:CUR,내용:내용,작성자:document.getElementById('nl작성자').value}));

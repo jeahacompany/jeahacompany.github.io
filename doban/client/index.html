@@ -53,6 +53,12 @@
              background:#fff4ec; padding:7px 14px; border-radius:9px; }
   .cc-link.sub { color:#555; background:#f1f3f5; }
   .cc-link:hover { background:#ffe8d6; }
+  .inf-row { padding:9px 0; border-bottom:1px solid #f4f4f4; }
+  .inf-row:last-child { border-bottom:none; }
+  .inf-row label { display:block; font-size:12px; color:#888; margin-bottom:4px; }
+  .inf-in { display:flex; gap:6px; align-items:center; }
+  .inf-in input { flex:1; padding:9px 10px; border:1px solid #e3e3e3; border-radius:8px; font-size:14px; }
+  .inf-in input:focus { outline:2px solid #e8590c; outline-offset:-1px; border-color:#e8590c; }
 </style>
 </head>
 <body>
@@ -60,8 +66,13 @@
 <script>
 // 백엔드 주소 (Apps Script 웹앱 exec) — 배포 URL 바뀌면 이 한 줄만 교체
 var API_URL = 'https://script.google.com/macros/s/AKfycbz5vefvosq2qYIMY3ZO1YalFqqEtTII9YJshUwSe4TeWjEcJtv_LAdWpf3JMkmAsEVEcw/exec';
-var data = null;
+var data = null, CODE = null;
 var app = document.getElementById('app');
+function saveInfo(id, field, val){
+  fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({ clientSaveInfo:{ code:CODE, ID:id, '값':(field==='값'?val:undefined), '링크':(field==='링크'?val:undefined) } }) })
+    .then(function(r){return r.json();}).then(function(d){ if(!d||d.ok===false) alert('저장 실패'); });
+}
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
 function contentSection(list){
@@ -90,7 +101,7 @@ function contentSection(list){
 }
 
 function showTab(n, btn){
-  ['home','content','log','doc'].forEach(function(t){ var e=document.getElementById('tab-'+t); if(e) e.style.display = t===n?'':'none'; });
+  ['home','content','info','log','doc'].forEach(function(t){ var e=document.getElementById('tab-'+t); if(e) e.style.display = t===n?'':'none'; });
   Array.from(document.querySelectorAll('.tabbar button')).forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on'); window.scrollTo(0,0);
 }
@@ -122,6 +133,7 @@ function notFound(msg){
 // ─── 데이터 로드: 주소의 ?c=공유코드 → 백엔드에서 fetch ───
 function boot(){
   var code = new URLSearchParams(location.search).get('c');
+  CODE = code;
   if(!code){ notFound('공유 코드가 없습니다 (?c=코드)'); return; }
   app.innerHTML = '<div class="head"><div class="co">DOBAN GLOBAL</div><div class="sub" style="margin-top:20px">불러오는 중…</div></div>';
   fetch(API_URL, {
@@ -161,17 +173,27 @@ function renderApp() {
 
   var docTab = '<div class="sec"><h3>계약서</h3><div class="none">준비 중입니다.<br>계약서·전자서명이 곧 여기에 표시됩니다.</div></div>';
 
+  var infoTab = '<div class="sec"><h3>내 계정 정보</h3>' +
+    '<div style="font-size:12px;color:#999;margin-bottom:10px">아이디·비밀번호 등을 입력해두시면 담당자가 대신 관리해드려요. (입력하면 자동 저장)</div>' +
+    ((data.정보||[]).length ? (data.정보||[]).map(function(f){
+      return '<div class="inf-row"><label>'+esc(f.항목)+'</label>' +
+        '<div class="inf-in"><input value="'+esc(f.값||'')+'" placeholder="입력" onchange="saveInfo(\''+f.ID+'\',\'값\',this.value)">' +
+        (f.링크?'<a class="cc-link" href="'+esc(f.링크)+'" target="_blank" style="padding:6px 10px">→</a>':'') + '</div></div>';
+    }).join('') : '<div class="none">정보 항목이 아직 없어요.</div>') + '</div>';
+
   app.innerHTML =
     '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>'+esc(data.매장명)+'</h1>' +
     '<div class="sub">마케팅 진행 현황</div></div>' +
     '<div id="tab-home" class="tabpane">'+homeTab+'</div>' +
     '<div id="tab-content" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [])+'</div>' +
+    '<div id="tab-info" class="tabpane" style="display:none">'+infoTab+'</div>' +
     '<div id="tab-log" class="tabpane" style="display:none">'+logTab+'</div>' +
     '<div id="tab-doc" class="tabpane" style="display:none">'+docTab+'</div>' +
     '<footer>도반글로벌 유한회사<br>광주광역시 광산구 왕버들로 101, 2층 · 010-2944-1236</footer>' +
     '<nav class="tabbar">' +
       '<button class="on" onclick="showTab(\'home\',this)"><span class="ic">📊</span>진행현황</button>' +
       '<button onclick="showTab(\'content\',this)"><span class="ic">📷</span>콘텐츠</button>' +
+      '<button onclick="showTab(\'info\',this)"><span class="ic">📋</span>내정보</button>' +
       '<button onclick="showTab(\'log\',this)"><span class="ic">📝</span>기록</button>' +
       '<button onclick="showTab(\'doc\',this)"><span class="ic">📄</span>계약서</button>' +
     '</nav>';
