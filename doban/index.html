@@ -237,6 +237,10 @@
   table.ss input, table.ss select { border:none; padding:6px 6px; font-size:12px; width:100%; background:transparent; box-sizing:border-box; }
   table.ss input:focus, table.ss select:focus { outline:2px solid #e8590c; outline-offset:-2px; border-radius:3px; }
   table.ss .num { text-align:right; }
+  table.ss .ct-date, table.ss .ct-time { min-width:104px; }
+  table.ss input.ss-dt { cursor:pointer; }
+  table.ss input.ss-dt.empty { color:#bbb; }
+  table.ss input.ss-dt::-webkit-calendar-picker-indicator { cursor:pointer; opacity:.55; }
   table.ss .ct-text input, table.ss .ct-url input { min-width:90px; }
   table.ss .ct-url { min-width:150px; }
   table.ss .ss-st { font-weight:700; text-align:center; }
@@ -710,7 +714,7 @@ var SEED_COLS = {
     {k:'촬영일정', label:'촬영 일정', type:'date'},
     {k:'촬영시간', label:'촬영 시간', type:'time'},
     {k:'촬영여부', label:'촬영 여부', type:'status'},
-    {k:'업로드일정', label:'업로드 일정', type:'text'},
+    {k:'업로드일정', label:'업로드 일정', type:'date'},
     {k:'URL', label:'업로드 URL', type:'url'},
     {k:'비고', label:'비고', type:'text'}
   ],
@@ -1376,6 +1380,8 @@ function setExec(taskId, field, val){
 }
 function cycleSeed(sid, cur){ var ns=SEED_FLOW[cur]||'섭외'; patchLocal('섭외',sid,{상태:ns}); rerender(); bg(gs('updateSeed',{ID:sid,상태:ns})); }
 function setSeed(sid, field, val){ if(field==='단가') val=Number(String(val).replace(/[^0-9]/g,''))||0; var o={ID:sid}; o[field]=val; patchLocal('섭외',sid,o); bg(gs('updateSeed',o)); } // 명단 기록: 즉시, 재렌더 없음(끊김 방지)
+// 날짜/시간 칸: 아무데나 클릭하면 달력/시계 열림. 빈 날짜면 오늘로 채우고 즉시 저장(당일 트래킹)
+function seedPick(el, sid, field, isDate){ try{ if(isDate && !el.value){ el.value=todayISO(); el.classList.remove('empty'); setSeed(sid,field,el.value); } if(el.showPicker) el.showPicker(); }catch(e){} }
 function addSeedRow(종류, 차수){ var r=차수||CURROUND;
   var tmp={ID:'tmp'+Date.now(),광고주ID:CUR,종류:종류,계정명:'',상태:'섭외',차수:r,공개:'Y'};
   DB.섭외.push(tmp); SEEDOPEN[종류+'_'+r]=true; rerender(); // 즉시 반영
@@ -1415,8 +1421,14 @@ function seedCellHTML(s,col){
   var v=s[col.k]==null?'':s[col.k];
   if(col.type==='status'){ var opts=col.opts||STATUS_OPTS; return '<select class="ss-st st-'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">'+opts.map(function(o){return '<option'+(o===v?' selected':'')+'>'+o+'</option>';}).join('')+'</select>'; }
   if(col.type==='url') return '<div class="ss-url"><input value="'+esc(v)+'" placeholder="URL" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">'+(v?'<a href="'+esc(v)+'" target="_blank">🔗</a>':'')+'</div>';
-  var tp = col.type==='date' ? 'date' : (col.type==='time' ? 'time' : 'text');
-  return '<input type="'+tp+'" value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
+  if(col.type==='date' || col.type==='time'){
+    var is24 = col.type==='time' ? ' lang="en-GB"' : ''; // 시간 24시간제 강제
+    var isDate = col.type==='date';
+    return '<input type="'+col.type+'"'+is24+' class="ss-dt'+(v?'':' empty')+'" value="'+esc(v)+'"'+
+      ' onclick="seedPick(this,\''+s.ID+'\',\''+col.k+'\','+isDate+')"'+
+      ' onchange="this.classList.toggle(\'empty\',!this.value);setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
+  }
+  return '<input type="text" value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
 }
 function seedTableHTML(id, groups){
   var seeds=seedsOf(id);
