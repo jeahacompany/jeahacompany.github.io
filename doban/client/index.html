@@ -54,6 +54,7 @@
   .cc-st { font-size:11px; font-weight:600; padding:3px 9px; border-radius:11px; white-space:nowrap; }
   .cst-예정 { background:#fff3cd; color:#9a6700; }
   .cst-편집 { background:#e7f0ff; color:#2c6ee0; }
+  .cst-예약 { background:#efe9ff; color:#7048e8; }
   .cst-완료 { background:#d3f9d8; color:#237a3b; }
   .cc-links { display:flex; gap:8px; flex-wrap:wrap; margin-top:9px; }
   .cc-link { display:inline-block; font-size:13px; font-weight:600; color:#e8590c; text-decoration:none;
@@ -97,12 +98,15 @@ function contentSection(list, only){
   if(!list.length) return '<div class="sec"><h3>'+title+'</h3><div class="none">아직 등록된 콘텐츠가 없습니다</div></div>';
   var bad=function(v){ v=String(v==null?'':v).trim(); return !v || v.indexOf('--')>=0 || v.indexOf('1899')===0 || v.indexOf('1970')===0; }; // 시간전용 셀이 날짜로 잘못 직렬화된 값 제거
   var clean=function(v){ if(bad(v)) return ''; var s=String(v).trim(); if(/^\d{6}$/.test(s)) return '20'+s.slice(0,2)+'-'+s.slice(2,4)+'-'+s.slice(4,6); return v; }; // 260709 → 2026-07-09
-  var fmt=function(d,t){ d=clean(d); if(!d) return ''; t=clean(t); return esc(d)+(t?' '+esc(t):''); };
+  var DOWK=['일','월','화','수','목','금','토'];
+  var dow=function(d){ var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d==null?'':d).trim()); if(!m) return ''; var dt=new Date(+m[1],+m[2]-1,+m[3]); return isNaN(dt)?'':' ('+DOWK[dt.getDay()]+')'; };
+  var fmt=function(d,t){ d=clean(d); if(!d) return ''; t=clean(t); return esc(d)+dow(d)+(t?' '+esc(t):''); };
   var line=function(ico,label,val,tbd){ return '<div class="cc-line"><span class="cc-ico">'+ico+'</span><span class="cc-lb">'+label+'</span>'+(val?'<b>'+val+'</b>':'<span class="cc-tbd">'+tbd+'</span>')+'</div>'; };
   var status=function(s,blog){ // 관리자 진행여부 우선 → 없으면 촬영/방문여부로 판별
     var p = s.진행여부;
     if(p==='게시완료' || p==='완료' || s.URL || s.인스타URL || s.완료) return { label:'게시 완료', cls:'완료', color:'#237a3b' };
     if(p==='편집중' || p==='작성중' || p==='진행중') return { label: blog?'글 작성 중':'편집 중', cls:'편집', color:'#2c6ee0' };
+    if(p==='예약완료') return { label:'예약 완료', cls:'예약', color:'#7048e8' };
     if(p==='촬영예정' || p==='방문예정' || p==='대기') return { label: blog?'방문 예정':'촬영 예정', cls:'예정', color:'#9a6700' };
     var did = blog ? (s.방문여부==='완료') : (s.촬영여부==='완료');
     if(did) return { label: blog?'글 작성 중':'편집 중', cls:'편집', color:'#2c6ee0' };

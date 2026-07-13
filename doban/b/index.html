@@ -26,6 +26,8 @@
   .btn.sec{ background:#fff; color:var(--brand); border:1.5px solid var(--brand); }
   .err{ color:#c92a2a; font-size:13px; margin-top:10px; min-height:16px; }
   .ok{ color:#237a3b; }
+  .dow{ color:#7048e8; font-weight:700; font-size:13px; margin-left:4px; }
+  .tip{ background:#f4f1ff; color:#5a49b8; font-size:12.5px; line-height:1.55; border-radius:9px; padding:9px 11px; margin-top:10px; }
   .row2{ display:flex; gap:10px; } .row2>div{ flex:1; }
   .done-badge{ display:inline-block; background:#d3f9d8; color:#237a3b; font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; margin-left:6px; }
   .foot{ text-align:center; color:#bbb; font-size:12px; padding:20px; }
@@ -61,10 +63,11 @@ function renderLogin(msg){
   document.getElementById('app').innerHTML =
     '<div class="card">'+
       '<h2>내 닉네임으로 들어가기</h2>'+
-      '<p class="hint">담당자가 등록한 <b>블로그 닉네임</b>을 입력하면 내 제출칸이 열립니다. 다른 사람 것은 보이지 않아요.</p>'+
-      '<input id="nick" placeholder="블로그 닉네임" autocomplete="off">'+
+      '<p class="hint">담당자가 안내한 <b>블로그 닉네임</b>을 그대로 입력하세요. 내 제출칸만 열리고, 다른 사람 것은 보이지 않아요.</p>'+
+      '<input id="nick" placeholder="예: 백두산루피" autocomplete="off">'+
       '<button class="btn" id="go">들어가기</button>'+
       '<div class="err" id="err">'+(msg?esc(msg):'')+'</div>'+
+      '<div class="tip">💡 담당자가 알려준 닉네임과 <b>글자·띄어쓰기까지 똑같이</b> 넣어주세요. (예: “백두산 루피”와 “백두산루피”는 다릅니다) 안 열리면 담당자에게 닉네임을 다시 확인해 주세요.</div>'+
     '</div>';
   var inp=document.getElementById('nick'); inp.focus();
   inp.addEventListener('keydown',function(e){ if(e.key==='Enter') doLogin(); });
@@ -90,11 +93,12 @@ function renderForm(){
       '<h2>내 제출칸 '+(done?'<span class="done-badge">제출됨</span>':'')+'</h2>'+
       '<p class="hint">방문 일정과 후기 링크를 직접 채워 주세요. 저장하면 담당자에게 바로 전달됩니다.</p>'+
 
-      '<label>방문 예정일</label>'+
-      '<input class="dt" type="date" id="f_방문일정" value="'+esc(d.방문일정||'')+'" onclick="try{if(!this.value)this.value=today();this.showPicker&&this.showPicker()}catch(e){}">'+
+      '<label>방문 예정일 <span class="dow" id="dow">'+dowLabel(d.방문일정)+'</span></label>'+
+      '<input class="dt" type="date" id="f_방문일정" value="'+esc(d.방문일정||'')+'" onchange="document.getElementById(\'dow\').textContent=dowLabel(this.value)" onclick="try{if(!this.value)this.value=today();this.showPicker&&this.showPicker()}catch(e){}">'+
 
       '<label>방문 시간 <span style="color:#bbb;font-weight:400">(예: 1830 → 18:30)</span></label>'+
       '<input id="f_방문시간" inputmode="numeric" maxlength="5" placeholder="18:30" value="'+esc(cleanTime(d.방문시간))+'" oninput="fmtTime(this)">'+
+      '<div class="tip">📅 방문 날짜와 <b>시간까지 넣고 저장</b>하면 담당자·매장에 <b>“예약 완료”</b>로 표시돼요.</div>'+
 
       '<label>블로그 후기 URL <span class="req">*</span></label>'+
       '<input id="f_URL" inputmode="url" placeholder="https://blog.naver.com/..." value="'+esc(d.URL||'')+'">'+
@@ -113,6 +117,8 @@ function renderForm(){
   document.getElementById('logout').onclick=function(){ sessionStorage.removeItem('doban_blog_'+S); NICK=''; DATA=null; renderLogin(); };
 }
 function today(){ var d=new Date(); var z=function(n){return (n<10?'0':'')+n;}; return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+var DOWK=['일','월','화','수','목','금','토'];
+function dowLabel(v){ var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v==null?'':v).trim()); if(!m) return ''; var dt=new Date(+m[1],+m[2]-1,+m[3]); return isNaN(dt)?'':'('+DOWK[dt.getDay()]+'요일)'; }
 function cleanTime(v){ v=String(v==null?'':v).trim(); return /^([01]?\d|2[0-3]):[0-5]\d$/.test(v)?v:''; }
 function fmtTime(el){ var d=el.value.replace(/[^0-9]/g,'').slice(0,4); el.value = d.length>=3 ? d.slice(0,2)+':'+d.slice(2) : d; if(d.length===4){ var h=+d.slice(0,2),m=+d.slice(2); if(h<24&&m<60) el.blur(); } }
 
@@ -121,7 +127,7 @@ function doSave(){
   if(!url){ document.getElementById('err').textContent='블로그 후기 URL은 꼭 입력해 주세요'; return; }
   var 방문일정=val('f_방문일정'), 시간=cleanTime(val('f_방문시간'));
   var fields={ 방문일정:방문일정, 방문시간:시간, URL:url, 인스타URL:val('f_인스타URL'), 영수증URL:val('f_영수증URL') };
-  fields.진행여부 = url ? '게시완료' : (방문일정 ? '방문예정' : '');
+  fields.진행여부 = url ? '게시완료' : ((방문일정 && 시간) ? '예약완료' : (방문일정 ? '방문예정' : ''));
   var b=document.getElementById('save'); b.textContent='저장 중...'; b.disabled=true;
   api({blogSave:{s:S,nick:NICK,fields:fields}}).then(function(res){
     b.disabled=false; b.textContent='저장하기';
