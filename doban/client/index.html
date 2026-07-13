@@ -122,7 +122,7 @@ function renderLogin(msg){
 }
 function doLogin(){
   var id=document.getElementById('lid').value.trim(), pw=document.getElementById('lpw').value.trim();
-  if(id===data.로그인ID && pw===data.로그인PW){ sessionStorage.setItem(AUTHKEY,'ok'); renderApp(); }
+  if(String(id)===String(data.로그인ID) && String(pw)===String(data.로그인PW)){ sessionStorage.setItem(AUTHKEY,'ok'); renderApp(); }
   else renderLogin('아이디 또는 비밀번호가 틀렸습니다');
 }
 
