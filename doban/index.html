@@ -1481,9 +1481,21 @@ function seedTableHTML(id, groups){
     tasksOf(id).forEach(function(t){ if(seedTypeOf(t.품목)===g[0]){ var r=roundOf(t); if(rk.indexOf(r)<0) rk.push(r); } });
     rk.sort(function(a,b){return a-b;});
     var visible=rk.reduce(function(acc,r){ return acc.concat(byR[r]||[]); }, []);
-    var typeHead='<div class="seed-type"><div class="seed-th">'+g[1]+' '+g[0]+' <span>총 '+visible.filter(seedDone).length+'/'+visible.length+'</span>'+
-      (g[0]==='블로그' ? '<button class="pub-btn" onclick="publishBlog(\''+id+'\')">🔗 블로거 URL 발행</button>' : '')+
-      '</div>'+(g[0]==='블로그' ? '<div id="blogpub-'+id+'"></div>' : '');
+    var typeHead='<div class="seed-type"><div class="seed-th">'+g[1]+' '+g[0]+' <span>총 '+visible.filter(seedDone).length+'/'+visible.length+'</span></div>';
+    // 블로그: 블로거에게 보낼 링크를 항상 표시 (버튼 뒤에 숨기지 않음)
+    var linkCard='';
+    if(g[0]==='블로그'){
+      var _c=(DB.광고주||[]).filter(function(x){return x.ID===id;})[0]||{};
+      var _code=_c.공유코드||'';
+      var _base=location.origin+location.pathname.replace(/[^/]*$/,'');
+      var _link=_code?_base+'b/?s='+encodeURIComponent(_code):'';
+      var _nickN=all.filter(function(s){return (s.계정명||'').trim();}).length;
+      linkCard = _code
+        ? '<div class="blogpub"><div class="bp-h">📮 <b>블로거에게 보낼 링크</b> — 이거 하나만 보내면 각자 열고 <b>자기 닉네임</b>만 넣어서 본인 칸만 채워요</div>'+
+          '<div class="bp-link"><input readonly value="'+esc(_link)+'" onclick="this.select()"><button class="pub-btn" onclick="copyBlogLink(this,\''+esc(_link)+'\')">📋 복사</button></div>'+
+          '<div class="bp-nicks'+(_nickN?'':' warn')+'">'+(_nickN?'✅ 등록된 닉네임 '+_nickN+'명 — 이 사람들만 들어올 수 있어요':'⚠ 아직 닉네임이 없어요. 아래 표 계정명(닉네임)을 먼저 채워야 블로거가 들어옵니다')+'</div></div>'
+        : '<div class="blogpub err">이 업체에 공유코드가 없어 링크를 만들 수 없어요.</div>';
+    }
     var blocks=rk.length ? rk.map(function(r){
       var list=byR[r]||[];
       var target=tasksOf(id).filter(function(t){return roundOf(t)===r && seedTypeOf(t.품목)===g[0];}).reduce(function(s,t){return s+(Number(t.수량)||0);},0);
@@ -1498,7 +1510,7 @@ function seedTableHTML(id, groups){
         (target!==list.length ? '<button class="add-row fill" onclick="this.disabled=true;this.textContent=\'맞추는 중…\';syncSeed(\''+id+'\','+r+')">🔄 견적수량('+target+'명)과 맞추기</button> ' : '') +
         '<button class="add-row" onclick="addSeedRow(\''+g[0]+'\','+r+')">+ 행 추가</button>' : '') + '</div>';
     }).join('') : '<div style="color:#bbb;padding:10px 2px;font-size:13px">견적에 '+g[0]+' 항목이 없어요 — 견적서 탭에서 추가하면 여기 생겨요</div>';
-    return typeHead + blocks + '</div>';
+    return typeHead + linkCard + blocks + '</div>';
   }).join('');
 }
 function copyVal(inputId){ var el=document.getElementById(inputId); if(!el) return; navigator.clipboard.writeText(el.value).then(function(){toast('복사됨: '+(el.value||'(빈 값)'));}); }
