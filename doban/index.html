@@ -1487,8 +1487,9 @@ function seedTableHTML(id, groups){
     if(g[0]==='블로그'){
       var _c=(DB.광고주||[]).filter(function(x){return x.ID===id;})[0]||{};
       var _code=_c.공유코드||'';
+      var _nm=_c.매장명||'';
       var _base=location.origin+location.pathname.replace(/[^/]*$/,'');
-      var _link=_code?_base+'b/?s='+encodeURIComponent(_code):'';
+      var _link=_code?_base+'b/?s='+encodeURIComponent(_code)+(_nm?'&n='+encodeURIComponent(_nm):''):'';
       var _nickN=all.filter(function(s){return (s.계정명||'').trim();}).length;
       linkCard = _code
         ? '<div class="blogpub"><div class="bp-h">📮 <b>블로거에게 보낼 링크</b> — 이거 하나만 보내면 각자 열고 <b>자기 닉네임</b>만 넣어서 본인 칸만 채워요</div>'+

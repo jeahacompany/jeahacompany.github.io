@@ -50,8 +50,10 @@
 <script>
 var EXEC='https://script.google.com/macros/s/AKfycbz5vefvosq2qYIMY3ZO1YalFqqEtTII9YJshUwSe4TeWjEcJtv_LAdWpf3JMkmAsEVEcw/exec';
 var S = new URLSearchParams(location.search).get('s') || '';
+var STORE = (new URLSearchParams(location.search).get('n') || '').replace(/_/g,' ').trim(); // 링크에 실린 업체명(표시용)
 var NICK = '', DATA = null;
 var app = document.getElementById('toast');
+function setStoreTitle(nm){ nm=(nm||STORE||'').replace(/_/g,' ').trim(); document.getElementById('storeName').textContent = nm ? nm+' 블로그 체험단' : '블로그 체험단'; if(nm) document.title = nm+' 블로그 체험단 · 도반글로벌'; }
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},1800); }
@@ -87,6 +89,7 @@ function val(id){ return (document.getElementById(id).value||'').trim(); }
 function renderForm(){
   var d=DATA;
   var done = !!d.URL;
+  setStoreTitle(d.매장명); // 로그인 후엔 서버가 준 실제 업체명으로
   document.getElementById('storeSub').textContent = d.닉네임+'님, 안녕하세요';
   document.getElementById('app').innerHTML =
     '<div class="card">'+
@@ -140,6 +143,7 @@ function doSave(){
 
 // 부팅
 (function(){
+  setStoreTitle();
   if(!S){ document.getElementById('app').innerHTML='<div class="card"><h2>링크 오류</h2><p class="hint">올바른 업체 링크로 접속해 주세요. (담당자에게 문의)</p></div>'; return; }
   var saved=sessionStorage.getItem('doban_blog_'+S);
   if(saved){ document.getElementById('app').innerHTML='<div class="card"><p class="hint">불러오는 중...</p></div>';
