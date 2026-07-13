@@ -122,6 +122,14 @@
   .plat-name { font-weight:800; font-size:15px; flex:0 0 96px; }
   .plat-link { flex:1 1 220px; min-width:160px; padding:8px 11px; border:1px solid #e3e3e3; border-radius:8px; font-size:12px; color:#555; }
   .plat-link:focus { outline:2px solid #e8590c; outline-offset:-1px; border-color:#e8590c; }
+  .plat-del { border:none; background:#fff0f0; color:#e03131; font-weight:600; font-size:12px; border-radius:7px; padding:6px 11px; cursor:pointer; white-space:nowrap; }
+  .plat-del:hover { background:#ffe0e0; }
+  /* 상세 서브탭 */
+  .dtabs { position:sticky; top:0; z-index:5; display:flex; gap:4px; overflow-x:auto; background:#f4f6f9; padding:6px 0 10px; margin-bottom:6px; -webkit-overflow-scrolling:touch; }
+  .dtab { flex:0 0 auto; border:1px solid #e3e3e3; background:#fff; color:#666; font-size:14px; font-weight:700; padding:9px 16px; border-radius:10px; cursor:pointer; white-space:nowrap; }
+  .dtab.on { background:#e8590c; color:#fff; border-color:#e8590c; }
+  .dtab:hover:not(.on) { background:#fff4ec; }
+  .round-date { border:1px solid #e3e3e3; border-radius:7px; padding:5px 8px; font-size:12px; margin:0 8px; }
   .panel h2 { font-size:19px; margin-bottom:2px; }
   .panel .sub { font-size:13px; color:#888; margin-bottom:12px; }
   .sec { background:#fff; border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
@@ -417,7 +425,7 @@ if (typeof google === 'undefined' && (location.protocol === 'file:' || location.
   })();
 }
 
-var DB = null, PIN = '2944', ME = null, FILTER = '전체', CUR = null, VIEW = 'client', ASSIGNEE = '전체', CURROUND = 1, SHOWMARGIN = false;
+var DB = null, PIN = '2944', ME = null, FILTER = '전체', CUR = null, VIEW = 'client', ASSIGNEE = '전체', CURROUND = 1, SHOWMARGIN = false, DTAB = 'info';
 function canSeeMargin(){ return !!(ME && ME.마진보기 === 'Y'); }
 function isAdmin(){ return !!(ME && ME.역할 === 'admin'); }
 var STATUSES = ['상담','계약','진행중','완료','해지'];
@@ -535,7 +543,7 @@ function roundLabel(id, r){
   var t = tasksOf(id).filter(function(x){return roundOf(x)===r && x.견적명;})[0];
   if (t) return t.견적명;
   if (NEWQNAME[id+'_'+r]) return NEWQNAME[id+'_'+r];
-  return r+'차 견적';
+  return '견적서'+(r>1?' '+r:'');
 }
 function execTaskOf(id){ return tasksOf(id).reduce(function(s,t){return s+(Number(t.실행비용)||0);},0); } // 작업(견적항목) 실행비 합
 function roundExec(id,r){ return tasksOf(id).filter(function(t){return roundOf(t)===r;}).reduce(function(s,t){return s+(Number(t.실행비용)||0);},0); }
@@ -569,9 +577,12 @@ function infoGroupHTML(id){
   });
   var plat = order.map(function(p){
     var g=groups[p], linkRow=g.id||g.pw, link=(linkRow&&linkRow.링크)||'';
+    var isCustom = !PLAT_ICON[p];
+    var delIds = [g.id&&g.id.ID, g.pw&&g.pw.ID].filter(Boolean);
     return '<div class="plat"><div class="plat-head"><span class="plat-name">'+(PLAT_ICON[p]||'🔗')+' '+esc(p)+'</span>' +
       '<input class="plat-link" value="'+esc(link)+'" placeholder="바로가기 URL (예: 로그인 페이지)" onchange="setInfo(\''+linkRow.ID+'\',\'링크\',this.value)">' +
-      (link?'<a class="inf-go" href="'+esc(link)+'" target="_blank">→ 바로가기</a>':'') + '</div>' +
+      (link?'<a class="inf-go" href="'+esc(link)+'" target="_blank">→ 바로가기</a>':'') +
+      (isCustom?'<button class="plat-del" onclick="delInfoGroup('+JSON.stringify(delIds)+')">✕ 삭제</button>':'') + '</div>' +
       (g.id?infValRow(g.id,'아이디'):'') + (g.pw?infValRow(g.pw,'비밀번호'):'') + '</div>';
   }).join('');
   var etc=''; infos.forEach(function(f){ if(!used[f.ID]) etc += infValRow(f, null, true); });
@@ -946,6 +957,11 @@ function openClient(id) {
   var costs = DB.실행비.filter(function(r){return r.광고주ID===id;});
   var 입금 = paySum(id), 실행 = totalExecOf(id), 마진 = 입금-실행;
   var share = (DB.웹앱주소||'') + '?c=' + c.공유코드;
+  var DTABLIST = [['info','🏪 업체정보'],['acct','📋 계정정보'],['quote','📄 견적서'],['insta','📷 인스타'],['blog','✍️ 블로그'],['log','📝 기록']];
+  if(canSeeMargin()) DTABLIST.push(['settle','💰 정산']);
+  if(!DTABLIST.some(function(t){return t[0]===DTAB;})) DTAB='info';
+  var dtabBar = '<div class="dtabs">'+DTABLIST.map(function(t){return '<button class="dtab'+(DTAB===t[0]?' on':'')+'" data-dt="'+t[0]+'" onclick="showDTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
+  function dp(tab){ return '<div class="dpane" data-dt="'+tab+'" style="display:'+(DTAB===tab?'':'none')+'">'; }
 
   document.getElementById('panel').innerHTML =
   '<button class="back-btn" onclick="closePanel()">← 목록으로</button>' +
@@ -953,6 +969,7 @@ function openClient(id) {
     '<div><h2>'+esc(c.매장명)+'</h2><div class="sub">'+esc(c.지역)+' · 대표 '+esc(c.대표자)+' · '+esc(c.연락처)+'</div></div>' +
     '<button class="btn-ghost" onclick="closePanel()">✕</button></div>' +
 
+  dtabBar + dp('info') +
   '<div class="sec"><h3>🏪 업체 정보 <span style="font-size:11px;color:#999;font-weight:400">· 등록 정보 수정</span></h3>' +
     '<div class="row"><span>매장명</span><input style="width:200px" value="'+esc(c.매장명||'')+'" onchange="setClientField(\'매장명\',this.value)"></div>' +
     '<div class="row"><span>지역</span><input style="width:200px" value="'+esc(c.지역||'')+'" onchange="setClientField(\'지역\',this.value)"></div>' +
@@ -967,11 +984,11 @@ function openClient(id) {
     '<div class="row"><span>점주 비밀번호</span><input style="width:150px" value="'+esc(c.로그인PW||'')+'" placeholder="발급할 비번" onchange="setClientField(\'로그인PW\',this.value)"></div>' +
     '<div class="row"><div class="grow"><span>광고주 공유 링크</span><small>점주는 이 링크 + 위 ID/비번으로 자기 매장만 봅니다</small></div>' +
       '<button class="btn-ghost" onclick="copyShare(\''+share+'\')">링크 복사</button></div></div>' +
-
+  '</div>' + dp('acct') +
   '<div class="sec"><h3>📋 계정 정보 <span style="font-size:11px;color:#999;font-weight:400">· 플랫폼별 아이디·비번, 복사해서 바로 붙여넣기</span></h3>' +
     (infosOf(id).length ? infoGroupHTML(id) : '<div style="color:#bbb;padding:8px">정보 항목이 없어요</div>') +
     '<button class="add-row" onclick="addInfoRow()">+ 항목 추가 (옥외광고 등)</button></div>' +
-
+  '</div>' + dp('quote') +
   '<div class="sec"><h3>견적·작업 · 계약 총액 '+won(contractOf(id))+'원 ' +
       (canSeeMargin()?'<button class="mg-toggle" onclick="SHOWMARGIN=!SHOWMARGIN;openClient(\''+id+'\')">'+(SHOWMARGIN?'원가·마진 숨기기':'원가·마진 보기')+'</button>':'')+'</h3>' +
     '<div class="round-tabs">' +
@@ -981,6 +998,7 @@ function openClient(id) {
       '<div class="round-tab add" onclick="newRound(\''+id+'\')">+ 새 견적</div>' +
     '</div>' +
     '<div class="round-head"><b>'+esc(roundLabel(id,CURROUND))+'</b>' +
+      '<input type="date" class="round-date" value="'+esc(roundDateOf(id,CURROUND))+'" onchange="setRoundDate(\''+id+'\','+CURROUND+',this.value)" title="견적일">' +
       '<span>'+roundTs.filter(function(t){return t.상태==='완료';}).length+'/'+roundTs.length+' 완료 · 견적 '+won(roundSum(id,CURROUND))+'원</span></div>' +
     (roundTs.length ? roundTs.map(function (t) {
       var amt = Number(t.금액)||0, exec = Number(t.실행비용)||0, mg = amt-exec, rate = amt>0?Math.round(mg/amt*100):0;
@@ -1007,34 +1025,13 @@ function openClient(id) {
     '<div style="display:flex;gap:6px;margin-top:10px">' +
       '<button class="btn-ghost" onclick="clientQuoteImage(\''+id+'\','+CURROUND+')">📄 이 견적서</button>' +
       '<button class="btn-ghost" onclick="clientQuoteImage(\''+id+'\',\'all\')">📄 전체 견적서</button></div></div>' +
-
-  (function(){ var seeds=seedsOf(id);
-    var GROUPS=[['인플루언서','📷'],['블로그','✍️'],['체험단','🎬']];
-    var cellHTML=function(s,col){
-      var v=s[col.k]==null?'':s[col.k];
-      if(col.type==='status'){
-        return '<select class="ss-st st-'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">'+STATUS_OPTS.map(function(o){return '<option'+(o===v?' selected':'')+'>'+o+'</option>';}).join('')+'</select>';
-      }
-      if(col.type==='url'){
-        return '<div class="ss-url"><input value="'+esc(v)+'" placeholder="URL" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">'+(v?'<a href="'+esc(v)+'" target="_blank">🔗</a>':'')+'</div>';
-      }
-      var t = col.type==='date' ? 'date' : (col.type==='time' ? 'time' : 'text');
-      return '<input type="'+t+'" value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
-    };
-    return '<div class="sec"><h3>콘텐츠 진행 · 인플루언서·블로그 ('+seeds.filter(seedDone).length+'/'+seeds.length+' 게시)</h3>' +
-    '<div style="font-size:12px;color:#999;margin-bottom:8px">엑셀처럼 칸을 바로 입력·수정하세요. URL 넣으면 광고주 공유 페이지에 예쁘게 반영됩니다.</div>' +
-    GROUPS.map(function(g){
-      var cols=SEED_COLS[g[0]], list=seeds.filter(function(s){return (s.종류||'인플루언서')===g[0];});
-      return '<div class="seed-group"><div class="seed-gh">'+g[1]+' '+g[0]+' <span>'+list.filter(seedDone).length+'/'+list.length+'</span></div>' +
-        '<div class="ss-wrap"><table class="ss"><thead><tr>'+cols.map(function(c){return '<th>'+esc(c.label)+'</th>';}).join('')+'<th></th></tr></thead>' +
-        '<tbody>'+(list.length?list.map(function(s){
-          return '<tr>'+cols.map(function(c){return '<td class="ct-'+c.type+'">'+cellHTML(s,c)+'</td>';}).join('') +
-            '<td class="ss-act"><button class="del" onclick="del(\'섭외\',\''+s.ID+'\')">✕</button></td></tr>';
-        }).join(''):'<tr><td colspan="'+(cols.length+1)+'" style="text-align:center;color:#bbb;padding:8px">비어있음</td></tr>')+'</tbody></table></div>' +
-        '<button class="add-row" onclick="addSeedRow(\''+g[0]+'\')">+ '+g[0]+' 행 추가</button></div>';
-    }).join('') +
-    '</div>'; })() +
-
+  '</div>' + dp('insta') +
+  '<div class="sec"><h3>📷 인스타 관리 (인플루언서) <span style="font-size:11px;color:#999;font-weight:400">· URL 넣으면 점주 페이지에 반영</span></h3>' +
+    seedTableHTML(id,[['인플루언서','📷']]) + '</div>' +
+  '</div>' + dp('blog') +
+  '<div class="sec"><h3>✍️ 블로그·체험단 관리 <span style="font-size:11px;color:#999;font-weight:400">· URL 넣으면 점주 페이지에 반영</span></h3>' +
+    seedTableHTML(id,[['블로그','✍️'],['체험단','🎬']]) + '</div>' +
+  '</div>' + dp('log') +
   '<div class="sec"><h3>완료 기록 (광고주 공유 페이지에 노출)</h3>' +
     logs.map(function (l) {
       return '<div class="row"><div class="grow">'+esc(l.내용)+'<small>'+esc(l.날짜)+' · '+esc(l.작성자)+'</small></div>' +
@@ -1044,8 +1041,8 @@ function openClient(id) {
       '<input id="nl내용" class="full" placeholder="예: 네이버 플레이스 세팅 완료, 사진 20장 등록">' +
       '<input id="nl작성자" placeholder="작성자">' +
       '<button class="btn-primary" onclick="addLog()">+ 기록 남기기</button></div></div>' +
-
-  (canSeeMargin() ? '<div class="sec"><h3>정산 (내부 전용)</h3>' +
+  '</div>' +
+  (canSeeMargin() ? dp('settle') + '<div class="sec"><h3>정산 (내부 전용)</h3>' +
     '<div class="sum-line"><span>계약금액 (견적 합계)</span><b>'+won(contractOf(id))+'원</b></div>' +
     '<div class="sum-line"><span>입금 합계</span><b>'+won(입금)+'원</b></div>' +
     '<div class="sum-line"><span>실행비 합계</span><b>'+won(실행)+'원</b></div>' +
@@ -1064,7 +1061,7 @@ function openClient(id) {
         '<button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">삭제</button></div>';
     }).join('') +
     '<div class="form-grid"><input id="nc내역" placeholder="내역 (예: 체험단 집행)"><input id="nc회사" placeholder="실행회사">' +
-      '<input id="nc금액" type="number" placeholder="금액"><button class="btn-primary" onclick="addCost()">+ 실행비 추가</button></div></div>' : '');
+      '<input id="nc금액" type="number" placeholder="금액"><button class="btn-primary" onclick="addCost()">+ 실행비 추가</button></div></div>' + '</div>' : '');
 
   document.getElementById('overlay').style.display = 'block';
   document.getElementById('panel').classList.add('open');
@@ -1113,6 +1110,41 @@ function addInfoRow(){
   var name=prompt('추가할 플랫폼 이름 (예: 옥외광고, 배민) — 아이디·비밀번호가 세트로 생겨요'); if(!name) return; name=name.trim(); if(!name) return;
   Promise.all([ gs('addInfo',{광고주ID:CUR,항목:name+'아이디',순서:99}), gs('addInfo',{광고주ID:CUR,항목:name+' 비밀번호',순서:99}) ])
     .then(load).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
+}
+function delInfoGroup(ids){ if(!ids||!ids.length||!confirm('이 항목을 삭제할까요?')) return;
+  Promise.all(ids.map(function(x){ return gs('delete',{'탭':'정보',ID:x}); })).then(load).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
+}
+// ─── 견적서 날짜 (라운드 작업들의 시작일을 견적일로 사용) ───
+function roundDateOf(id, r){ var t=tasksOf(id).filter(function(x){return roundOf(x)===r && x.시작일;})[0]; return t?t.시작일:''; }
+function setRoundDate(id, r, date){
+  var list=tasksOf(id).filter(function(x){return roundOf(x)===r;});
+  if(!list.length){ toast('먼저 견적 항목을 추가하세요'); return; }
+  Promise.all(list.map(function(t){ return gs('updateTask',{ID:t.ID,시작일:date}); })).then(load).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
+}
+// ─── 상세 서브탭 ───
+function showDTab(t){ DTAB=t;
+  Array.prototype.forEach.call(document.querySelectorAll('#panel .dpane'), function(e){ e.style.display = e.getAttribute('data-dt')===t?'':'none'; });
+  Array.prototype.forEach.call(document.querySelectorAll('#panel .dtab'), function(e){ e.classList.toggle('on', e.getAttribute('data-dt')===t); });
+}
+function seedCellHTML(s,col){
+  var v=s[col.k]==null?'':s[col.k];
+  if(col.type==='status') return '<select class="ss-st st-'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">'+STATUS_OPTS.map(function(o){return '<option'+(o===v?' selected':'')+'>'+o+'</option>';}).join('')+'</select>';
+  if(col.type==='url') return '<div class="ss-url"><input value="'+esc(v)+'" placeholder="URL" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">'+(v?'<a href="'+esc(v)+'" target="_blank">🔗</a>':'')+'</div>';
+  var tp = col.type==='date' ? 'date' : (col.type==='time' ? 'time' : 'text');
+  return '<input type="'+tp+'" value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
+}
+function seedTableHTML(id, groups){
+  var seeds=seedsOf(id);
+  return groups.map(function(g){
+    var cols=SEED_COLS[g[0]], list=seeds.filter(function(s){return (s.종류||'인플루언서')===g[0];});
+    return '<div class="seed-group"><div class="seed-gh">'+g[1]+' '+g[0]+' <span>'+list.filter(seedDone).length+'/'+list.length+'</span></div>' +
+      '<div class="ss-wrap"><table class="ss"><thead><tr>'+cols.map(function(c){return '<th>'+esc(c.label)+'</th>';}).join('')+'<th></th></tr></thead>' +
+      '<tbody>'+(list.length?list.map(function(s){
+        return '<tr>'+cols.map(function(c){return '<td class="ct-'+c.type+'">'+seedCellHTML(s,c)+'</td>';}).join('') +
+          '<td class="ss-act"><button class="del" onclick="del(\'섭외\',\''+s.ID+'\')">✕</button></td></tr>';
+      }).join(''):'<tr><td colspan="'+(cols.length+1)+'" style="text-align:center;color:#bbb;padding:8px">비어있음</td></tr>')+'</tbody></table></div>' +
+      '<button class="add-row" onclick="addSeedRow(\''+g[0]+'\')">+ '+g[0]+' 행 추가</button></div>';
+  }).join('');
 }
 function copyVal(inputId){ var el=document.getElementById(inputId); if(!el) return; navigator.clipboard.writeText(el.value).then(function(){toast('복사됨: '+(el.value||'(빈 값)'));}); }
 function addLog(){
