@@ -75,6 +75,13 @@
   .settle-detail { padding:12px 14px; }
   .sd-title { font-weight:800; font-size:14px; margin-bottom:8px; color:#222; }
   .sd-sub { font-weight:700; font-size:12px; color:#888; margin:14px 0 6px; }
+  .sd-editrow { display:flex; gap:6px; align-items:center; margin-bottom:5px; }
+  .sd-editrow input { padding:6px 8px; border:1px solid #e0e0e0; border-radius:7px; font-size:13px; }
+  .sd-editrow input:focus { outline:none; border-color:#e8590c; }
+  .sd-editrow .sd-narae { flex:1.4; } .sd-editrow .sd-co { flex:1; } .sd-editrow .sd-memo { flex:1; }
+  .sd-editrow .sd-amt { width:120px; text-align:right; font-variant-numeric:tabular-nums; }
+  .sd-editrow .sd-paydate { color:#aaa; font-size:11px; white-space:nowrap; }
+  .sd-editrow .del { margin-left:auto; }
   .settle-detail .ex-co, .settle-detail .ex-amt { width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:7px; font-size:13px; }
   .settle-detail .ex-amt { text-align:right; }
   .q-addrow { margin-top:14px; background:#fafbfc; border:1px solid #eef0f2; border-radius:10px; padding:12px; }
@@ -1362,23 +1369,33 @@ function settleDetail(id, r){
       '<td class="q-amt" style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+' ('+rate+'%)</td></tr>';
   }).join('') : '<tr><td colspan="5" style="color:#bbb;padding:8px">이 견적에 항목이 없어요 (견적서 탭에서 추가)</td></tr>';
   var extraRows=costs.filter(function(c){return (Number(c.차수)||0)===r;}).map(function(x){
-    return '<div class="row"><div class="grow">'+esc(x.내역)+' — '+won(x.금액)+'원<small>'+esc(x.실행회사||'')+'</small></div><button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">삭제</button></div>';
+    return '<div class="sd-editrow">' +
+      '<input class="sd-narae" value="'+esc(x.내역||'')+'" placeholder="내역" onchange="editCost(\''+x.ID+'\',\'내역\',this.value)">' +
+      '<input class="sd-co" value="'+esc(x.실행회사||'')+'" placeholder="실행회사" onchange="editCost(\''+x.ID+'\',\'실행회사\',this.value)">' +
+      '<input class="sd-amt" inputmode="numeric" value="'+(Number(x.금액)?Number(x.금액).toLocaleString('ko-KR'):'')+'" placeholder="금액" onchange="fmtNum(this);editCost(\''+x.ID+'\',\'금액\',this.value)">' +
+      '<button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">✕</button></div>';
   }).join('');
   var payRows=pays.filter(function(p){return (Number(p.차수)||0)===r;}).map(function(p){
-    return '<div class="row"><div class="grow">'+won(p.금액)+'원<small>'+esc(p.날짜)+' '+esc(p.메모)+'</small></div><button class="del" onclick="del(\'입금\',\''+p.ID+'\')">삭제</button></div>';
+    return '<div class="sd-editrow">' +
+      '<input class="sd-amt" inputmode="numeric" value="'+(Number(p.금액)?Number(p.금액).toLocaleString('ko-KR'):'')+'" placeholder="입금액" onchange="fmtNum(this);editPay(\''+p.ID+'\',\'금액\',this.value)">' +
+      '<input class="sd-memo" value="'+esc(p.메모||'')+'" placeholder="메모" onchange="editPay(\''+p.ID+'\',\'메모\',this.value)">' +
+      '<small class="sd-paydate">'+esc(p.날짜||'')+'</small>' +
+      '<button class="del" onclick="del(\'입금\',\''+p.ID+'\')">✕</button></div>';
   }).join('');
   return '<div class="settle-detail" onclick="event.stopPropagation()">' +
     '<div class="sd-title">📋 '+esc(roundLabel(id,r))+' · 품목별 실행비</div>' +
     '<div class="ss-wrap"><table class="quote qtbl"><thead><tr><th>품목</th><th class="col-amt">견적가</th><th>실행회사</th><th class="col-amt">실행비</th><th class="col-amt">마진</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>' +
-    '<div class="sd-sub">진행 중 추가비용 (이 견적)</div>'+extraRows +
-    '<div class="form-grid" style="grid-template-columns:1fr 1fr 100px"><input id="ec내역" placeholder="추가 실행비 내역"><input id="ec회사" placeholder="실행회사"><input id="ec금액" type="number" placeholder="금액"></div>' +
+    '<div class="sd-sub">진행 중 추가비용 (이 견적) <span style="font-weight:400;color:#bbb">· 클릭해서 수정</span></div>'+extraRows +
+    '<div class="form-grid" style="grid-template-columns:1fr 1fr 120px"><input id="ec내역" placeholder="추가 실행비 내역"><input id="ec회사" placeholder="실행회사"><input id="ec금액" inputmode="numeric" placeholder="금액" oninput="fmtNum(this)"></div>' +
     '<button class="btn-ghost" onclick="addCostRound('+r+')">+ 이 견적에 실행비 추가</button>' +
-    '<div class="sd-sub">입금 (이 견적)</div>'+payRows +
-    '<div class="form-grid" style="grid-template-columns:1fr 1fr"><input id="ep금액" type="number" placeholder="입금액"><input id="ep메모" placeholder="메모"></div>' +
+    '<div class="sd-sub">입금 (이 견적) <span style="font-weight:400;color:#bbb">· 클릭해서 수정</span></div>'+payRows +
+    '<div class="form-grid" style="grid-template-columns:1fr 1fr"><input id="ep금액" inputmode="numeric" placeholder="입금액" oninput="fmtNum(this)"><input id="ep메모" placeholder="메모"></div>' +
     '<button class="btn-ghost" onclick="addPayRound('+r+')">+ 이 견적에 입금 추가</button></div>';
 }
-function addCostRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 금액=g('ec금액'); if(!금액) return toast('금액을 입력하세요'); busy(gs('addCost',{광고주ID:CUR,내역:g('ec내역'),실행회사:g('ec회사'),금액:금액,차수:r})); }
-function addPayRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 금액=g('ep금액'); if(!금액) return toast('금액을 입력하세요'); busy(gs('addPayment',{광고주ID:CUR,금액:금액,메모:g('ep메모'),차수:r})); }
+function editCost(id, field, val){ if(field==='금액') val=numVal(val); var f={}; f[field]=val; patchLocal('실행비',id,f); rerender(); var p={'탭':'실행비',ID:id}; p[field]=val; bg(gs('update',p)); }
+function editPay(id, field, val){ if(field==='금액') val=numVal(val); var f={}; f[field]=val; patchLocal('입금',id,f); rerender(); var p={'탭':'입금',ID:id}; p[field]=val; bg(gs('update',p)); }
+function addCostRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 금액=numVal(g('ec금액')); if(!금액) return toast('금액을 입력하세요'); busy(gs('addCost',{광고주ID:CUR,내역:g('ec내역'),실행회사:g('ec회사'),금액:금액,차수:r})); }
+function addPayRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 금액=numVal(g('ep금액')); if(!금액) return toast('금액을 입력하세요'); busy(gs('addPayment',{광고주ID:CUR,금액:금액,메모:g('ep메모'),차수:r})); }
 function del(tab,id){ if(!confirm('삭제할까요?')) return; DB[tab]=(DB[tab]||[]).filter(function(r){return r.ID!==id;}); rerender(); bg(gs('delete',{탭:tab,ID:id})); }
 
 // ─── 신규 광고주 ───
