@@ -136,26 +136,53 @@ function notFound(msg){
   app.innerHTML = '<div class="head"><h1>페이지를 찾을 수 없어요</h1><div class="sub">'+(msg||'링크를 다시 확인해주세요')+'</div></div>';
 }
 
-// ─── 데이터 로드: 주소의 ?c=공유코드 → 백엔드에서 fetch ───
+// ─── 데이터 로드 ───
 function boot(){
   var code = new URLSearchParams(location.search).get('c');
-  CODE = code;
-  if(!code){ notFound('공유 코드가 없습니다 (?c=코드)'); return; }
-  app.innerHTML = '<div class="head"><div class="co">DOBAN GLOBAL</div><div class="sub" style="margin-top:20px">불러오는 중…</div></div>';
-  fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ client: code })
-  })
+  if(code){ // 기존 링크(?c=코드) 하위호환
+    CODE = code;
+    app.innerHTML = '<div class="head"><div class="co">DOBAN GLOBAL</div><div class="sub" style="margin-top:20px">불러오는 중…</div></div>';
+    fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ client: code }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d || d.ok===false || !d.result){ notFound('없는 코드이거나 준비 중입니다'); return; }
+        data = d.result; CODE = data.공유코드 || code;
+        if(needLogin()) renderLogin(''); else renderApp();
+      }).catch(function(){ notFound('서버 연결에 실패했습니다'); });
+    return;
+  }
+  // 아이디 로그인 방식 (링크 없이 각자 로그인)
+  var saved = sessionStorage.getItem('doban_client_login');
+  if(saved){ try{ var s=JSON.parse(saved); clientLoginFetch(s.id, s.pw, true); return; }catch(e){} }
+  renderStandaloneLogin('');
+}
+function renderStandaloneLogin(msg){
+  app.innerHTML =
+    '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>마케팅 현황</h1><div class="sub">매장 아이디로 로그인</div></div>' +
+    '<div class="sec" style="max-width:340px;margin:0 auto">' +
+      '<input id="lid" placeholder="아이디" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:9px;margin-bottom:8px;font-size:15px">' +
+      '<input id="lpw" type="password" placeholder="비밀번호" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:9px;font-size:15px" onkeydown="if(event.key===\'Enter\')doStandaloneLogin()">' +
+      (msg?'<div style="color:#c92a2a;font-size:13px;margin-top:8px">'+msg+'</div>':'') +
+      '<button onclick="doStandaloneLogin()" style="width:100%;margin-top:12px;padding:12px;background:#e8590c;color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:600;cursor:pointer">로그인</button>' +
+    '</div><footer>도반글로벌 유한회사 · 010-2944-1236</footer>';
+}
+function doStandaloneLogin(){
+  var id=document.getElementById('lid').value.trim(), pw=document.getElementById('lpw').value.trim();
+  if(!id||!pw){ renderStandaloneLogin('아이디·비밀번호를 입력하세요'); return; }
+  clientLoginFetch(id, pw, false);
+}
+function clientLoginFetch(id, pw, silent){
+  if(!silent) app.innerHTML='<div class="head"><div class="co">DOBAN GLOBAL</div><div class="sub" style="margin-top:20px">로그인 중…</div></div>';
+  fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ clientLogin:{ id:id, pw:pw } }) })
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if(!d || d.ok===false || !d.result){ notFound('없는 코드이거나 준비 중입니다'); return; }
-      data = d.result;
-      if(needLogin()) renderLogin('');
-      else renderApp();
-    })
-    .catch(function(e){ notFound('서버 연결에 실패했습니다'); });
+      if(!d || d.ok===false || !d.result){ sessionStorage.removeItem('doban_client_login'); renderStandaloneLogin('아이디 또는 비밀번호가 틀렸습니다'); return; }
+      data = d.result; CODE = data.공유코드 || null;
+      sessionStorage.setItem('doban_client_login', JSON.stringify({ id:id, pw:pw }));
+      renderApp();
+    }).catch(function(){ renderStandaloneLogin('서버 연결에 실패했습니다'); });
 }
+function clientLogout(){ sessionStorage.removeItem('doban_client_login'); sessionStorage.removeItem(AUTHKEY); location.reload(); }
 
 function renderApp() {
   var done = data.작업.filter(function(t){return t.상태==='완료';}).length;
@@ -199,7 +226,7 @@ function renderApp() {
 
   app.innerHTML =
     '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>'+esc(data.매장명)+'</h1>' +
-    '<div class="sub">마케팅 진행 현황</div></div>' +
+    '<div class="sub">마케팅 진행 현황 <a onclick="clientLogout()" style="color:#c92a2a;cursor:pointer;font-size:12px;margin-left:8px;text-decoration:underline">로그아웃</a></div></div>' +
     '<div id="tab-home" class="tabpane">'+homeTab+'</div>' +
     '<div id="tab-content" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [])+'</div>' +
     '<div id="tab-info" class="tabpane" style="display:none">'+infoTab+'</div>' +
