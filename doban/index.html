@@ -222,6 +222,15 @@
   .seed-type { margin-bottom:18px; }
   .seed-th { font-size:15px; font-weight:800; color:#222; padding:4px 0; border-bottom:2px solid #f0f0f0; margin-bottom:8px; }
   .seed-th span { color:#e8590c; font-size:12px; margin-left:6px; font-weight:700; }
+  .pub-btn { border:1px solid #e8590c; background:#fff; color:#e8590c; font-size:12px; font-weight:700; border-radius:16px; padding:4px 12px; margin-left:10px; cursor:pointer; vertical-align:middle; }
+  .pub-btn:hover { background:#fff3ec; }
+  .blogpub { background:#fff8f4; border:1px solid #ffd8bf; border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+  .blogpub.err { background:#fff0f0; border-color:#ffc9c9; color:#c92a2a; }
+  .bp-h { font-size:13px; color:#555; margin-bottom:8px; line-height:1.5; }
+  .bp-link { display:flex; gap:8px; }
+  .bp-link input { flex:1; border:1px solid #eee; border-radius:8px; padding:9px 10px; font-size:13px; background:#fff; }
+  .bp-nicks { font-size:12px; color:#888; margin-top:8px; }
+  .bp-nicks.warn { color:#c92a2a; }
   .seed-group { margin:0 0 12px 10px; padding-left:10px; border-left:3px solid #ffe3d1; }
   .seed-gh { font-size:13px; font-weight:700; color:#e8590c; padding:6px 0 4px; margin-bottom:4px; }
   .seed-gh.clickable { cursor:pointer; background:#fff8f4; border-radius:8px; padding:8px 10px; margin-bottom:0; user-select:none; }
@@ -1392,6 +1401,22 @@ function seedTime(el, sid, field){
   }
 }
 function seedTimeCommit(el, sid, field){ var val=(el.value||'').trim(); if(val && !/^([01]?\d|2[0-3]):[0-5]\d$/.test(val)) return; el.classList.toggle('empty',!val); setSeed(sid,field,val); }
+// 블로거 URL 발행: 업체 링크 1개 표시(블로거가 열고 닉네임만 입력 → 자기 슬롯만)
+function publishBlog(id){
+  var c=(DB.광고주||[]).filter(function(x){return x.ID===id;})[0]; if(!c){ return; }
+  var code=c.공유코드||'';
+  var box=document.getElementById('blogpub-'+id); if(!box) return;
+  if(!code){ box.innerHTML='<div class="blogpub err">이 업체에 공유코드가 없어 링크를 만들 수 없습니다.</div>'; return; }
+  var base=location.origin+location.pathname.replace(/[^/]*$/,'');
+  var link=base+'b/?s='+encodeURIComponent(code);
+  var nicks=seedsOf(id).filter(function(s){return (s.종류||'')==='블로그' && (s.계정명||'').trim();}).map(function(s){return s.계정명;});
+  box.innerHTML='<div class="blogpub">'+
+    '<div class="bp-h">이 링크 하나를 블로거들에게 보내세요. 각자 열고 <b>자기 닉네임</b>만 입력하면 본인 칸만 열립니다.</div>'+
+    '<div class="bp-link"><input readonly value="'+esc(link)+'" onclick="this.select()"><button class="pub-btn" onclick="copyBlogLink(this,\''+esc(link)+'\')">복사</button></div>'+
+    (nicks.length?'<div class="bp-nicks">등록된 닉네임 '+nicks.length+'명: '+nicks.map(esc).join(', ')+'</div>':'<div class="bp-nicks warn">아직 닉네임이 없어요. 위 표 계정명(닉네임)을 먼저 채워야 블로거가 들어올 수 있습니다.</div>')+
+  '</div>';
+}
+function copyBlogLink(btn,link){ try{ navigator.clipboard.writeText(link).then(function(){ btn.textContent='복사됨!'; setTimeout(function(){btn.textContent='복사';},1500); }); }catch(e){ var i=btn.previousElementSibling; i.select(); document.execCommand('copy'); btn.textContent='복사됨!'; setTimeout(function(){btn.textContent='복사';},1500); } }
 function addSeedRow(종류, 차수){ var r=차수||CURROUND;
   var tmp={ID:'tmp'+Date.now(),광고주ID:CUR,종류:종류,계정명:'',상태:'섭외',차수:r,공개:'Y'};
   DB.섭외.push(tmp); SEEDOPEN[종류+'_'+r]=true; rerender(); // 즉시 반영
@@ -1456,7 +1481,9 @@ function seedTableHTML(id, groups){
     tasksOf(id).forEach(function(t){ if(seedTypeOf(t.품목)===g[0]){ var r=roundOf(t); if(rk.indexOf(r)<0) rk.push(r); } });
     rk.sort(function(a,b){return a-b;});
     var visible=rk.reduce(function(acc,r){ return acc.concat(byR[r]||[]); }, []);
-    var typeHead='<div class="seed-type"><div class="seed-th">'+g[1]+' '+g[0]+' <span>총 '+visible.filter(seedDone).length+'/'+visible.length+'</span></div>';
+    var typeHead='<div class="seed-type"><div class="seed-th">'+g[1]+' '+g[0]+' <span>총 '+visible.filter(seedDone).length+'/'+visible.length+'</span>'+
+      (g[0]==='블로그' ? '<button class="pub-btn" onclick="publishBlog(\''+id+'\')">🔗 블로거 URL 발행</button>' : '')+
+      '</div>'+(g[0]==='블로그' ? '<div id="blogpub-'+id+'"></div>' : '');
     var blocks=rk.length ? rk.map(function(r){
       var list=byR[r]||[];
       var target=tasksOf(id).filter(function(t){return roundOf(t)===r && seedTypeOf(t.품목)===g[0];}).reduce(function(s,t){return s+(Number(t.수량)||0);},0);

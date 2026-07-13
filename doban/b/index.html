@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>블로거 제출 · 도반글로벌</title>
+<style>
+  :root{ --brand:#e8590c; --ink:#222; --sub:#888; --line:#eee; --bg:#f6f7f9; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:var(--bg); color:var(--ink); }
+  .wrap{ max-width:520px; margin:0 auto; min-height:100vh; background:var(--bg); }
+  .top{ background:linear-gradient(135deg,#ff922b,#e8590c); color:#fff; padding:22px 20px 26px; }
+  .top .store{ font-size:20px; font-weight:800; }
+  .top .sub{ font-size:13px; opacity:.92; margin-top:3px; }
+  .pad{ padding:18px 16px 40px; }
+  .card{ background:#fff; border-radius:14px; box-shadow:0 1px 4px rgba(0,0,0,.06); padding:18px 16px; margin-bottom:14px; }
+  h2{ font-size:15px; margin:0 0 4px; }
+  .hint{ font-size:13px; color:var(--sub); margin:0 0 14px; line-height:1.5; }
+  label{ display:block; font-size:13px; font-weight:700; color:#555; margin:14px 0 6px; }
+  label .req{ color:var(--brand); }
+  input{ width:100%; border:1.5px solid var(--line); border-radius:10px; padding:13px 12px; font-size:15px; background:#fff; }
+  input:focus{ outline:none; border-color:var(--brand); }
+  input.dt{ cursor:pointer; }
+  .btn{ width:100%; border:0; border-radius:10px; padding:15px; font-size:16px; font-weight:800; color:#fff; background:var(--brand); cursor:pointer; margin-top:20px; }
+  .btn:active{ opacity:.9; }
+  .btn.sec{ background:#fff; color:var(--brand); border:1.5px solid var(--brand); }
+  .err{ color:#c92a2a; font-size:13px; margin-top:10px; min-height:16px; }
+  .ok{ color:#237a3b; }
+  .row2{ display:flex; gap:10px; } .row2>div{ flex:1; }
+  .done-badge{ display:inline-block; background:#d3f9d8; color:#237a3b; font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; margin-left:6px; }
+  .foot{ text-align:center; color:#bbb; font-size:12px; padding:20px; }
+  .link-row{ display:flex; align-items:center; gap:8px; }
+  .link-row a{ color:var(--brand); font-size:13px; white-space:nowrap; text-decoration:none; }
+  .toast{ position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#222; color:#fff; padding:12px 20px; border-radius:24px; font-size:14px; font-weight:600; opacity:0; transition:opacity .25s; pointer-events:none; z-index:9; }
+  .toast.show{ opacity:.95; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="store" id="storeName">블로그 체험단</div>
+    <div class="sub" id="storeSub">닉네임으로 내 제출칸에 들어가세요</div>
+  </div>
+  <div class="pad" id="app"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+var EXEC='https://script.google.com/macros/s/AKfycbz5vefvosq2qYIMY3ZO1YalFqqEtTII9YJshUwSe4TeWjEcJtv_LAdWpf3JMkmAsEVEcw/exec';
+var S = new URLSearchParams(location.search).get('s') || '';
+var NICK = '', DATA = null;
+var app = document.getElementById('toast');
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},1800); }
+function api(body){
+  return fetch(EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});
+}
+
+function renderLogin(msg){
+  document.getElementById('app').innerHTML =
+    '<div class="card">'+
+      '<h2>내 닉네임으로 들어가기</h2>'+
+      '<p class="hint">담당자가 등록한 <b>블로그 닉네임</b>을 입력하면 내 제출칸이 열립니다. 다른 사람 것은 보이지 않아요.</p>'+
+      '<input id="nick" placeholder="블로그 닉네임" autocomplete="off">'+
+      '<button class="btn" id="go">들어가기</button>'+
+      '<div class="err" id="err">'+(msg?esc(msg):'')+'</div>'+
+    '</div>';
+  var inp=document.getElementById('nick'); inp.focus();
+  inp.addEventListener('keydown',function(e){ if(e.key==='Enter') doLogin(); });
+  document.getElementById('go').onclick=doLogin;
+}
+function doLogin(){
+  var nick=(document.getElementById('nick').value||'').trim();
+  if(!nick){ document.getElementById('err').textContent='닉네임을 입력해 주세요'; return; }
+  document.getElementById('go').textContent='확인 중...';
+  api({blogClaim:{s:S,nick:nick}}).then(function(res){
+    if(!res.ok){ renderLogin(res.error||'들어갈 수 없습니다'); return; }
+    NICK=nick; DATA=res.result; sessionStorage.setItem('doban_blog_'+S, nick); renderForm();
+  }).catch(function(){ renderLogin('네트워크 오류. 다시 시도해 주세요'); });
+}
+
+function val(id){ return (document.getElementById(id).value||'').trim(); }
+function renderForm(){
+  var d=DATA;
+  var done = !!d.URL;
+  document.getElementById('storeSub').textContent = d.닉네임+'님, 안녕하세요';
+  document.getElementById('app').innerHTML =
+    '<div class="card">'+
+      '<h2>내 제출칸 '+(done?'<span class="done-badge">제출됨</span>':'')+'</h2>'+
+      '<p class="hint">방문 일정과 후기 링크를 직접 채워 주세요. 저장하면 담당자에게 바로 전달됩니다.</p>'+
+
+      '<label>방문 예정일</label>'+
+      '<input class="dt" type="date" id="f_방문일정" value="'+esc(d.방문일정||'')+'" onclick="try{if(!this.value)this.value=today();this.showPicker&&this.showPicker()}catch(e){}">'+
+
+      '<label>방문 시간 <span style="color:#bbb;font-weight:400">(예: 1830 → 18:30)</span></label>'+
+      '<input id="f_방문시간" inputmode="numeric" maxlength="5" placeholder="18:30" value="'+esc(cleanTime(d.방문시간))+'" oninput="fmtTime(this)">'+
+
+      '<label>블로그 후기 URL <span class="req">*</span></label>'+
+      '<input id="f_URL" inputmode="url" placeholder="https://blog.naver.com/..." value="'+esc(d.URL||'')+'">'+
+
+      '<label>인스타 URL</label>'+
+      '<input id="f_인스타URL" inputmode="url" placeholder="https://instagram.com/... (선택)" value="'+esc(d.인스타URL||'')+'">'+
+
+      '<label>영수증 리뷰 URL</label>'+
+      '<input id="f_영수증URL" inputmode="url" placeholder="영수증 리뷰 링크 (선택)" value="'+esc(d.영수증URL||'')+'">'+
+
+      '<button class="btn" id="save">저장하기</button>'+
+      '<button class="btn sec" id="logout" style="margin-top:10px">다른 닉네임으로</button>'+
+      '<div class="err" id="err"></div>'+
+    '</div>';
+  document.getElementById('save').onclick=doSave;
+  document.getElementById('logout').onclick=function(){ sessionStorage.removeItem('doban_blog_'+S); NICK=''; DATA=null; renderLogin(); };
+}
+function today(){ var d=new Date(); var z=function(n){return (n<10?'0':'')+n;}; return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+function cleanTime(v){ v=String(v==null?'':v).trim(); return /^([01]?\d|2[0-3]):[0-5]\d$/.test(v)?v:''; }
+function fmtTime(el){ var d=el.value.replace(/[^0-9]/g,'').slice(0,4); el.value = d.length>=3 ? d.slice(0,2)+':'+d.slice(2) : d; if(d.length===4){ var h=+d.slice(0,2),m=+d.slice(2); if(h<24&&m<60) el.blur(); } }
+
+function doSave(){
+  var url=val('f_URL');
+  if(!url){ document.getElementById('err').textContent='블로그 후기 URL은 꼭 입력해 주세요'; return; }
+  var 방문일정=val('f_방문일정'), 시간=cleanTime(val('f_방문시간'));
+  var fields={ 방문일정:방문일정, 방문시간:시간, URL:url, 인스타URL:val('f_인스타URL'), 영수증URL:val('f_영수증URL') };
+  fields.진행여부 = url ? '게시완료' : (방문일정 ? '방문예정' : '');
+  var b=document.getElementById('save'); b.textContent='저장 중...'; b.disabled=true;
+  api({blogSave:{s:S,nick:NICK,fields:fields}}).then(function(res){
+    b.disabled=false; b.textContent='저장하기';
+    if(!res.ok){ document.getElementById('err').textContent=res.error||'저장 실패'; return; }
+    DATA=Object.assign(DATA,fields); document.getElementById('err').className='err ok'; document.getElementById('err').textContent='제출됐습니다. 감사합니다!'; toast('제출 완료 ✅');
+    // 제출됨 배지 갱신
+    var h=document.querySelector('#app h2'); if(h && !h.querySelector('.done-badge')) h.innerHTML='내 제출칸 <span class="done-badge">제출됨</span>';
+  }).catch(function(){ b.disabled=false; b.textContent='저장하기'; document.getElementById('err').textContent='네트워크 오류. 다시 시도해 주세요'; });
+}
+
+// 부팅
+(function(){
+  if(!S){ document.getElementById('app').innerHTML='<div class="card"><h2>링크 오류</h2><p class="hint">올바른 업체 링크로 접속해 주세요. (담당자에게 문의)</p></div>'; return; }
+  var saved=sessionStorage.getItem('doban_blog_'+S);
+  if(saved){ document.getElementById('app').innerHTML='<div class="card"><p class="hint">불러오는 중...</p></div>';
+    api({blogClaim:{s:S,nick:saved}}).then(function(res){ if(res.ok){ NICK=saved; DATA=res.result; renderForm(); } else renderLogin(); }).catch(function(){ renderLogin(); });
+  } else renderLogin();
+})();
+</script>
+</body>
+</html>
