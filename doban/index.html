@@ -799,7 +799,7 @@ function submitReg(){
   var sub=0, picked=[];
   QUOTE_ITEMS.forEach(function(it,i){
     var p=quoteVal('qprice'+i), q=quoteVal('qqty'+i);
-    if(q>0){ var amt=p*q; sub+=amt; picked.push({품목:it[0], 세부내용:q+it[2], 금액:Math.round(amt*1.1)}); }
+    if(q>0){ var amt=p*q; sub+=amt; picked.push({품목:it[0], 세부내용:q+it[2], 금액:Math.round(amt*1.1), 수량:q}); }
   });
   var tot=sub+Math.round(sub*0.1);
   var payload={매장명:g('r매장명'),지역:g('r지역'),대표자:g('r대표자'),연락처:g('r연락처'),
@@ -808,8 +808,11 @@ function submitReg(){
     var cid=res.ID;
     return Promise.all(picked.map(function(t){
       return gs('addTask',{광고주ID:cid,품목:t.품목,세부내용:t.세부내용,금액:t.금액,상태:'대기',등록일:g('r계약일')||undefined});
-    }));
-  }).then(function(){ toast('등록 완료! 견적 '+won(tot)+'원, 작업 '+picked.length+'건'); VIEW='client'; return load(); })
+    })).then(function(){
+      var bulks=picked.map(function(t){ var st=seedTypeOf(t.품목); return (st&&t.수량>0)?gs('addSeedBulk',{광고주ID:cid,종류:st,수량:t.수량}):null; }).filter(Boolean);
+      return Promise.all(bulks);
+    });
+  }).then(function(){ toast('등록 완료! 견적 '+won(tot)+'원, 작업 '+picked.length+'건 (명단 자동생성)'); VIEW='client'; return load(); })
     .catch(function(e){toast('오류: '+e.message);});
 }
 
@@ -1084,13 +1087,20 @@ function ntEtc(){
   var box=document.getElementById('nt품목직접');
   if(box) box.style.display = (sel==='+ 직접입력') ? '' : 'none';
 }
+// 견적 품목 → 명단 종류 매핑 (블로그/인플루언서/체험단이면 수량만큼 해당 탭에 줄 생성)
+function seedTypeOf(품목){ var p=String(품목); if(/블로그/.test(p)) return '블로그'; if(/인플루언서|인스타/.test(p)) return '인플루언서'; if(/체험단/.test(p)) return '체험단'; return null; }
 function addQuoteLine(){
   var 품목=document.getElementById('nt품목').value;
   if(품목==='+ 직접입력'){ 품목=(document.getElementById('nt품목직접').value||'').trim(); if(!품목) return toast('품목명을 입력하세요'); }
   var 세부=document.getElementById('nt세부').value;
+  var 수량=Number(document.getElementById('nt수량').value)||0;
   var 금액=Number(String(document.getElementById('nt금액').value).replace(/[^0-9]/g,''))||0;
   var 견적명=NEWQNAME[CUR+'_'+CURROUND]||''; // 커스텀 이름만 저장, 기본은 비움('견적서'로 표시)
-  busy(gs('addTask',{광고주ID:CUR,품목:품목,세부내용:세부,금액:금액,차수:CURROUND,견적명:견적명,상태:'대기'}));
+  var st=seedTypeOf(품목);
+  var chain=gs('addTask',{광고주ID:CUR,품목:품목,세부내용:세부,금액:금액,차수:CURROUND,견적명:견적명,상태:'대기'});
+  if(st && 수량>0){ chain=chain.then(function(){ return gs('addSeedBulk',{광고주ID:CUR,종류:st,수량:수량}); }); }
+  chain.then(load).then(function(){ if(st&&수량>0) toast('✅ '+st+' 탭에 '+수량+'줄 생성 — 직원이 채워요'); }).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
+  return;
 }
 function newRound(id){
   var name=(window.prompt('새 견적 이름을 입력하세요 (예: 포맥스 견적, 메타광고, 전단지)','')||'').trim();
