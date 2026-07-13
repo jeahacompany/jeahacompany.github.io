@@ -1437,6 +1437,7 @@ function seedCellHTML(s,col){
       ' onchange="this.classList.toggle(\'empty\',!this.value);setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
   }
   if(col.type==='time'){ // 키패드로 숫자만 → 13:50 자동완성, 4자리 되면 바로 저장+다음칸
+    if(!/^([01]?\d|2[0-3]):[0-5]\d$/.test(String(v).trim())) v=''; // 1899-12-30 같은 깨진값은 빈칸 처리
     return '<input type="text" inputmode="numeric" maxlength="5" placeholder="13:50" class="ss-dt ss-time'+(v?'':' empty')+'" value="'+esc(v)+'"'+
       ' oninput="seedTime(this,\''+s.ID+'\',\''+col.k+'\')"'+
       ' onchange="seedTimeCommit(this,\''+s.ID+'\',\''+col.k+'\')">';
