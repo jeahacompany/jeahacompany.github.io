@@ -825,12 +825,13 @@ function renderRegisterView() {
     '<button class="btn-primary reg-submit" onclick="submitReg()">광고주 등록</button></div>' +
   '</div></div>';
 }
-function fmtNum(el){ var n=String(el.value).replace(/[^0-9]/g,''); el.value = n ? Number(n).toLocaleString('ko-KR') : ''; }
+function fmtNum(el){ var raw=String(el.value); var neg=raw.replace(/[^0-9-]/g,'').charAt(0)==='-'; var n=raw.replace(/[^0-9]/g,''); el.value = n ? (neg?'-':'')+Number(n).toLocaleString('ko-KR') : (neg?'-':''); }
+function numVal(s){ s=String(s); var neg=s.replace(/[^0-9-]/g,'').charAt(0)==='-'; var n=Number(s.replace(/[^0-9]/g,''))||0; return neg?-n:n; } // 마이너스(할인) 허용
 function regField(label,id,ph,type){ return '<div>'+innerField(label,id,ph,type)+'</div>'; }
 function innerField(label,id,ph,type){ return '<label>'+label+'</label><input id="'+id+'" type="'+(type||'text')+'" placeholder="'+(ph||'')+'">'; }
 function regSelect(label,id,opts,def){ return '<div><label>'+label+'</label><select id="'+id+'">'+opts.map(function(o){return '<option '+(o===def?'selected':'')+'>'+o+'</option>';}).join('')+'</select></div>'; }
 function clearReg(){ renderRegisterView(); }
-function quoteVal(id){ var e=document.getElementById(id); if(!e) return 0; return Number(String(e.value).replace(/[^0-9]/g,''))||0; }
+function quoteVal(id){ var e=document.getElementById(id); if(!e) return 0; return numVal(e.value); }
 function recalcQuote(){
   var sub=0;
   QUOTE_ITEMS.forEach(function(it,i){
@@ -1170,7 +1171,7 @@ function ntPick(){ // 품목 선택 시 카탈로그 기본단가 자동 채움
 function ntAuto(){ // 금액(부가세 전) = 식 × 단가
   var qty=Number(document.getElementById('nt수량').value)||0;
   var u=document.getElementById('nt단가');
-  var unit=u?(Number(String(u.value).replace(/[^0-9]/g,''))||0):0;
+  var unit=u?numVal(u.value):0;
   var amtEl=document.getElementById('nt금액');
   if(amtEl && qty>0 && unit>0) amtEl.value=(qty*unit).toLocaleString('ko-KR');
 }
@@ -1186,9 +1187,9 @@ function addQuoteLine(){
   if(품목==='+ 직접입력'){ 품목=(document.getElementById('nt품목직접').value||'').trim(); if(!품목) return toast('품목명을 입력하세요'); }
   var 세부=document.getElementById('nt세부').value;
   var 수량=Number(document.getElementById('nt수량').value)||0;
-  var 단가=Number(String(document.getElementById('nt단가').value).replace(/[^0-9]/g,''))||0;
-  var pre=Number(String(document.getElementById('nt금액').value).replace(/[^0-9]/g,''))||0;
-  if(!pre && 수량>0 && 단가>0) pre=수량*단가; // 금액 비면 식×단가
+  var 단가=numVal(document.getElementById('nt단가').value);
+  var pre=numVal(document.getElementById('nt금액').value);
+  if(!pre && 수량 && 단가) pre=수량*단가; // 금액 비면 식×단가 (음수 단가=할인 허용)
   var 금액=Math.round(pre*1.1); // 저장은 부가세 포함(계약총액 기준 유지)
   var 견적명=NEWQNAME[CUR+'_'+CURROUND]||''; // 커스텀 이름만 저장, 기본은 비움('견적서'로 표시)
   var st=seedTypeOf(품목);
@@ -1204,10 +1205,10 @@ function editQuoteLine(taskId, field, val){
   var upd={ID:taskId};
   if(field==='수량' || field==='단가'){
     var 수량 = field==='수량' ? (Number(val)||0) : (Number(t.수량)||0);
-    var 단가 = field==='단가' ? (Number(String(val).replace(/[^0-9]/g,''))||0) : (Number(t.단가)||0);
+    var 단가 = field==='단가' ? numVal(val) : (Number(t.단가)||0);
     upd.수량=수량; upd.단가=단가;
-    if(수량>0 && 단가>0) upd.금액=Math.round(수량*단가*1.1); // 부가세 포함 저장(계약총액 기준 유지)
-    else if(!수량 || !단가) upd.금액=0;
+    if(수량 && 단가) upd.금액=Math.round(수량*단가*1.1); // 부가세 포함 저장(음수 단가=할인 허용)
+    else upd.금액=0;
   } else { upd[field]=val; }
   var r=roundOf(t);
   patchLocal('작업',taskId,upd); rerender(); // 소계·총계 즉시 반영
