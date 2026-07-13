@@ -68,6 +68,10 @@
   table.quote.qtbl .qe-num { width:100%; text-align:right; padding:4px 6px; font-size:13px; font-variant-numeric:tabular-nums; }
   table.quote.qtbl .qe-item:hover, table.quote.qtbl .qe-sub:hover, table.quote.qtbl .qe-num:hover { border-color:#eee; background:#fafafa; }
   table.quote.qtbl .qe-item:focus, table.quote.qtbl .qe-sub:focus, table.quote.qtbl .qe-num:focus { outline:none; border-color:#e8590c; background:#fff; }
+  table.quote.qtbl .settle-pin { padding:4px 6px; }
+  table.quote.qtbl .pin-in { width:100%; text-align:right; border:1px solid #dfe3e8; border-radius:6px; padding:5px 7px; font-size:13px; font-variant-numeric:tabular-nums; background:#fff; }
+  table.quote.qtbl .pin-in:focus { outline:none; border-color:#e8590c; box-shadow:0 0 0 2px #ffe3d1; }
+  table.quote.qtbl .pin-in::placeholder { color:#ccc; font-size:11px; }
   .settle-row { cursor:pointer; }
   .settle-row:hover td { background:#fff8f4; }
   .settle-row.open td { background:#fff4ec; }
@@ -82,6 +86,11 @@
   .sd-editrow .sd-amt { width:120px; text-align:right; font-variant-numeric:tabular-nums; }
   .sd-editrow .sd-paydate { color:#aaa; font-size:11px; white-space:nowrap; }
   .sd-editrow .del { margin-left:auto; }
+  .sd-readrow { display:flex; align-items:center; gap:8px; padding:8px 4px; border-bottom:1px solid #f2f2f2; font-size:13px; }
+  .sd-readrow .grow { flex:1; } .sd-readrow small { display:block; color:#aaa; font-size:11px; }
+  .sd-edit { background:#eef4ff; border:1px solid #cfe0ff; color:#2c6ee0; font-size:12px; font-weight:700; padding:4px 10px; border-radius:7px; cursor:pointer; white-space:nowrap; }
+  .sd-edit:hover { background:#2c6ee0; color:#fff; }
+  .sd-done { background:#e8590c; border:none; color:#fff; font-size:12px; font-weight:700; padding:6px 10px; border-radius:7px; cursor:pointer; margin-left:auto; white-space:nowrap; }
   .settle-detail .ex-co, .settle-detail .ex-amt { width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:7px; font-size:13px; }
   .settle-detail .ex-amt { text-align:right; }
   .q-addrow { margin-top:14px; background:#fafbfc; border:1px solid #eef0f2; border-radius:10px; padding:12px; }
@@ -589,6 +598,7 @@ var NEWQNAME = {}; // {광고주ID_차수: 이름}
 var EXTRAROUNDS = {}; // {광고주ID: [차수]} 세션 중 만든 빈 견적(작업 없어도 탭 유지)
 var SETTLEEXP = null; // 정산에서 펼친 견적 차수
 var SEEDOPEN = {}; // 인스타/블로그 견적 섹션 펼침 상태 {종류_차수: true}
+var SDEDIT = {}; // 정산 입금/실행비 항목 편집 모드 {ID: true}
 function toggleSeed(key){ SEEDOPEN[key]=!SEEDOPEN[key]; if(CUR) openClient(CUR); }
 function roundLabel(id, r){
   var t = tasksOf(id).filter(function(x){return roundOf(x)===r && x.견적명;})[0];
@@ -1139,9 +1149,13 @@ function openClient(id) {
         var q=roundSum(id,r), pin=payR(r), ex=roundExec(id,r)+costR(r), pf=q-ex, coll=q>0?Math.round(pin/q*100):0;
         tQ+=q; tP+=pin; tE+=ex;
         var open=SETTLEEXP===r;
+        var payCount=pays.filter(function(p){return (Number(p.차수)||0)===r;}).length;
+        var pinCell = payCount<=1
+          ? '<input class="pin-in" inputmode="numeric" value="'+(pin?pin.toLocaleString('ko-KR'):'')+'" placeholder="입금액 입력" onclick="event.stopPropagation()" onchange="fmtNum(this);quickPay(\''+id+'\','+r+',this.value)">'
+          : won(pin);
         return '<tr class="settle-row'+(open?' open':'')+'" onclick="SETTLEEXP='+(open?'null':r)+';openClient(\''+id+'\')">' +
             '<td class="q-item"><b>'+(open?'▼ ':'▶ ')+esc(roundLabel(id,r))+'</b>'+((function(){var dd=roundDateShow(id,r);return dd?' <small class="sd-date">'+esc(dd)+'</small>':'';})())+'</td>' +
-            '<td class="q-amt">'+won(q)+'</td><td class="q-amt">'+won(pin)+'</td><td class="q-amt">'+won(ex)+'</td>' +
+            '<td class="q-amt">'+won(q)+'</td><td class="q-amt settle-pin">'+pinCell+'</td><td class="q-amt">'+won(ex)+'</td>' +
             '<td class="q-amt" style="color:'+(pf<0?'#c92a2a':'#237a3b')+'">'+won(pf)+'</td>' +
             '<td class="q-qty">'+coll+'%</td></tr>' +
           (open ? '<tr class="settle-exp"><td colspan="6">'+settleDetail(id,r)+'</td></tr>' : '');
@@ -1369,33 +1383,54 @@ function settleDetail(id, r){
       '<td class="q-amt" style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+' ('+rate+'%)</td></tr>';
   }).join('') : '<tr><td colspan="5" style="color:#bbb;padding:8px">이 견적에 항목이 없어요 (견적서 탭에서 추가)</td></tr>';
   var extraRows=costs.filter(function(c){return (Number(c.차수)||0)===r;}).map(function(x){
-    return '<div class="sd-editrow">' +
+    if(SDEDIT[x.ID]) return '<div class="sd-editrow">' +
       '<input class="sd-narae" value="'+esc(x.내역||'')+'" placeholder="내역" onchange="editCost(\''+x.ID+'\',\'내역\',this.value)">' +
-      '<input class="sd-co" value="'+esc(x.실행회사||'')+'" placeholder="실행회사" onchange="editCost(\''+x.ID+'\',\'실행회사\',this.value)">' +
       '<input class="sd-amt" inputmode="numeric" value="'+(Number(x.금액)?Number(x.금액).toLocaleString('ko-KR'):'')+'" placeholder="금액" onchange="fmtNum(this);editCost(\''+x.ID+'\',\'금액\',this.value)">' +
-      '<button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">✕</button></div>';
+      '<button class="sd-done" onclick="sdToggle(\''+x.ID+'\')">✓ 완료</button><button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">삭제</button></div>';
+    return '<div class="sd-readrow"><div class="grow">'+esc(x.내역||'(내역 없음)')+' — <b>'+won(x.금액)+'원</b></div>' +
+      '<button class="sd-edit" onclick="sdToggle(\''+x.ID+'\')">✏ 수정</button><button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">삭제</button></div>';
   }).join('');
   var payRows=pays.filter(function(p){return (Number(p.차수)||0)===r;}).map(function(p){
-    return '<div class="sd-editrow">' +
+    if(SDEDIT[p.ID]) return '<div class="sd-editrow">' +
       '<input class="sd-amt" inputmode="numeric" value="'+(Number(p.금액)?Number(p.금액).toLocaleString('ko-KR'):'')+'" placeholder="입금액" onchange="fmtNum(this);editPay(\''+p.ID+'\',\'금액\',this.value)">' +
       '<input class="sd-memo" value="'+esc(p.메모||'')+'" placeholder="메모" onchange="editPay(\''+p.ID+'\',\'메모\',this.value)">' +
-      '<small class="sd-paydate">'+esc(p.날짜||'')+'</small>' +
-      '<button class="del" onclick="del(\'입금\',\''+p.ID+'\')">✕</button></div>';
+      '<button class="sd-done" onclick="sdToggle(\''+p.ID+'\')">✓ 완료</button><button class="del" onclick="del(\'입금\',\''+p.ID+'\')">삭제</button></div>';
+    return '<div class="sd-readrow"><div class="grow"><b>'+won(p.금액)+'원</b><small>'+esc(p.날짜)+' '+esc(p.메모)+'</small></div>' +
+      '<button class="sd-edit" onclick="sdToggle(\''+p.ID+'\')">✏ 수정</button><button class="del" onclick="del(\'입금\',\''+p.ID+'\')">삭제</button></div>';
   }).join('');
   return '<div class="settle-detail" onclick="event.stopPropagation()">' +
     '<div class="sd-title">📋 '+esc(roundLabel(id,r))+' · 품목별 실행비</div>' +
     '<div class="ss-wrap"><table class="quote qtbl"><thead><tr><th>품목</th><th class="col-amt">견적가</th><th>실행회사</th><th class="col-amt">실행비</th><th class="col-amt">마진</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>' +
-    '<div class="sd-sub">진행 중 추가비용 (이 견적) <span style="font-weight:400;color:#bbb">· 클릭해서 수정</span></div>'+extraRows +
-    '<div class="form-grid" style="grid-template-columns:1fr 1fr 120px"><input id="ec내역" placeholder="추가 실행비 내역"><input id="ec회사" placeholder="실행회사"><input id="ec금액" inputmode="numeric" placeholder="금액" oninput="fmtNum(this)"></div>' +
+    '<div class="sd-sub">진행 중 추가비용 (이 견적)</div>'+extraRows +
+    '<div class="form-grid" style="grid-template-columns:1fr 140px"><input id="ec내역" placeholder="추가 실행비 내역"><input id="ec금액" inputmode="numeric" placeholder="금액" oninput="fmtNum(this)"></div>' +
     '<button class="btn-ghost" onclick="addCostRound('+r+')">+ 이 견적에 실행비 추가</button>' +
-    '<div class="sd-sub">입금 (이 견적) <span style="font-weight:400;color:#bbb">· 클릭해서 수정</span></div>'+payRows +
+    '<div class="sd-sub">입금 (이 견적)</div>'+payRows +
     '<div class="form-grid" style="grid-template-columns:1fr 1fr"><input id="ep금액" inputmode="numeric" placeholder="입금액" oninput="fmtNum(this)"><input id="ep메모" placeholder="메모"></div>' +
     '<button class="btn-ghost" onclick="addPayRound('+r+')">+ 이 견적에 입금 추가</button></div>';
 }
 function editCost(id, field, val){ if(field==='금액') val=numVal(val); var f={}; f[field]=val; patchLocal('실행비',id,f); rerender(); var p={'탭':'실행비',ID:id}; p[field]=val; bg(gs('update',p)); }
 function editPay(id, field, val){ if(field==='금액') val=numVal(val); var f={}; f[field]=val; patchLocal('입금',id,f); rerender(); var p={'탭':'입금',ID:id}; p[field]=val; bg(gs('update',p)); }
-function addCostRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 금액=numVal(g('ec금액')); if(!금액) return toast('금액을 입력하세요'); busy(gs('addCost',{광고주ID:CUR,내역:g('ec내역'),실행회사:g('ec회사'),금액:금액,차수:r})); }
-function addPayRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 금액=numVal(g('ep금액')); if(!금액) return toast('금액을 입력하세요'); busy(gs('addPayment',{광고주ID:CUR,금액:금액,메모:g('ep메모'),차수:r})); }
+function sdToggle(id){ SDEDIT[id]=!SDEDIT[id]; rerender(); }
+// 정산 표에서 입금 바로 입력: 기존 있으면 수정(즉시), 없으면 새로 생성
+function quickPay(id, r, val){
+  var amt=numVal(val);
+  var ex=(DB.입금||[]).filter(function(p){return p.광고주ID===id&&(Number(p.차수)||0)===r;});
+  if(ex.length){ editPay(ex[0].ID,'금액',amt); return; }
+  if(!amt) return;
+  var tmp={ID:'tmp'+Date.now(),광고주ID:id,금액:amt,차수:r,날짜:todayISO(),메모:''};
+  DB.입금.push(tmp); rerender();
+  bg(gs('addPayment',{광고주ID:id,금액:amt,차수:r}).then(function(res){ var row=(DB.입금||[]).filter(function(p){return p.ID===tmp.ID;})[0]; if(row&&res&&res.ID){ row.ID=res.ID; } }));
+}
+function addCostRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 내역=g('ec내역'), 금액=numVal(g('ec금액')); if(!금액) return toast('금액을 입력하세요');
+  var tmp={ID:'tmp'+Date.now(),광고주ID:CUR,내역:내역,금액:금액,차수:r,날짜:todayISO()};
+  DB.실행비.push(tmp); rerender(); // 즉시 반영
+  bg(gs('addCost',{광고주ID:CUR,내역:내역,금액:금액,차수:r}).then(function(res){ var row=(DB.실행비||[]).filter(function(c){return c.ID===tmp.ID;})[0]; if(row&&res&&res.ID){ row.ID=res.ID; } }));
+}
+function addPayRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 금액=numVal(g('ep금액')), 메모=g('ep메모'); if(!금액) return toast('금액을 입력하세요');
+  var tmp={ID:'tmp'+Date.now(),광고주ID:CUR,금액:금액,메모:메모,차수:r,날짜:todayISO()};
+  DB.입금.push(tmp); rerender();
+  bg(gs('addPayment',{광고주ID:CUR,금액:금액,메모:메모,차수:r}).then(function(res){ var row=(DB.입금||[]).filter(function(p){return p.ID===tmp.ID;})[0]; if(row&&res&&res.ID){ row.ID=res.ID; } }));
+}
 function del(tab,id){ if(!confirm('삭제할까요?')) return; DB[tab]=(DB[tab]||[]).filter(function(r){return r.ID!==id;}); rerender(); bg(gs('delete',{탭:tab,ID:id})); }
 
 // ─── 신규 광고주 ───
