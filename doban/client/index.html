@@ -124,7 +124,11 @@ function boot(){
   var code = new URLSearchParams(location.search).get('c');
   if(!code){ notFound('공유 코드가 없습니다 (?c=코드)'); return; }
   app.innerHTML = '<div class="head"><div class="co">DOBAN GLOBAL</div><div class="sub" style="margin-top:20px">불러오는 중…</div></div>';
-  fetch(API_URL + '?c=' + encodeURIComponent(code) + '&json=1')
+  fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ client: code })
+  })
     .then(function(r){ return r.json(); })
     .then(function(d){
       if(!d || d.ok===false || !d.result){ notFound('없는 코드이거나 준비 중입니다'); return; }
