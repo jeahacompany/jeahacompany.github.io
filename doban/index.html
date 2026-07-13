@@ -51,6 +51,10 @@
   .quote-sum .ln.tot { border-top:2px solid #eee; margin-top:6px; padding-top:10px; font-size:18px; font-weight:700; }
   .quote-sum .ln.tot b { color:#e8590c; }
   .col-price { width:120px; } .col-qty { width:70px; } .col-amt { width:110px; } .col-no { width:36px; }
+  th.col-no { width:56px; text-align:center; } td.c-no { padding:6px 8px; }
+  .cnum-in { width:46px; text-align:center; border:1px solid #e2e2e2; border-radius:7px; padding:6px 4px; font-size:15px; font-weight:800; color:#e8590c; background:#fff; }
+  .cnum-in:focus { outline:none; border-color:#e8590c; box-shadow:0 0 0 2px #ffe3d1; }
+  .cnum-in::placeholder { color:#ddd; font-weight:400; }
   table.quote .q-no { width:36px; text-align:center; color:#aaa; font-size:12px; font-variant-numeric:tabular-nums; }
   table.quote.qtbl td { vertical-align:middle; }
   table.quote.qtbl .q-qty, table.quote.qtbl .q-unit { text-align:right; font-variant-numeric:tabular-nums; color:#555; white-space:nowrap; }
@@ -300,7 +304,7 @@
     <div class="chips" id="chips"></div>
     <table>
       <thead><tr>
-        <th>매장명</th><th class="hide-m">지역</th><th class="hide-m">담당</th>
+        <th class="col-no">번호</th><th>매장명</th><th class="hide-m">지역</th><th class="hide-m">담당</th>
         <th>상태</th><th>작업 진행률</th>
       </tr></thead>
       <tbody id="tbody"></tbody>
@@ -733,17 +737,15 @@ function renderClientView() {
   var cs = DB.광고주;
   var 진행 = cs.filter(function(c){return c.상태==='진행중';}).length;
   var 완료 = cs.filter(function(c){return c.상태==='완료';}).length;
-  var 입금 = cs.reduce(function(s,c){return s+paySum(c.ID);},0);
-  var 마진 = cs.reduce(function(s,c){return s+paySum(c.ID)-costSum(c.ID);},0);
   document.getElementById('cards').innerHTML =
-    card('전체 광고주', cs.length+'곳') + card('진행중', 진행+'곳') + card('완료', 완료+'곳') +
-    (canSeeMargin() ? card('총 입금', won(입금)+'원') + card('총 마진', won(마진)+'원') : '');
+    card('전체 광고주', cs.length+'곳') + card('진행중', 진행+'곳') + card('완료', 완료+'곳');
 
   document.getElementById('chips').innerHTML = ['전체'].concat(STATUSES).map(function (s) {
     return '<div class="chip'+(FILTER===s?' on':'')+'" onclick="FILTER=\''+s+'\';render()">'+s+'</div>';
   }).join('');
 
-  var list = cs.filter(function(c){ return FILTER==='전체' || c.상태===FILTER; });
+  var list = cs.slice().sort(function(a,b){ return (Number(a.번호)||9999)-(Number(b.번호)||9999) || String(a.매장명).localeCompare(String(b.매장명)); })
+    .filter(function(c){ return FILTER==='전체' || c.상태===FILTER; });
   document.getElementById('tbody').innerHTML = list.map(function (c) {
     var ts = tasksOf(c.ID), done = ts.filter(function(t){return t.상태==='완료';}).length;
     var pct = ts.length ? Math.round(done/ts.length*100) : 0;
@@ -751,13 +753,15 @@ function renderClientView() {
       ? '<div class="prog">'+done+'/'+ts.length+' ('+pct+'%)</div><div class="mini-bar"><div style="width:'+pct+'%"></div></div>'
       : '<span style="color:#ccc;font-size:13px">—</span>';
     return '<tr onclick="openClient(\''+c.ID+'\')">' +
+      '<td class="c-no"><input class="cnum-in" inputmode="numeric" value="'+(c.번호!=null&&c.번호!==''?esc(c.번호):'')+'" placeholder="–" onclick="event.stopPropagation()" onchange="setClientNum(\''+c.ID+'\',this.value)"></td>' +
       '<td><b>'+esc(c.매장명)+'</b></td>' +
       '<td class="hide-m">'+esc(c.지역)+'</td>' +
       '<td class="hide-m">'+esc(c.담당직원)+'</td>' +
       '<td><span class="badge s-'+esc(c.상태)+'">'+esc(c.상태)+'</span></td>' +
       '<td>'+progCell+'</td></tr>';
-  }).join('') || '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:30px">광고주가 없습니다</td></tr>';
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:30px">광고주가 없습니다</td></tr>';
 }
+function setClientNum(id, val){ var digits=String(val).replace(/[^0-9]/g,''); var n=digits===''?'':Number(digits); patchLocal('광고주',id,{번호:n}); render(); bg(gs('updateClient',{ID:id,번호:n})); }
 
 // ─── 정산 뷰 ───
 function renderSettleView() {
