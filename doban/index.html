@@ -94,9 +94,26 @@
   .prog { font-size:12px; color:#888; }
   /* 상세 패널 */
   .overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; z-index:10; }
-  .panel { position:fixed; top:0; right:0; width:min(680px,100%); height:100%; background:#f4f6f9; z-index:11;
-           transform:translateX(100%); transition:transform .2s; overflow-y:auto; padding:18px; }
+  .panel { position:fixed; top:0; right:0; width:100%; height:100%; background:#f4f6f9; z-index:11;
+           transform:translateX(100%); transition:transform .2s; overflow-y:auto; padding:18px 20px 40px; }
   .panel.open { transform:none; }
+  .panel > *:not(.back-btn) { max-width:1040px; margin-left:auto; margin-right:auto; }
+  .back-btn { display:inline-flex; align-items:center; gap:5px; background:#fff; border:1px solid #e3e3e3; color:#333;
+              font-size:14px; font-weight:600; padding:8px 16px; border-radius:9px; cursor:pointer; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .back-btn:hover { background:#f4f6f9; }
+  /* 계정정보 한 줄 레이아웃 */
+  .inf-list { display:flex; flex-direction:column; }
+  .inf-line { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid #f2f2f2; flex-wrap:wrap; }
+  .inf-line:last-child { border-bottom:none; }
+  .inf-label { flex:0 0 130px; font-weight:600; font-size:14px; color:#333; white-space:nowrap; }
+  .inf-value { flex:1 1 220px; min-width:160px; padding:9px 11px; border:1px solid #e3e3e3; border-radius:8px; font-size:14px; }
+  .inf-value:focus { outline:2px solid #e8590c; outline-offset:-1px; border-color:#e8590c; }
+  .inf-copy { flex:0 0 auto; border:none; background:#fff4ec; color:#e8590c; font-weight:700; padding:9px 14px; border-radius:8px; cursor:pointer; white-space:nowrap; font-size:13px; }
+  .inf-copy:hover { background:#ffe0cc; }
+  .inf-link { flex:0 0 170px; padding:8px 10px; border:1px solid #eee; border-radius:8px; font-size:12px; color:#777; }
+  .inf-go { text-decoration:none; background:#e8590c; color:#fff; font-weight:700; border-radius:7px; padding:7px 11px; font-size:14px; }
+  .inf-del { border:none; background:none; color:#ccc; cursor:pointer; font-size:15px; padding:4px; }
+  .inf-del:hover { color:#e03131; }
   .panel h2 { font-size:19px; margin-bottom:2px; }
   .panel .sub { font-size:13px; color:#888; margin-bottom:12px; }
   .sec { background:#fff; border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
@@ -823,6 +840,7 @@ function openClient(id) {
   var share = (DB.웹앱주소||'') + '?c=' + c.공유코드;
 
   document.getElementById('panel').innerHTML =
+  '<button class="back-btn" onclick="closePanel()">← 목록으로</button>' +
   '<div style="display:flex;justify-content:space-between;align-items:start">' +
     '<div><h2>'+esc(c.매장명)+'</h2><div class="sub">'+esc(c.지역)+' · 대표 '+esc(c.대표자)+' · '+esc(c.연락처)+'</div></div>' +
     '<button class="btn-ghost" onclick="closePanel()">✕</button></div>' +
@@ -836,16 +854,19 @@ function openClient(id) {
     '<div class="row"><div class="grow"><span>광고주 공유 링크</span><small>점주는 이 링크 + 위 ID/비번으로 자기 매장만 봅니다</small></div>' +
       '<button class="btn-ghost" onclick="copyShare(\''+share+'\')">링크 복사</button></div></div>' +
 
-  '<div class="sec"><h3>📋 계정 정보 <span style="font-size:11px;color:#999;font-weight:400">· 아이디/비번·주소 등, 점주도 편집</span></h3>' +
-    '<div class="ss-wrap"><table class="ss info-tbl"><thead><tr><th style="width:100px">항목</th><th>값</th><th style="width:140px">바로가기 링크</th><th></th></tr></thead><tbody>' +
+  '<div class="sec"><h3>📋 계정 정보 <span style="font-size:11px;color:#999;font-weight:400">· 복사 눌러 바로 붙여넣기, 점주도 편집</span></h3>' +
+    '<div class="inf-list">' +
     (infosOf(id).length ? infosOf(id).map(function(f){
-      return '<tr>' +
-        '<td style="font-weight:600;color:#555">'+esc(f.항목)+'</td>' +
-        '<td><div class="inf-val"><input id="inf_'+f.ID+'" value="'+esc(f.값)+'" placeholder="입력" onchange="setInfo(\''+f.ID+'\',\'값\',this.value)"><button class="inf-cp" onclick="copyVal(\'inf_'+f.ID+'\')">📋</button></div></td>' +
-        '<td><div class="inf-val"><input value="'+esc(f.링크||'')+'" placeholder="URL" onchange="setInfo(\''+f.ID+'\',\'링크\',this.value)">'+(f.링크?'<a class="inf-go" href="'+esc(f.링크)+'" target="_blank">→</a>':'')+'</div></td>' +
-        '<td class="ss-act"><button class="del" onclick="del(\'정보\',\''+f.ID+'\')">✕</button></td></tr>';
-    }).join('') : '<tr><td colspan="4" style="text-align:center;color:#bbb;padding:8px">정보 항목이 없어요</td></tr>') +
-    '</tbody></table></div>' +
+      return '<div class="inf-line">' +
+        '<span class="inf-label">'+esc(f.항목)+'</span>' +
+        '<input class="inf-value" id="inf_'+f.ID+'" value="'+esc(f.값)+'" placeholder="입력" onchange="setInfo(\''+f.ID+'\',\'값\',this.value)">' +
+        '<button class="inf-copy" onclick="copyVal(\'inf_'+f.ID+'\')">📋 복사</button>' +
+        '<input class="inf-link" value="'+esc(f.링크||'')+'" placeholder="바로가기 URL" onchange="setInfo(\''+f.ID+'\',\'링크\',this.value)">' +
+        (f.링크?'<a class="inf-go" href="'+esc(f.링크)+'" target="_blank">→</a>':'') +
+        '<button class="inf-del" onclick="del(\'정보\',\''+f.ID+'\')">✕</button>' +
+      '</div>';
+    }).join('') : '<div style="color:#bbb;padding:8px">정보 항목이 없어요</div>') +
+    '</div>' +
     '<button class="add-row" onclick="addInfoRow()">+ 항목 추가 (옥외광고 등)</button></div>' +
 
   '<div class="sec"><h3>견적·작업 · 계약 총액 '+won(contractOf(id))+'원 ' +
