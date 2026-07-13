@@ -558,6 +558,11 @@ function roundLabel(id, r){
   if (NEWQNAME[id+'_'+r]) return NEWQNAME[id+'_'+r];
   return '견적서'+(r>1?' '+r:'');
 }
+function roundLabelOr(id, r){ return (Number(r)>0) ? roundLabel(id, Number(r)) : '미지정'; }
+function roundSelectHTML(selId, id){
+  var rs = roundsOf(id); if(rs.indexOf(CURROUND)<0) rs=rs.concat([CURROUND]).sort(function(a,b){return a-b;});
+  return '<select id="'+selId+'" title="어느 견적에 기록할지">'+rs.map(function(r){ return '<option value="'+r+'"'+(r===CURROUND?' selected':'')+'>'+esc(roundLabel(id,r))+'</option>'; }).join('')+'</select>';
+}
 function execTaskOf(id){ return tasksOf(id).reduce(function(s,t){return s+(Number(t.실행비용)||0);},0); } // 작업(견적항목) 실행비 합
 function roundExec(id,r){ return tasksOf(id).filter(function(t){return roundOf(t)===r;}).reduce(function(s,t){return s+(Number(t.실행비용)||0);},0); }
 function totalExecOf(id){ return execTaskOf(id) + costSum(id); } // 작업 실행비 + 기타 실행비
@@ -975,7 +980,7 @@ function openClient(id) {
   var c = c0;
   var ts = tasksOf(id);
   var rounds = roundsOf(id);
-  if (rounds.indexOf(CURROUND) < 0) CURROUND = rounds[rounds.length-1];
+  if (rounds.indexOf(CURROUND) < 0) rounds = rounds.concat([CURROUND]).sort(function(a,b){return a-b;}); // 빈 새 견적도 탭 유지
   var roundTs = ts.filter(function(t){return roundOf(t)===CURROUND;});
   var logs = DB.로그.filter(function(r){return r.광고주ID===id;});
   var pays = DB.입금.filter(function(r){return r.광고주ID===id;});
@@ -1055,8 +1060,12 @@ function openClient(id) {
           '<div class="ln tot"><span>총계 (VAT포함)</span><b>'+won(rtot)+'원</b></div>' +
         '</div>';
     })() +
-    (SHOWMARGIN && roundTs.length ? (function(){ var rq=roundSum(id,CURROUND), re=roundExec(id,CURROUND), rm=rq-re;
-      return '<div class="round-margin"><span>이 견적 이익</span><span>견적 '+won(rq)+' − 실행 '+won(re)+' = <b style="color:'+(rm<0?'#c92a2a':'#237a3b')+'">'+won(rm)+'원</b> ('+(rq>0?Math.round(rm/rq*100):0)+'%)</span></div>';
+    (SHOWMARGIN && roundTs.length ? (function(){
+      var rq=roundSum(id,CURROUND);
+      var reAll=roundExec(id,CURROUND)+costs.filter(function(c){return (Number(c.차수)||0)===CURROUND;}).reduce(function(s,c){return s+(Number(c.금액)||0);},0);
+      var pin=pays.filter(function(p){return (Number(p.차수)||0)===CURROUND;}).reduce(function(s,p){return s+(Number(p.금액)||0);},0);
+      var rm=rq-reAll;
+      return '<div class="round-margin"><span>이 견적 정산</span><span>견적 '+won(rq)+' · 입금 '+won(pin)+' · 실행 '+won(reAll)+' → 이익 <b style="color:'+(rm<0?'#c92a2a':'#237a3b')+'">'+won(rm)+'원</b> ('+(rq>0?Math.round(rm/rq*100):0)+'%)</span></div>';
     })() : '') +
     '<div class="q-addrow"><div class="qar-title">+ 「'+esc(roundLabel(id,CURROUND))+'」에 항목 추가</div>' +
       '<div class="form-grid" style="grid-template-columns:1fr 66px 110px 110px">' +
@@ -1087,26 +1096,44 @@ function openClient(id) {
       '<input id="nl작성자" placeholder="작성자">' +
       '<button class="btn-primary" onclick="addLog()">+ 기록 남기기</button></div></div>' +
   '</div>' +
-  (canSeeMargin() ? dp('settle') + '<div class="sec"><h3>정산 (내부 전용)</h3>' +
-    '<div class="sum-line"><span>계약금액 (견적 합계)</span><b>'+won(contractOf(id))+'원</b></div>' +
-    '<div class="sum-line"><span>입금 합계</span><b>'+won(입금)+'원</b></div>' +
-    '<div class="sum-line"><span>실행비 합계</span><b>'+won(실행)+'원</b></div>' +
-    '<div class="sum-line big"><span>마진 ('+(입금>0?Math.round(마진/입금*100)+'%':'-')+')</span>' +
-      '<span style="color:'+(마진<0?'#c92a2a':'#237a3b')+'">'+won(마진)+'원</span></div>' +
-    '<div style="margin-top:10px;font-size:13px;color:#888">입금 내역</div>' +
+  (canSeeMargin() ? dp('settle') + '<div class="sec"><h3>정산 (견적별) <span style="font-size:11px;color:#999;font-weight:400">· 내부 전용</span></h3>' +
+    (function(){
+      var payR=function(r){ return pays.filter(function(p){return (Number(p.차수)||0)===r;}).reduce(function(s,p){return s+(Number(p.금액)||0);},0); };
+      var costR=function(r){ return costs.filter(function(c){return (Number(c.차수)||0)===r;}).reduce(function(s,c){return s+(Number(c.금액)||0);},0); };
+      var tQ=0,tP=0,tE=0;
+      var body=rounds.map(function(r){
+        var q=roundSum(id,r), pin=payR(r), ex=roundExec(id,r)+costR(r), pf=q-ex, coll=q>0?Math.round(pin/q*100):0;
+        tQ+=q; tP+=pin; tE+=ex;
+        return '<tr><td class="q-item"><b>'+esc(roundLabel(id,r))+'</b></td>' +
+          '<td class="q-amt">'+won(q)+'</td><td class="q-amt">'+won(pin)+'</td><td class="q-amt">'+won(ex)+'</td>' +
+          '<td class="q-amt" style="color:'+(pf<0?'#c92a2a':'#237a3b')+'">'+won(pf)+'</td>' +
+          '<td class="q-qty">'+coll+'%</td></tr>';
+      }).join('');
+      var uP=payR(0), uC=costR(0);
+      if(uP||uC){ tP+=uP; tE+=uC; body+='<tr><td class="q-item"><b style="color:#999">미지정</b></td><td class="q-amt">-</td><td class="q-amt">'+won(uP)+'</td><td class="q-amt">'+won(uC)+'</td><td class="q-amt">-</td><td class="q-qty"></td></tr>'; }
+      var tM=tQ-tE;
+      return '<div class="quote-wrap"><table class="quote qtbl"><thead><tr><th>견적</th><th class="col-amt">견적금액</th><th class="col-amt">입금</th><th class="col-amt">실행비</th><th class="col-amt">이익</th><th class="col-qty">수금률</th></tr></thead><tbody>'+body+'</tbody></table></div>' +
+        '<div class="quote-sum"><div class="ln"><span>총 견적</span><span>'+won(tQ)+'</span></div>' +
+        '<div class="ln"><span>총 입금</span><span>'+won(tP)+'</span></div>' +
+        '<div class="ln"><span>총 실행비</span><span>'+won(tE)+'</span></div>' +
+        '<div class="ln tot"><span>총 마진 ('+(tQ>0?Math.round(tM/tQ*100):0)+'%)</span><b style="color:'+(tM<0?'#c92a2a':'#237a3b')+'">'+won(tM)+'원</b></div></div>';
+    })() +
+    '<div style="margin-top:14px;font-size:13px;color:#888">입금 내역 <span style="color:#bbb">· 견적별로 기록</span></div>' +
     pays.map(function (p) {
-      return '<div class="row"><div class="grow">'+won(p.금액)+'원<small>'+esc(p.날짜)+' '+esc(p.메모)+'</small></div>' +
+      return '<div class="row"><div class="grow">'+won(p.금액)+'원<small>'+esc(roundLabelOr(id,p.차수))+' · '+esc(p.날짜)+' '+esc(p.메모)+'</small></div>' +
         '<button class="del" onclick="del(\'입금\',\''+p.ID+'\')">삭제</button></div>';
     }).join('') +
-    '<div class="form-grid"><input id="np금액" type="number" placeholder="입금액"><input id="np메모" placeholder="메모">' +
+    '<div class="form-grid" style="grid-template-columns:1fr 1fr 130px"><input id="np금액" type="number" placeholder="입금액"><input id="np메모" placeholder="메모">' +
+      roundSelectHTML('np차수', id) +
       '<button class="btn-primary full" onclick="addPay()">+ 입금 추가</button></div>' +
-    '<div style="margin-top:14px;font-size:13px;color:#888">실행비 내역</div>' +
+    '<div style="margin-top:14px;font-size:13px;color:#888">실행비 내역 (기타) <span style="color:#bbb">· 견적 항목별 실행비는 견적서 탭에서</span></div>' +
     costs.map(function (x) {
-      return '<div class="row"><div class="grow">'+esc(x.내역)+' — '+won(x.금액)+'원<small>'+esc(x.날짜)+' · '+esc(x.실행회사)+'</small></div>' +
+      return '<div class="row"><div class="grow">'+esc(x.내역)+' — '+won(x.금액)+'원<small>'+esc(roundLabelOr(id,x.차수))+' · '+esc(x.날짜)+' · '+esc(x.실행회사)+'</small></div>' +
         '<button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">삭제</button></div>';
     }).join('') +
-    '<div class="form-grid"><input id="nc내역" placeholder="내역 (예: 체험단 집행)"><input id="nc회사" placeholder="실행회사">' +
-      '<input id="nc금액" type="number" placeholder="금액"><button class="btn-primary" onclick="addCost()">+ 실행비 추가</button></div></div>' + '</div>' : '');
+    '<div class="form-grid" style="grid-template-columns:1fr 1fr 100px 130px"><input id="nc내역" placeholder="내역 (예: 체험단 집행)"><input id="nc회사" placeholder="실행회사">' +
+      '<input id="nc금액" type="number" placeholder="금액">' + roundSelectHTML('nc차수', id) +
+      '<button class="btn-primary full" onclick="addCost()">+ 실행비 추가</button></div></div>' + '</div>' : '');
 
   document.getElementById('overlay').style.display = 'block';
   document.getElementById('panel').classList.add('open');
@@ -1214,13 +1241,14 @@ function addLog(){
   var 내용=document.getElementById('nl내용').value.trim(); if(!내용) return toast('내용을 입력하세요');
   busy(gs('addLog',{광고주ID:CUR,내용:내용,작성자:document.getElementById('nl작성자').value}));
 }
+function selVal(id){ var e=document.getElementById(id); return e?e.value:''; }
 function addPay(){
   var 금액=document.getElementById('np금액').value; if(!금액) return toast('금액을 입력하세요');
-  busy(gs('addPayment',{광고주ID:CUR,금액:금액,메모:document.getElementById('np메모').value}));
+  busy(gs('addPayment',{광고주ID:CUR,금액:금액,메모:document.getElementById('np메모').value,차수:selVal('np차수')||CURROUND}));
 }
 function addCost(){
   var 금액=document.getElementById('nc금액').value; if(!금액) return toast('금액을 입력하세요');
-  busy(gs('addCost',{광고주ID:CUR,내역:document.getElementById('nc내역').value,실행회사:document.getElementById('nc회사').value,금액:금액}));
+  busy(gs('addCost',{광고주ID:CUR,내역:document.getElementById('nc내역').value,실행회사:document.getElementById('nc회사').value,금액:금액,차수:selVal('nc차수')||CURROUND}));
 }
 function del(tab,id){ if(confirm('삭제할까요?')) busy(gs('delete',{탭:tab,ID:id})); }
 
