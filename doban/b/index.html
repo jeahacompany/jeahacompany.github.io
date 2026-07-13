@@ -30,6 +30,12 @@
   .tip{ background:#f4f1ff; color:#5a49b8; font-size:12.5px; line-height:1.55; border-radius:9px; padding:9px 11px; margin-top:10px; }
   .row2{ display:flex; gap:10px; } .row2>div{ flex:1; }
   .done-badge{ display:inline-block; background:#d3f9d8; color:#237a3b; font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; margin-left:6px; }
+  .done-badge.resv{ background:#efe9ff; color:#7048e8; }
+  .done-badge.done{ background:#d3f9d8; color:#237a3b; }
+  .warn{ background:#fff0f0; border:1.5px solid #ffc9c9; color:#c92a2a; font-size:13.5px; font-weight:600; line-height:1.6; border-radius:10px; padding:12px 13px; margin:16px 0 4px; }
+  .step2{ margin-top:18px; padding-top:6px; border-top:1px dashed #e5e5e5; }
+  .step2-h{ font-size:13px; font-weight:800; color:#555; margin:8px 0 2px; }
+  .step2-h span{ color:#aaa; font-weight:500; font-size:12px; }
   .foot{ text-align:center; color:#bbb; font-size:12px; padding:20px; }
   .link-row{ display:flex; align-items:center; gap:8px; }
   .link-row a{ color:var(--brand); font-size:13px; white-space:nowrap; text-decoration:none; }
@@ -88,31 +94,37 @@ function doLogin(){
 function val(id){ return (document.getElementById(id).value||'').trim(); }
 function renderForm(){
   var d=DATA;
+  var reserved = !!(d.방문일정 && cleanTime(d.방문시간));
   var done = !!d.URL;
+  var badge = done ? '<span class="done-badge done">게시완료</span>' : (reserved ? '<span class="done-badge resv">예약완료</span>' : '');
   setStoreTitle(d.매장명); // 로그인 후엔 서버가 준 실제 업체명으로
   document.getElementById('storeSub').textContent = d.닉네임+'님, 안녕하세요';
   document.getElementById('app').innerHTML =
     '<div class="card">'+
-      '<h2>내 제출칸 '+(done?'<span class="done-badge">제출됨</span>':'')+'</h2>'+
-      '<p class="hint">방문 일정과 후기 링크를 직접 채워 주세요. 저장하면 담당자에게 바로 전달됩니다.</p>'+
+      '<h2>내 제출칸 '+badge+'</h2>'+
+      '<p class="hint"><b>①</b> 점주님과 정한 <b>방문 날짜·시간</b>을 먼저 저장(예약)하세요.<br>'+
+        '<b>②</b> 방문하고 후기 작성한 뒤, 이 링크로 다시 들어와 <b>블로그 URL</b>을 올리면 끝!<br>'+
+        '<span style="color:#999">※ 저장한 내용은 닉네임으로 계속 보관돼요. 다음에 또 들어오면 이어서 작성돼요.</span></p>'+
+
+      '<div class="warn">🚫 <b>절대 혼자서 방문 시간을 잡으시면 안 됩니다.</b><br>점주님과 협의한 시간을 꼭 적어주시길 바랍니다.</div>'+
 
       '<label>방문 예정일 <span class="dow" id="dow">'+dowLabel(d.방문일정)+'</span></label>'+
       '<input class="dt" type="date" id="f_방문일정" value="'+esc(d.방문일정||'')+'" onchange="document.getElementById(\'dow\').textContent=dowLabel(this.value)" onclick="try{if(!this.value)this.value=today();this.showPicker&&this.showPicker()}catch(e){}">'+
 
       '<label>방문 시간 <span style="color:#bbb;font-weight:400">(예: 1830 → 18:30)</span></label>'+
       '<input id="f_방문시간" inputmode="numeric" maxlength="5" placeholder="18:30" value="'+esc(cleanTime(d.방문시간))+'" oninput="fmtTime(this)">'+
-      '<div class="tip">📅 방문 날짜와 <b>시간까지 넣고 저장</b>하면 담당자·매장에 <b>“예약 완료”</b>로 표시돼요.</div>'+
 
-      '<label>블로그 후기 URL <span class="req">*</span></label>'+
-      '<input id="f_URL" inputmode="url" placeholder="https://blog.naver.com/..." value="'+esc(d.URL||'')+'">'+
+      '<div class="step2">'+
+        '<div class="step2-h">📝 방문 후 작성 <span>(지금은 비워두셔도 돼요)</span></div>'+
+        '<label>블로그 후기 URL</label>'+
+        '<input id="f_URL" inputmode="url" placeholder="https://blog.naver.com/..." value="'+esc(d.URL||'')+'">'+
+        '<label>인스타 URL</label>'+
+        '<input id="f_인스타URL" inputmode="url" placeholder="https://instagram.com/... (선택)" value="'+esc(d.인스타URL||'')+'">'+
+        '<label>영수증 리뷰 URL</label>'+
+        '<input id="f_영수증URL" inputmode="url" placeholder="영수증 리뷰 링크 (선택)" value="'+esc(d.영수증URL||'')+'">'+
+      '</div>'+
 
-      '<label>인스타 URL</label>'+
-      '<input id="f_인스타URL" inputmode="url" placeholder="https://instagram.com/... (선택)" value="'+esc(d.인스타URL||'')+'">'+
-
-      '<label>영수증 리뷰 URL</label>'+
-      '<input id="f_영수증URL" inputmode="url" placeholder="영수증 리뷰 링크 (선택)" value="'+esc(d.영수증URL||'')+'">'+
-
-      '<button class="btn" id="save">저장하기</button>'+
+      '<button class="btn" id="save">'+(done?'수정 저장하기':(reserved?'후기 제출하기':'방문 시간 예약하기'))+'</button>'+
       '<button class="btn sec" id="logout" style="margin-top:10px">다른 닉네임으로</button>'+
       '<div class="err" id="err"></div>'+
     '</div>';
@@ -126,19 +138,21 @@ function cleanTime(v){ v=String(v==null?'':v).trim(); return /^([01]?\d|2[0-3]):
 function fmtTime(el){ var d=el.value.replace(/[^0-9]/g,'').slice(0,4); el.value = d.length>=3 ? d.slice(0,2)+':'+d.slice(2) : d; if(d.length===4){ var h=+d.slice(0,2),m=+d.slice(2); if(h<24&&m<60) el.blur(); } }
 
 function doSave(){
-  var url=val('f_URL');
-  if(!url){ document.getElementById('err').textContent='블로그 후기 URL은 꼭 입력해 주세요'; return; }
   var 방문일정=val('f_방문일정'), 시간=cleanTime(val('f_방문시간'));
+  if(!방문일정 || !시간){ var e=document.getElementById('err'); e.className='err'; e.textContent='점주님과 정한 방문 날짜와 시간을 꼭 입력해 주세요'; return; }
+  var url=val('f_URL');
   var fields={ 방문일정:방문일정, 방문시간:시간, URL:url, 인스타URL:val('f_인스타URL'), 영수증URL:val('f_영수증URL') };
-  fields.진행여부 = url ? '게시완료' : ((방문일정 && 시간) ? '예약완료' : (방문일정 ? '방문예정' : ''));
+  fields.진행여부 = url ? '게시완료' : '예약완료';
   var b=document.getElementById('save'); b.textContent='저장 중...'; b.disabled=true;
   api({blogSave:{s:S,nick:NICK,fields:fields}}).then(function(res){
-    b.disabled=false; b.textContent='저장하기';
-    if(!res.ok){ document.getElementById('err').textContent=res.error||'저장 실패'; return; }
-    DATA=Object.assign(DATA,fields); document.getElementById('err').className='err ok'; document.getElementById('err').textContent='제출됐습니다. 감사합니다!'; toast('제출 완료 ✅');
-    // 제출됨 배지 갱신
-    var h=document.querySelector('#app h2'); if(h && !h.querySelector('.done-badge')) h.innerHTML='내 제출칸 <span class="done-badge">제출됨</span>';
-  }).catch(function(){ b.disabled=false; b.textContent='저장하기'; document.getElementById('err').textContent='네트워크 오류. 다시 시도해 주세요'; });
+    b.disabled=false;
+    if(!res.ok){ b.textContent='저장하기'; var e2=document.getElementById('err'); e2.className='err'; e2.textContent=res.error||'저장 실패'; return; }
+    DATA=Object.assign(DATA,fields);
+    renderForm(); // 배지·버튼·상태 최신화
+    var e=document.getElementById('err'); e.className='err ok';
+    e.textContent = url ? '후기까지 제출 완료! 감사합니다 🙏' : '방문 예약이 저장됐어요. 방문·후기 작성 후 이 링크로 다시 들어와 URL을 올려주세요!';
+    toast(url ? '제출 완료 ✅' : '예약 저장 완료 ✅');
+  }).catch(function(){ b.disabled=false; b.textContent='저장하기'; var e3=document.getElementById('err'); e3.className='err'; e3.textContent='네트워크 오류. 다시 시도해 주세요'; });
 }
 
 // 부팅
