@@ -193,6 +193,8 @@
   .round-name { font-size:14px; font-weight:700; border:1px solid transparent; border-radius:6px; padding:3px 7px; width:170px; max-width:40%; }
   .round-name:hover { border-color:#eee; background:#fafafa; } .round-name:focus { outline:none; border-color:#e8590c; background:#fff; }
   .round-date { width:140px; flex:none; }
+  .del-client { background:#fff0f0; border:1px solid #f0c0c0; color:#c92a2a; font-size:13px; font-weight:700; padding:9px 16px; border-radius:9px; cursor:pointer; }
+  .del-client:hover { background:#c92a2a; color:#fff; border-color:#c92a2a; }
   .del-round { margin-left:auto; background:#fff0f0; border:1px solid #f0c0c0; color:#c92a2a; font-size:12px; font-weight:700; padding:4px 10px; border-radius:7px; cursor:pointer; white-space:nowrap; }
   .del-round:hover { background:#c92a2a; color:#fff; border-color:#c92a2a; }
   .qline { border-bottom:1px solid #f2f2f2; padding:9px 0; }
@@ -332,6 +334,7 @@
   <div id="registerView" style="display:none"></div>
   <div id="staffView" style="display:none"></div>
   <div id="logView" style="display:none"></div>
+  <div id="trashView" style="display:none"></div>
 </div>
 
 <div class="overlay" id="overlay" onclick="closePanel()"></div>
@@ -729,11 +732,11 @@ function paySum(id){ return DB.입금.filter(function(r){return r.광고주ID===
 function costSum(id){ return DB.실행비.filter(function(r){return r.광고주ID===id && (Number(r.차수)||0)>0;}).reduce(function(s,r){return s+(Number(r.금액)||0);},0); } // 견적(차수)에 붙은 실행비만 — 미지정 옛 데모 제외
 
 // ─── 메인 렌더 (뷰 디스패처) ───
-var VIEWS = [['client','광고주별'],['task','작업 현황'],['settle','정산'],['register','+ 광고주 등록'],['staff','👥 직원'],['log','📋 로그']];
+var VIEWS = [['client','광고주별'],['task','작업 현황'],['settle','정산'],['register','+ 광고주 등록'],['staff','👥 직원'],['log','📋 로그'],['trash','🗑 삭제함']];
 function visibleViews(){
   return VIEWS.filter(function(t){
     if(t[0]==='settle') return canSeeMargin();   // 정산(마진)은 권한 있는 사람만
-    if(t[0]==='staff' || t[0]==='log') return isAdmin(); // 직원관리·로그는 관리자만
+    if(t[0]==='staff' || t[0]==='log' || t[0]==='trash') return isAdmin(); // 직원관리·로그·삭제함은 관리자만
     return true;
   });
 }
@@ -746,7 +749,7 @@ function render() {
       var cls = 'viewtab' + (VIEW===t[0]?' on':'') + (t[0]==='register'?' reg':'');
       return '<div class="'+cls+'" onclick="VIEW=\''+t[0]+'\';render()">'+t[1]+'</div>';
     }).join('') + '<div class="viewtab" onclick="logout()" style="color:#c92a2a">로그아웃</div>';
-  ['client','task','settle','register','staff','log'].forEach(function (v) {
+  ['client','task','settle','register','staff','log','trash'].forEach(function (v) {
     var el=document.getElementById(v+'View'); if(el) el.style.display = VIEW===v ? '' : 'none';
   });
   // 미배정 작업 알림
@@ -760,12 +763,13 @@ function render() {
   else if (VIEW==='register') renderRegisterView();
   else if (VIEW==='staff') renderStaffView();
   else if (VIEW==='log') renderLogView();
+  else if (VIEW==='trash') renderTrashView();
 }
 function card(l,n){ return '<div class="card"><div class="lbl">'+l+'</div><div class="num">'+n+'</div></div>'; }
 
 // ─── 광고주별 뷰 ───
 function renderClientView() {
-  var cs = DB.광고주;
+  var cs = DB.광고주.filter(function(c){return c.상태!=='삭제됨';});
   var 진행 = cs.filter(function(c){return c.상태==='진행중';}).length;
   var 완료 = cs.filter(function(c){return c.상태==='완료';}).length;
   document.getElementById('cards').innerHTML =
@@ -1106,7 +1110,9 @@ function openClient(id) {
     '<div class="row"><span>점주 로그인 ID</span><input style="width:150px" value="'+esc(c.로그인ID||'')+'" placeholder="예: '+esc((c.매장명||'').replace(/\\s/g,''))+'" onchange="setClientField(\'로그인ID\',this.value)"></div>' +
     '<div class="row"><span>점주 비밀번호</span><input style="width:150px" value="'+esc(c.로그인PW||'')+'" placeholder="발급할 비번" onchange="setClientField(\'로그인PW\',this.value)"></div>' +
     '<div class="row"><div class="grow"><span>광고주 공유 링크</span><small>점주는 이 링크 + 위 ID/비번으로 자기 매장만 봅니다</small></div>' +
-      '<button class="btn-ghost" onclick="copyShare(\''+share+'\')">링크 복사</button></div></div>' +
+      '<button class="btn-ghost" onclick="copyShare(\''+share+'\')">링크 복사</button></div>' +
+    '<div style="margin-top:16px;border-top:1px solid #f0f0f0;padding-top:14px">' +
+      '<button class="del-client" onclick="archiveClient(\''+id+'\')">🗑 이 광고주 삭제 (삭제함에 보관)</button></div></div>' +
   '</div>' + dp('acct') +
   '<div class="sec"><h3>📋 계정 정보 <span style="font-size:11px;color:#999;font-weight:400">· 플랫폼별 아이디·비번, 복사해서 바로 붙여넣기</span></h3>' +
     (infosOf(id).length ? infoGroupHTML(id) : '<div style="color:#bbb;padding:8px">정보 항목이 없어요</div>') +
@@ -1225,6 +1231,29 @@ function bg(p){ return Promise.resolve(p).catch(function(e){ toast('⚠ 저장 �
 function patchLocal(tab, id, fields){ var row=(DB[tab]||[]).filter(function(r){return r.ID===id;})[0]; if(row) Object.keys(fields).forEach(function(k){ row[k]=fields[k]; }); return row; }
 function rerender(){ if(CUR) openClient(CUR); } // 네트워크 없이 로컬 재렌더
 function setClientField(f,v){ var o={ID:CUR}; o[f]=v; patchLocal('광고주',CUR,o); bg(gs('updateClient',o)); }
+// ─── 광고주 소프트삭제(삭제함 보관) ───
+function archiveClient(id){
+  if(!confirm('이 광고주를 「삭제함」에 보관할까요?\n(완전 삭제 아니에요 — 삭제함 탭에서 복원 가능)')) return;
+  patchLocal('광고주',id,{상태:'삭제됨'}); closePanel(); render(); // 즉시
+  bg(gs('updateClient',{ID:id,상태:'삭제됨'}));
+}
+function restoreClient(id){ patchLocal('광고주',id,{상태:'상담'}); render(); bg(gs('updateClient',{ID:id,상태:'상담'})); }
+function permDeleteClient(id, name){
+  if(!confirm('「'+name+'」을(를) 완전히 삭제할까요? 되돌릴 수 없어요.')) return;
+  DB.광고주=(DB.광고주||[]).filter(function(c){return c.ID!==id;}); render();
+  bg(gs('delete',{탭:'광고주',ID:id}));
+}
+function renderTrashView(){
+  var trashed=(DB.광고주||[]).filter(function(c){return c.상태==='삭제됨';});
+  document.getElementById('trashView').innerHTML =
+    '<div class="sec"><h3>🗑 삭제함 <span style="font-size:11px;color:#999;font-weight:400">· 보관된 광고주 · 복원 가능</span></h3>' +
+    (trashed.length ? trashed.map(function(c){
+      return '<div class="row"><div class="grow"><b>'+esc(c.매장명)+'</b><small>'+esc(c.지역||'')+(c.대표자?' · '+esc(c.대표자):'')+'</small></div>' +
+        '<button class="btn-ghost" onclick="restoreClient(\''+c.ID+'\')">↩ 복원</button>' +
+        '<button class="del" onclick="permDeleteClient(\''+c.ID+'\',\''+esc(c.매장명)+'\')">완전삭제</button></div>';
+    }).join('') : '<div style="color:#bbb;padding:20px;text-align:center">삭제한 광고주가 없어요</div>') +
+    '</div>';
+}
 function cycleTask(id,cur){ var ns=TASK_FLOW[cur]||'대기'; patchLocal('작업',id,{상태:ns,완료일:ns==='완료'?todayISO():''}); rerender(); bg(gs('setTaskStatus',{ID:id,상태:ns})); }
 function ntPick(){ // 품목 선택 시 카탈로그 기본단가 자동 채움
   var sel=document.getElementById('nt품목').value;
