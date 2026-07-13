@@ -121,17 +121,18 @@
   .task-sec h3 .cnt { background:#e8590c; color:#fff; border-radius:10px; padding:1px 8px; font-size:12px; }
   .task-sec-h { cursor:pointer; user-select:none; }
   .task-sec-h:hover { color:#e8590c; }
-  select.task-st { border:1px solid transparent; border-radius:14px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer; -webkit-appearance:none; appearance:none; }
+  select.task-st { flex:0 0 auto; width:auto; min-width:0; border:1px solid transparent; border-radius:14px; padding:6px 26px 6px 12px; font-size:12px; font-weight:700; cursor:pointer; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>"); background-repeat:no-repeat; background-position:right 10px center; }
   select.task-st:focus { outline:none; border-color:#e8590c; }
   select.task-st.st-대기 { background:#eef0f3; color:#777; }
   select.task-st.st-진행중 { background:#fff3cd; color:#9a6700; }
   select.task-st.st-완료 { background:#d3f9d8; color:#237a3b; }
-  .task-row { background:#fff; border-radius:10px; padding:11px 14px; margin-bottom:6px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 3px rgba(0,0,0,.05); cursor:pointer; }
+  .task-row { background:#fff; border-radius:10px; padding:10px 14px; margin-bottom:6px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 3px rgba(0,0,0,.05); cursor:pointer; height:56px; box-sizing:border-box; }
   .task-row:hover { background:#fff8f4; }
-  .task-row .store { font-weight:700; min-width:130px; font-size:14px; }
-  .task-row .item { flex:1; font-size:14px; }
-  .task-row .item small { display:block; color:#aaa; font-size:12px; }
-  .task-row .who { font-size:13px; color:#666; min-width:70px; text-align:right; }
+  .task-row .store { font-weight:700; width:120px; min-width:120px; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .task-row .item { flex:1; min-width:0; font-size:14px; overflow:hidden; }
+  .task-row .item .nm { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .task-row .item small { display:block; color:#aaa; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .task-row .who { font-size:13px; color:#666; width:64px; min-width:64px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .task-row .who.none { color:#c92a2a; }
   table { width:100%; background:#fff; border-radius:12px; overflow:hidden; border-collapse:collapse; box-shadow:0 1px 3px rgba(0,0,0,.06); }
   th, td { padding:11px 12px; text-align:left; font-size:14px; border-bottom:1px solid #f0f0f0; }
@@ -1068,9 +1069,10 @@ function renderTaskView() {
       '<h3 class="task-sec-h" onclick="toggleTask(\''+st+'\')">'+(open?'▼':'▶')+' '+st+' <span class="cnt">'+rows.length+'</span></h3>' +
       (open ? rows.map(function (t) {
         var who = t.담당자 ? '<span class="who">'+esc(t.담당자)+'</span>' : '<span class="who none">미배정</span>';
-        return '<div class="task-row" onclick="openClient(\''+t.광고주ID+'\')">' +
-          '<span class="store">'+esc(storeName(t.광고주ID))+'</span>' +
-          '<span class="item">'+esc(t.품목)+'<small>'+esc(t.세부내용)+'</small></span>' +
+        var sub = t.세부내용 || (t.차수>1 ? (t.견적명||(t.차수+'차')) : '');
+        return '<div class="task-row" onclick="openClient(\''+t.광고주ID+'\')" title="'+esc(t.품목+(t.세부내용?' — '+t.세부내용:''))+'">' +
+          '<span class="store" title="'+esc(storeName(t.광고주ID))+'">'+esc(storeName(t.광고주ID))+'</span>' +
+          '<span class="item"><span class="nm">'+esc(t.품목)+'</span>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</span>' +
           who +
           '<select class="task-st st-'+esc(t.상태)+'" onclick="event.stopPropagation()" onchange="setTaskStatusVal(\''+t.ID+'\',this.value)">' +
             ['대기','진행중','완료'].map(function(s){return '<option'+(s===t.상태?' selected':'')+'>'+s+'</option>';}).join('') +
