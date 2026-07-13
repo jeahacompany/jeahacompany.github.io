@@ -62,6 +62,21 @@
   table.quote.qtbl .qr-exec input { width:auto; display:inline-block; padding:5px 8px; font-size:12px; text-align:left; }
   table.quote.qtbl .qr-exec .ex-co { width:120px; } table.quote.qtbl .qr-exec .ex-amt { width:100px; text-align:right; }
   table.quote.qtbl .qr-exec .ex-mg { font-size:12px; color:#666; margin-left:8px; }
+  table.quote.qtbl .qe-item, table.quote.qtbl .qe-sub, table.quote.qtbl .qe-num { border:1px solid transparent; border-radius:6px; background:transparent; }
+  table.quote.qtbl .qe-item { width:100%; font-weight:700; font-size:14px; text-align:left; padding:4px 6px; }
+  table.quote.qtbl .qe-sub { display:block; width:100%; margin-top:2px; font-size:11px; color:#888; text-align:left; padding:2px 6px; }
+  table.quote.qtbl .qe-num { width:100%; text-align:right; padding:4px 6px; font-size:13px; font-variant-numeric:tabular-nums; }
+  table.quote.qtbl .qe-item:hover, table.quote.qtbl .qe-sub:hover, table.quote.qtbl .qe-num:hover { border-color:#eee; background:#fafafa; }
+  table.quote.qtbl .qe-item:focus, table.quote.qtbl .qe-sub:focus, table.quote.qtbl .qe-num:focus { outline:none; border-color:#e8590c; background:#fff; }
+  .settle-row { cursor:pointer; }
+  .settle-row:hover td { background:#fff8f4; }
+  .settle-row.open td { background:#fff4ec; }
+  .settle-exp > td { background:#fafafa; padding:0 !important; }
+  .settle-detail { padding:12px 14px; }
+  .sd-title { font-weight:800; font-size:14px; margin-bottom:8px; color:#222; }
+  .sd-sub { font-weight:700; font-size:12px; color:#888; margin:14px 0 6px; }
+  .settle-detail .ex-co, .settle-detail .ex-amt { width:100%; padding:6px 8px; border:1px solid #ddd; border-radius:7px; font-size:13px; }
+  .settle-detail .ex-amt { text-align:right; }
   .q-addrow { margin-top:14px; background:#fafbfc; border:1px solid #eef0f2; border-radius:10px; padding:12px; }
   .qar-title { font-size:13px; font-weight:700; color:#555; margin-bottom:8px; }
   /* 광고주 등록 폼 (미팅용 대형) */
@@ -155,6 +170,11 @@
   .mg-toggle:hover { background:#e8590c; color:#fff; }
   .round-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #f0f0f0; }
   .round-head b { font-size:14px; } .round-head span { font-size:12px; color:#999; }
+  .round-name { font-size:14px; font-weight:700; border:1px solid transparent; border-radius:6px; padding:3px 7px; width:170px; max-width:40%; }
+  .round-name:hover { border-color:#eee; background:#fafafa; } .round-name:focus { outline:none; border-color:#e8590c; background:#fff; }
+  .round-date { width:140px; flex:none; }
+  .del-round { margin-left:auto; background:#fff0f0; border:1px solid #f0c0c0; color:#c92a2a; font-size:12px; font-weight:700; padding:4px 10px; border-radius:7px; cursor:pointer; white-space:nowrap; }
+  .del-round:hover { background:#c92a2a; color:#fff; border-color:#c92a2a; }
   .qline { border-bottom:1px solid #f2f2f2; padding:9px 0; }
   .qline-top { display:flex; align-items:center; gap:8px; }
   .qline-top .grow { flex:1; }
@@ -169,8 +189,15 @@
   .round-margin { display:flex; justify-content:space-between; align-items:center; background:#fff8f4; border-radius:9px; padding:10px 12px; margin-top:10px; font-size:13px; }
   .round-margin > span:first-child { color:#e8590c; font-weight:700; }
   /* 콘텐츠 진행 (인플루언서/블로그) */
-  .seed-group { margin-bottom:14px; }
-  .seed-gh { font-size:13px; font-weight:700; color:#444; padding:6px 0 4px; margin-bottom:4px; }
+  .seed-type { margin-bottom:18px; }
+  .seed-th { font-size:15px; font-weight:800; color:#222; padding:4px 0; border-bottom:2px solid #f0f0f0; margin-bottom:8px; }
+  .seed-th span { color:#e8590c; font-size:12px; margin-left:6px; font-weight:700; }
+  .seed-group { margin:0 0 12px 10px; padding-left:10px; border-left:3px solid #ffe3d1; }
+  .seed-gh { font-size:13px; font-weight:700; color:#e8590c; padding:6px 0 4px; margin-bottom:4px; }
+  .seed-gh.clickable { cursor:pointer; background:#fff8f4; border-radius:8px; padding:8px 10px; margin-bottom:0; user-select:none; }
+  .seed-gh.clickable:hover { background:#ffeede; }
+  .sd-date { color:#888; font-weight:600; font-size:11px; background:#f0f0f0; padding:1px 7px; border-radius:10px; margin:0 4px; }
+  .add-row.fill { background:#fff4ec; border:1px solid #e8590c; color:#e8590c; font-weight:700; }
   .seed-gh span { color:#e8590c; font-size:12px; margin-left:4px; }
   /* 인플루언서/블로그 엑셀 표 */
   .ss-wrap { overflow-x:auto; border:1px solid #eee; border-radius:8px; }
@@ -302,8 +329,8 @@
 </div>
 
 <script>
-// ─── 로컬 개발용 목업: 로컬(file/localhost)에서만 작동. 깃허브 페이지·실서버에서는 실데이터(fetch) 사용 ───
-if (typeof google === 'undefined' && (location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+// ─── 로컬 개발용 목업: ?mock=1 붙일 때만 작동. 그 외(로컬 포함)는 실데이터(fetch) 사용 ───
+if (typeof google === 'undefined' && /[?&]mock=1/.test(location.search)) {
   (function () {
     // 실제 광고주 데이터 (드라이브 "1.광고주" 폴더 + 갈비연_마진계산기에서 추출, 2026-07-09)
     var mkC = function (id, 매장명, 지역, 계약일, 계약금액, 공유코드) {
@@ -532,7 +559,7 @@ function renderStaffView(){
       '<button class="btn-primary" onclick="addStaff()">추가</button></div></div>' +
     '</div></div>';
 }
-function setStaff(id, field, val){ var o={ID:id}; o[field]=val; busy(gs('updateStaff',o)); }
+function setStaff(id, field, val){ var o={ID:id}; o[field]=val; patchLocal('직원',id,o); bg(gs('updateStaff',o)); }
 function addStaff(){
   var nm=document.getElementById('ns이름').value.trim(); if(!nm) return toast('이름을 입력하세요');
   var role=document.getElementById('ns역할').value;
@@ -552,6 +579,10 @@ function maxRoundOf(id){ var a=roundsOf(id); return a[a.length-1]; }
 function roundSum(id,r){ return tasksOf(id).filter(function(t){return roundOf(t)===r;}).reduce(function(s,t){return s+(Number(t.금액)||0);},0); }
 // 견적 이름: 그 차수 작업의 견적명 있으면 사용, 없으면 새 견적 대기이름 또는 "N차"
 var NEWQNAME = {}; // {광고주ID_차수: 이름}
+var EXTRAROUNDS = {}; // {광고주ID: [차수]} 세션 중 만든 빈 견적(작업 없어도 탭 유지)
+var SETTLEEXP = null; // 정산에서 펼친 견적 차수
+var SEEDOPEN = {}; // 인스타/블로그 견적 섹션 펼침 상태 {종류_차수: true}
+function toggleSeed(key){ SEEDOPEN[key]=!SEEDOPEN[key]; if(CUR) openClient(CUR); }
 function roundLabel(id, r){
   var t = tasksOf(id).filter(function(x){return roundOf(x)===r && x.견적명;})[0];
   if (t) return t.견적명;
@@ -827,7 +858,7 @@ function submitReg(){
     return Promise.all(picked.map(function(t){
       return gs('addTask',{광고주ID:cid,품목:t.품목,세부내용:t.세부내용,금액:t.금액,수량:t.수량,단가:t.단가,상태:'대기',등록일:g('r계약일')||undefined});
     })).then(function(){
-      var bulks=picked.map(function(t){ var st=seedTypeOf(t.품목); return (st&&t.수량>0)?gs('addSeedBulk',{광고주ID:cid,종류:st,수량:t.수량}):null; }).filter(Boolean);
+      var bulks=picked.map(function(t){ var st=seedTypeOf(t.품목); return (st&&t.수량>0)?gs('addSeedBulk',{광고주ID:cid,종류:st,수량:t.수량,차수:1}):null; }).filter(Boolean);
       return Promise.all(bulks);
     });
   }).then(function(){ toast('등록 완료! 견적 '+won(tot)+'원, 작업 '+picked.length+'건 (명단 자동생성)'); VIEW='client'; return load(); })
@@ -980,14 +1011,16 @@ function openClient(id) {
   var c = c0;
   var ts = tasksOf(id);
   var rounds = roundsOf(id);
-  if (rounds.indexOf(CURROUND) < 0) rounds = rounds.concat([CURROUND]).sort(function(a,b){return a-b;}); // 빈 새 견적도 탭 유지
+  (EXTRAROUNDS[id]||[]).forEach(function(r){ if(rounds.indexOf(r)<0) rounds.push(r); }); // 세션 중 만든 빈 견적들
+  if (rounds.indexOf(CURROUND) < 0) rounds.push(CURROUND);
+  rounds.sort(function(a,b){return a-b;});
   var roundTs = ts.filter(function(t){return roundOf(t)===CURROUND;});
   var logs = DB.로그.filter(function(r){return r.광고주ID===id;});
   var pays = DB.입금.filter(function(r){return r.광고주ID===id;});
   var costs = DB.실행비.filter(function(r){return r.광고주ID===id;});
   var 입금 = paySum(id), 실행 = totalExecOf(id), 마진 = 입금-실행;
   var share = (DB.웹앱주소||'') + '?c=' + c.공유코드;
-  var DTABLIST = [['info','🏪 업체정보'],['acct','📋 계정정보'],['quote','📄 견적서'],['insta','📷 인스타'],['blog','✍️ 블로그'],['log','📝 기록']];
+  var DTABLIST = [['info','🏪 업체정보'],['acct','📋 계정정보'],['quote','📄 견적서'],['insta','📷 인스타'],['blog','✍️ 블로그']];
   if(canSeeMargin()) DTABLIST.push(['settle','💰 정산']);
   if(!DTABLIST.some(function(t){return t[0]===DTAB;})) DTAB='info';
   var dtabBar = '<div class="dtabs">'+DTABLIST.map(function(t){return '<button class="dtab'+(DTAB===t[0]?' on':'')+'" data-dt="'+t[0]+'" onclick="showDTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
@@ -1027,9 +1060,10 @@ function openClient(id) {
       }).join('') +
       '<div class="round-tab add" onclick="newRound(\''+id+'\')">+ 새 견적</div>' +
     '</div>' +
-    '<div class="round-head"><b>'+esc(roundLabel(id,CURROUND))+'</b>' +
-      '<input type="date" class="round-date" value="'+esc(roundDateOf(id,CURROUND))+'" onchange="setRoundDate(\''+id+'\','+CURROUND+',this.value)" title="견적일">' +
-      '<span>'+roundTs.filter(function(t){return t.상태==='완료';}).length+'/'+roundTs.length+' 완료 · 견적 '+won(roundSum(id,CURROUND))+'원</span></div>' +
+    '<div class="round-head"><input class="round-name" value="'+esc(roundLabel(id,CURROUND))+'" onchange="renameRound(\''+id+'\','+CURROUND+',this.value)" title="클릭해서 견적 이름 수정">' +
+      '<input type="date" class="round-date" value="'+esc(roundDateShow(id,CURROUND)||todayISO())+'" onchange="setRoundDate(\''+id+'\','+CURROUND+',this.value)" title="견적일 (클릭하면 달력)">' +
+      '<span>'+roundTs.filter(function(t){return t.상태==='완료';}).length+'/'+roundTs.length+' 완료 · 견적 '+won(roundSum(id,CURROUND))+'원</span>' +
+      '<button class="del-round" onclick="deleteRound(\''+id+'\','+CURROUND+')" title="이 견적 통째로 삭제">🗑 견적 삭제</button></div>' +
     (function(){
       var rsub=0;
       var body = roundTs.length ? roundTs.map(function (t, ri) {
@@ -1039,9 +1073,11 @@ function openClient(id) {
         var exec = Number(t.실행비용)||0, mg = line-exec, rate = line>0?Math.round(mg/line*100):0;
         return '<tr class="qr">' +
             '<td class="q-no">'+(ri+1)+'</td>' +
-            '<td class="q-item"><b>'+esc(t.품목)+'</b>'+(t.세부내용?'<small>'+esc(t.세부내용)+'</small>':'')+(t.완료일?'<small>완료 '+esc(t.완료일)+'</small>':'')+'</td>' +
-            '<td class="q-qty">'+(qty>0?qty:'')+'</td>' +
-            '<td class="q-unit">'+(unit>0?won(unit):'')+'</td>' +
+            '<td class="q-item"><input class="qe-item" value="'+esc(t.품목)+'" onchange="editQuoteLine(\''+t.ID+'\',\'품목\',this.value)">' +
+              '<input class="qe-sub" value="'+esc(t.세부내용||'')+'" placeholder="비고" onchange="editQuoteLine(\''+t.ID+'\',\'세부내용\',this.value)">' +
+              (t.완료일?'<small>완료 '+esc(t.완료일)+'</small>':'')+'</td>' +
+            '<td class="q-qty"><input type="number" min="0" class="qe-num" value="'+(qty||'')+'" placeholder="0" onchange="editQuoteLine(\''+t.ID+'\',\'수량\',this.value)"></td>' +
+            '<td class="q-unit"><input inputmode="numeric" class="qe-num" value="'+(unit?unit.toLocaleString('ko-KR'):'')+'" placeholder="0" onchange="fmtNum(this);editQuoteLine(\''+t.ID+'\',\'단가\',this.value)"></td>' +
             '<td class="q-amt">'+won(line)+'</td>' +
             '<td class="q-act"><button class="pill t-'+esc(t.상태)+'" onclick="cycleTask(\''+t.ID+'\',\''+esc(t.상태)+'\')">'+esc(t.상태)+'</button>' +
               '<button class="del" onclick="del(\'작업\',\''+t.ID+'\')">삭제</button></td>' +
@@ -1083,20 +1119,10 @@ function openClient(id) {
   '<div class="sec"><h3>📷 인스타 관리 (인플루언서) <span style="font-size:11px;color:#999;font-weight:400">· URL 넣으면 점주 페이지에 반영</span></h3>' +
     seedTableHTML(id,[['인플루언서','📷']]) + '</div>' +
   '</div>' + dp('blog') +
-  '<div class="sec"><h3>✍️ 블로그·체험단 관리 <span style="font-size:11px;color:#999;font-weight:400">· URL 넣으면 점주 페이지에 반영</span></h3>' +
-    seedTableHTML(id,[['블로그','✍️'],['체험단','🎬']]) + '</div>' +
-  '</div>' + dp('log') +
-  '<div class="sec"><h3>완료 기록 (광고주 공유 페이지에 노출)</h3>' +
-    logs.map(function (l) {
-      return '<div class="row"><div class="grow">'+esc(l.내용)+'<small>'+esc(l.날짜)+' · '+esc(l.작성자)+'</small></div>' +
-        '<button class="del" onclick="del(\'로그\',\''+l.ID+'\')">삭제</button></div>';
-    }).join('') +
-    '<div class="form-grid">' +
-      '<input id="nl내용" class="full" placeholder="예: 네이버 플레이스 세팅 완료, 사진 20장 등록">' +
-      '<input id="nl작성자" placeholder="작성자">' +
-      '<button class="btn-primary" onclick="addLog()">+ 기록 남기기</button></div></div>' +
+  '<div class="sec"><h3>✍️ 블로그 관리 <span style="font-size:11px;color:#999;font-weight:400">· URL 넣으면 점주 페이지에 반영</span></h3>' +
+    seedTableHTML(id,[['블로그','✍️']]) + '</div>' +
   '</div>' +
-  (canSeeMargin() ? dp('settle') + '<div class="sec"><h3>정산 (견적별) <span style="font-size:11px;color:#999;font-weight:400">· 내부 전용</span></h3>' +
+  (canSeeMargin() ? dp('settle') + '<div class="sec"><h3>정산 (견적별) <span style="font-size:11px;color:#999;font-weight:400">· 견적 클릭 → 품목별 실행비 입력</span></h3>' +
     (function(){
       var payR=function(r){ return pays.filter(function(p){return (Number(p.차수)||0)===r;}).reduce(function(s,p){return s+(Number(p.금액)||0);},0); };
       var costR=function(r){ return costs.filter(function(c){return (Number(c.차수)||0)===r;}).reduce(function(s,c){return s+(Number(c.금액)||0);},0); };
@@ -1104,36 +1130,21 @@ function openClient(id) {
       var body=rounds.map(function(r){
         var q=roundSum(id,r), pin=payR(r), ex=roundExec(id,r)+costR(r), pf=q-ex, coll=q>0?Math.round(pin/q*100):0;
         tQ+=q; tP+=pin; tE+=ex;
-        return '<tr><td class="q-item"><b>'+esc(roundLabel(id,r))+'</b></td>' +
-          '<td class="q-amt">'+won(q)+'</td><td class="q-amt">'+won(pin)+'</td><td class="q-amt">'+won(ex)+'</td>' +
-          '<td class="q-amt" style="color:'+(pf<0?'#c92a2a':'#237a3b')+'">'+won(pf)+'</td>' +
-          '<td class="q-qty">'+coll+'%</td></tr>';
+        var open=SETTLEEXP===r;
+        return '<tr class="settle-row'+(open?' open':'')+'" onclick="SETTLEEXP='+(open?'null':r)+';openClient(\''+id+'\')">' +
+            '<td class="q-item"><b>'+(open?'▼ ':'▶ ')+esc(roundLabel(id,r))+'</b>'+((function(){var dd=roundDateShow(id,r);return dd?' <small class="sd-date">'+esc(dd)+'</small>':'';})())+'</td>' +
+            '<td class="q-amt">'+won(q)+'</td><td class="q-amt">'+won(pin)+'</td><td class="q-amt">'+won(ex)+'</td>' +
+            '<td class="q-amt" style="color:'+(pf<0?'#c92a2a':'#237a3b')+'">'+won(pf)+'</td>' +
+            '<td class="q-qty">'+coll+'%</td></tr>' +
+          (open ? '<tr class="settle-exp"><td colspan="6">'+settleDetail(id,r)+'</td></tr>' : '');
       }).join('');
-      var uP=payR(0), uC=costR(0);
-      if(uP||uC){ tP+=uP; tE+=uC; body+='<tr><td class="q-item"><b style="color:#999">미지정</b></td><td class="q-amt">-</td><td class="q-amt">'+won(uP)+'</td><td class="q-amt">'+won(uC)+'</td><td class="q-amt">-</td><td class="q-qty"></td></tr>'; }
       var tM=tQ-tE;
       return '<div class="quote-wrap"><table class="quote qtbl"><thead><tr><th>견적</th><th class="col-amt">견적금액</th><th class="col-amt">입금</th><th class="col-amt">실행비</th><th class="col-amt">이익</th><th class="col-qty">수금률</th></tr></thead><tbody>'+body+'</tbody></table></div>' +
         '<div class="quote-sum"><div class="ln"><span>총 견적</span><span>'+won(tQ)+'</span></div>' +
         '<div class="ln"><span>총 입금</span><span>'+won(tP)+'</span></div>' +
         '<div class="ln"><span>총 실행비</span><span>'+won(tE)+'</span></div>' +
         '<div class="ln tot"><span>총 마진 ('+(tQ>0?Math.round(tM/tQ*100):0)+'%)</span><b style="color:'+(tM<0?'#c92a2a':'#237a3b')+'">'+won(tM)+'원</b></div></div>';
-    })() +
-    '<div style="margin-top:14px;font-size:13px;color:#888">입금 내역 <span style="color:#bbb">· 견적별로 기록</span></div>' +
-    pays.map(function (p) {
-      return '<div class="row"><div class="grow">'+won(p.금액)+'원<small>'+esc(roundLabelOr(id,p.차수))+' · '+esc(p.날짜)+' '+esc(p.메모)+'</small></div>' +
-        '<button class="del" onclick="del(\'입금\',\''+p.ID+'\')">삭제</button></div>';
-    }).join('') +
-    '<div class="form-grid" style="grid-template-columns:1fr 1fr 130px"><input id="np금액" type="number" placeholder="입금액"><input id="np메모" placeholder="메모">' +
-      roundSelectHTML('np차수', id) +
-      '<button class="btn-primary full" onclick="addPay()">+ 입금 추가</button></div>' +
-    '<div style="margin-top:14px;font-size:13px;color:#888">실행비 내역 (기타) <span style="color:#bbb">· 견적 항목별 실행비는 견적서 탭에서</span></div>' +
-    costs.map(function (x) {
-      return '<div class="row"><div class="grow">'+esc(x.내역)+' — '+won(x.금액)+'원<small>'+esc(roundLabelOr(id,x.차수))+' · '+esc(x.날짜)+' · '+esc(x.실행회사)+'</small></div>' +
-        '<button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">삭제</button></div>';
-    }).join('') +
-    '<div class="form-grid" style="grid-template-columns:1fr 1fr 100px 130px"><input id="nc내역" placeholder="내역 (예: 체험단 집행)"><input id="nc회사" placeholder="실행회사">' +
-      '<input id="nc금액" type="number" placeholder="금액">' + roundSelectHTML('nc차수', id) +
-      '<button class="btn-primary full" onclick="addCost()">+ 실행비 추가</button></div></div>' + '</div>' : '');
+    })() + '</div>' : '');
 
   document.getElementById('overlay').style.display = 'block';
   document.getElementById('panel').classList.add('open');
@@ -1143,8 +1154,12 @@ function copyShare(url){ navigator.clipboard.writeText(url).then(function(){toas
 
 // ─── 액션 ───
 function busy(p){ return p.then(load).catch(function(e){toast('오류: '+e.message);}); }
-function setClientField(f,v){ var o={ID:CUR}; o[f]=v; busy(gs('updateClient',o)); }
-function cycleTask(id,cur){ busy(gs('setTaskStatus',{ID:id,상태:TASK_FLOW[cur]||'대기'})); }
+// ─── 낙관적 업데이트: 화면은 즉시 반영(로컬), 저장은 백그라운드 ───
+function bg(p){ return Promise.resolve(p).catch(function(e){ toast('⚠ 저장 실패 — 새로고침 하세요: '+((e&&e.message)||e)); }); }
+function patchLocal(tab, id, fields){ var row=(DB[tab]||[]).filter(function(r){return r.ID===id;})[0]; if(row) Object.keys(fields).forEach(function(k){ row[k]=fields[k]; }); return row; }
+function rerender(){ if(CUR) openClient(CUR); } // 네트워크 없이 로컬 재렌더
+function setClientField(f,v){ var o={ID:CUR}; o[f]=v; patchLocal('광고주',CUR,o); bg(gs('updateClient',o)); }
+function cycleTask(id,cur){ var ns=TASK_FLOW[cur]||'대기'; patchLocal('작업',id,{상태:ns,완료일:ns==='완료'?todayISO():''}); rerender(); bg(gs('setTaskStatus',{ID:id,상태:ns})); }
 function ntPick(){ // 품목 선택 시 카탈로그 기본단가 자동 채움
   var sel=document.getElementById('nt품목').value;
   var it=QUOTE_ITEMS.filter(function(x){return x[0]===sel;})[0];
@@ -1165,7 +1180,7 @@ function ntEtc(){
   if(box) box.style.display = (sel==='+ 직접입력') ? '' : 'none';
 }
 // 견적 품목 → 명단 종류 매핑 (블로그/인플루언서/체험단이면 수량만큼 해당 탭에 줄 생성)
-function seedTypeOf(품목){ var p=String(품목); if(/블로그/.test(p)) return '블로그'; if(/인플루언서|인스타/.test(p)) return '인플루언서'; if(/체험단/.test(p)) return '체험단'; return null; }
+function seedTypeOf(품목){ var p=String(품목); if(/블로그|체험단/.test(p)) return '블로그'; if(/인플루언서/.test(p)) return '인플루언서'; return null; }
 function addQuoteLine(){
   var 품목=document.getElementById('nt품목').value;
   if(품목==='+ 직접입력'){ 품목=(document.getElementById('nt품목직접').value||'').trim(); if(!품목) return toast('품목명을 입력하세요'); }
@@ -1177,25 +1192,81 @@ function addQuoteLine(){
   var 금액=Math.round(pre*1.1); // 저장은 부가세 포함(계약총액 기준 유지)
   var 견적명=NEWQNAME[CUR+'_'+CURROUND]||''; // 커스텀 이름만 저장, 기본은 비움('견적서'로 표시)
   var st=seedTypeOf(품목);
-  var chain=gs('addTask',{광고주ID:CUR,품목:품목,세부내용:세부,금액:금액,수량:수량,단가:단가,차수:CURROUND,견적명:견적명,상태:'대기'});
-  if(st && 수량>0){ chain=chain.then(function(){ return gs('addSeedBulk',{광고주ID:CUR,종류:st,수량:수량}); }); }
-  chain.then(load).then(function(){ if(st&&수량>0) toast('✅ '+st+' 탭에 '+수량+'줄 생성 — 직원이 채워요'); }).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
+  var rr=CURROUND;
+  gs('addTask',{광고주ID:CUR,품목:품목,세부내용:세부,금액:금액,수량:수량,단가:단가,차수:rr,견적명:견적명,상태:'대기'})
+    .then(load).then(function(){ if(st) return reconcileRound(CUR,rr); }).then(function(){ if(st) return load(); })
+    .then(function(){ if(st&&수량>0) toast('✅ '+st+' 명단 견적수량('+수량+')에 맞춰 생성'); })
+    .catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
   return;
 }
+function editQuoteLine(taskId, field, val){
+  var t=DB.작업.filter(function(x){return x.ID===taskId;})[0]; if(!t) return;
+  var upd={ID:taskId};
+  if(field==='수량' || field==='단가'){
+    var 수량 = field==='수량' ? (Number(val)||0) : (Number(t.수량)||0);
+    var 단가 = field==='단가' ? (Number(String(val).replace(/[^0-9]/g,''))||0) : (Number(t.단가)||0);
+    upd.수량=수량; upd.단가=단가;
+    if(수량>0 && 단가>0) upd.금액=Math.round(수량*단가*1.1); // 부가세 포함 저장(계약총액 기준 유지)
+    else if(!수량 || !단가) upd.금액=0;
+  } else { upd[field]=val; }
+  var r=roundOf(t);
+  patchLocal('작업',taskId,upd); rerender(); // 소계·총계 즉시 반영
+  bg(gs('updateTask',upd).then(function(){ return reconcileRound(CUR,r); }).then(function(){ return gs('all'); }).then(function(d){ DB=d; if(CUR) openClient(CUR); }));
+}
+function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+function renameRound(id, r, name){
+  name=(name||'').trim();
+  NEWQNAME[id+'_'+r]=name;
+  var ts=tasksOf(id).filter(function(t){return roundOf(t)===r;});
+  if(!ts.length){ openClient(id); return; } // 빈 견적은 이름만 기억
+  Promise.all(ts.map(function(t){ return gs('updateTask',{ID:t.ID,견적명:name}); })).then(load).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
+}
+// 명단 개수를 견적 수량과 정확히 일치시킴 (부족하면 빈 줄 추가, 넘치면 빈 줄만 삭제 — 채워진 명단은 보존)
+function reconcileSeeds(id, r, type){
+  var target=tasksOf(id).filter(function(t){return roundOf(t)===r && seedTypeOf(t.품목)===type;}).reduce(function(s,t){return s+(Number(t.수량)||0);},0);
+  var existing=(DB.섭외||[]).filter(function(s){return s.광고주ID===id && (s.종류||'인플루언서')===type && (Number(s.차수)||1)===r;});
+  var diff=target-existing.length;
+  if(diff>0) return gs('addSeedBulk',{광고주ID:id,종류:type,수량:diff,차수:r});
+  if(diff<0){
+    var empties=existing.filter(function(s){ return !s.계정명 && !s.URL && !s.인스타URL && !s.영수증URL; });
+    var toDel=empties.slice(0, -diff).map(function(s){return s.ID;});
+    return Promise.all(toDel.map(function(x){ return gs('delete',{탭:'섭외',ID:x}); }));
+  }
+  return Promise.resolve();
+}
+function reconcileRound(id, r){ return Promise.all([reconcileSeeds(id,r,'인플루언서'), reconcileSeeds(id,r,'블로그')]); }
+function deleteRound(id, r){
+  var label=roundLabel(id,r);
+  if(!confirm('「'+label+'」 견적을 통째로 삭제할까요?\n이 견적의 작업·명단·입금·실행비가 모두 사라집니다.')) return;
+  var jobs=[];
+  (DB.작업||[]).forEach(function(t){ if(t.광고주ID===id && roundOf(t)===r) jobs.push(gs('delete',{탭:'작업',ID:t.ID})); });
+  (DB.섭외||[]).forEach(function(s){ if(s.광고주ID===id && (Number(s.차수)||1)===r) jobs.push(gs('delete',{탭:'섭외',ID:s.ID})); });
+  (DB.입금||[]).forEach(function(p){ if(p.광고주ID===id && (Number(p.차수)||0)===r) jobs.push(gs('delete',{탭:'입금',ID:p.ID})); });
+  (DB.실행비||[]).forEach(function(c){ if(c.광고주ID===id && (Number(c.차수)||0)===r) jobs.push(gs('delete',{탭:'실행비',ID:c.ID})); });
+  if(EXTRAROUNDS[id]) EXTRAROUNDS[id]=EXTRAROUNDS[id].filter(function(x){return x!==r;});
+  var remaining=roundsOf(id).filter(function(x){return x!==r;});
+  CURROUND = remaining.length ? remaining[0] : 1;
+  if(SETTLEEXP===r) SETTLEEXP=null;
+  Promise.all(jobs).then(load).then(function(){ toast('「'+label+'」 견적 삭제됨 ('+jobs.length+'건)'); }).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
+}
 function newRound(id){
-  var name=(window.prompt('새 견적 이름을 입력하세요 (예: 포맥스 견적, 메타광고, 전단지)','')||'').trim();
-  var r=maxRoundOf(id)+1;
+  var name=(window.prompt('새 견적 이름 (선택 — 비우면 「견적서 N」, 예: 포맥스 견적/메타광고/전단지)','')||'').trim();
+  var extras=EXTRAROUNDS[id]||[];
+  var r=Math.max.apply(null,[maxRoundOf(id), CURROUND].concat(extras))+1; // 빈 견적 여러 개도 계속 무한 추가
+  (EXTRAROUNDS[id]=extras).push(r);
   if(name) NEWQNAME[id+'_'+r]=name;
   CURROUND=r; openClient(id);
 }
 function setExec(taskId, field, val){
   if(field==='실행비용') val = Number(String(val).replace(/[^0-9]/g,''))||0;
-  var o={ID:taskId}; o[field]=val; busy(gs('updateTask',o));
+  var o={ID:taskId}; o[field]=val; patchLocal('작업',taskId,o); rerender(); bg(gs('updateTask',o)); // 마진 즉시 반영
 }
-function cycleSeed(sid, cur){ busy(gs('updateSeed',{ID:sid, 상태:SEED_FLOW[cur]||'섭외'})); }
-function setSeed(sid, field, val){ if(field==='단가') val=Number(String(val).replace(/[^0-9]/g,''))||0; var o={ID:sid}; o[field]=val; busy(gs('updateSeed',o)); }
-function addSeedRow(종류){ busy(gs('addSeed',{광고주ID:CUR,종류:종류,계정명:'',상태:'섭외'})); }
-function setInfo(id, field, val){ var o={ID:id}; o[field]=val; busy(gs('setInfo',o)); }
+function cycleSeed(sid, cur){ var ns=SEED_FLOW[cur]||'섭외'; patchLocal('섭외',sid,{상태:ns}); rerender(); bg(gs('updateSeed',{ID:sid,상태:ns})); }
+function setSeed(sid, field, val){ if(field==='단가') val=Number(String(val).replace(/[^0-9]/g,''))||0; var o={ID:sid}; o[field]=val; patchLocal('섭외',sid,o); bg(gs('updateSeed',o)); } // 명단 기록: 즉시, 재렌더 없음(끊김 방지)
+function addSeedRow(종류, 차수){ busy(gs('addSeed',{광고주ID:CUR,종류:종류,계정명:'',상태:'섭외',차수:차수||CURROUND})); }
+var SEEDING=false;
+function syncSeed(id, r){ if(SEEDING) return; SEEDING=true; reconcileRound(id,r).then(load).then(function(){SEEDING=false;}).catch(function(e){SEEDING=false;toast('오류: '+((e&&e.message)||e));}); }
+function setInfo(id, field, val){ var o={ID:id}; o[field]=val; patchLocal('정보',id,o); bg(gs('setInfo',o)); }
 function addInfoRow(){
   var name=prompt('추가할 플랫폼 이름 (예: 옥외광고, 배민) — 아이디·비밀번호가 세트로 생겨요'); if(!name) return; name=name.trim(); if(!name) return;
   Promise.all([ gs('addInfo',{광고주ID:CUR,항목:name+'아이디',순서:99}), gs('addInfo',{광고주ID:CUR,항목:name+' 비밀번호',순서:99}) ])
@@ -1206,10 +1277,17 @@ function delInfoGroup(ids){ if(!ids||!ids.length||!confirm('이 항목을 삭제
 }
 // ─── 견적서 날짜 (라운드 작업들의 시작일을 견적일로 사용) ───
 function roundDateOf(id, r){ var t=tasksOf(id).filter(function(x){return roundOf(x)===r && x.시작일;})[0]; return t?t.시작일:''; }
+// 견적서에 적힌 날짜(정산·인스타·블로그에 같이 따라다님): 지정 견적일 우선, 없으면 첫 항목 넣은 날(등록일)
+function roundDateShow(id, r){
+  var ex=roundDateOf(id,r); if(ex) return ex;
+  var ds=tasksOf(id).filter(function(t){return roundOf(t)===r && t.등록일;}).map(function(t){return t.등록일;}).sort();
+  return ds.length?ds[0]:'';
+}
 function setRoundDate(id, r, date){
   var list=tasksOf(id).filter(function(x){return roundOf(x)===r;});
   if(!list.length){ toast('먼저 견적 항목을 추가하세요'); return; }
-  Promise.all(list.map(function(t){ return gs('updateTask',{ID:t.ID,시작일:date}); })).then(load).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
+  list.forEach(function(t){ t.시작일=date; }); rerender(); // 즉시 반영(정산·명단 날짜 같이)
+  bg(Promise.all(list.map(function(t){ return gs('updateTask',{ID:t.ID,시작일:date}); })));
 }
 // ─── 상세 서브탭 ───
 function showDTab(t){ DTAB=t;
@@ -1226,14 +1304,30 @@ function seedCellHTML(s,col){
 function seedTableHTML(id, groups){
   var seeds=seedsOf(id);
   return groups.map(function(g){
-    var cols=SEED_COLS[g[0]], list=seeds.filter(function(s){return (s.종류||'인플루언서')===g[0];});
-    return '<div class="seed-group"><div class="seed-gh">'+g[1]+' '+g[0]+' <span>'+list.filter(seedDone).length+'/'+list.length+'</span></div>' +
-      '<div class="ss-wrap"><table class="ss"><thead><tr>'+cols.map(function(c){return '<th>'+esc(c.label)+'</th>';}).join('')+'<th></th></tr></thead>' +
-      '<tbody>'+(list.length?list.map(function(s){
-        return '<tr>'+cols.map(function(c){return '<td class="ct-'+c.type+'">'+seedCellHTML(s,c)+'</td>';}).join('') +
-          '<td class="ss-act"><button class="del" onclick="del(\'섭외\',\''+s.ID+'\')">✕</button></td></tr>';
-      }).join(''):'<tr><td colspan="'+(cols.length+1)+'" style="text-align:center;color:#bbb;padding:8px">비어있음</td></tr>')+'</tbody></table></div>' +
-      '<button class="add-row" onclick="addSeedRow(\''+g[0]+'\')">+ '+g[0]+' 행 추가</button></div>';
+    var cols=SEED_COLS[g[0]];
+    var all=seeds.filter(function(s){return (s.종류||'인플루언서')===g[0];});
+    // 견적(차수)별로 나눔 — 차수 없는 기존 명단은 1차로
+    var byR={}; all.forEach(function(s){ var r=Number(s.차수)||1; (byR[r]=byR[r]||[]).push(s); });
+    // 견적에 이 종류 항목이 있는 견적만 노출 — 견적에 없으면 명단도 없음(돈 안 받은 일은 안 함)
+    var rk=[];
+    tasksOf(id).forEach(function(t){ if(seedTypeOf(t.품목)===g[0]){ var r=roundOf(t); if(rk.indexOf(r)<0) rk.push(r); } });
+    rk.sort(function(a,b){return a-b;});
+    var visible=rk.reduce(function(acc,r){ return acc.concat(byR[r]||[]); }, []);
+    var typeHead='<div class="seed-type"><div class="seed-th">'+g[1]+' '+g[0]+' <span>총 '+visible.filter(seedDone).length+'/'+visible.length+'</span></div>';
+    var blocks=rk.length ? rk.map(function(r){
+      var list=byR[r]||[];
+      var target=tasksOf(id).filter(function(t){return roundOf(t)===r && seedTypeOf(t.품목)===g[0];}).reduce(function(s,t){return s+(Number(t.수량)||0);},0);
+      var key=g[0]+'_'+r, open=!!SEEDOPEN[key], date=roundDateShow(id,r);
+      return '<div class="seed-group">' +
+        '<div class="seed-gh clickable" onclick="toggleSeed(\''+key+'\')">'+(open?'▼':'▶')+' 📄 '+esc(roundLabel(id,r))+(date?' <b class="sd-date">'+esc(date)+'</b>':'')+' <span>등록 '+list.length+(target?' / 견적 '+target+'명':'')+' · 완료 '+list.filter(seedDone).length+'</span></div>' +
+        (open ? '<div class="ss-wrap"><table class="ss"><thead><tr>'+cols.map(function(c){return '<th>'+esc(c.label)+'</th>';}).join('')+'<th></th></tr></thead>' +
+        '<tbody>'+(list.length?list.map(function(s){
+          return '<tr>'+cols.map(function(c){return '<td class="ct-'+c.type+'">'+seedCellHTML(s,c)+'</td>';}).join('') +
+            '<td class="ss-act"><button class="del" onclick="del(\'섭외\',\''+s.ID+'\')">✕</button></td></tr>';
+        }).join(''):'<tr><td colspan="'+(cols.length+1)+'" style="text-align:center;color:#bbb;padding:8px">비어있음</td></tr>')+'</tbody></table></div>' +
+        (target!==list.length ? '<button class="add-row fill" onclick="this.disabled=true;this.textContent=\'맞추는 중…\';syncSeed(\''+id+'\','+r+')">🔄 견적수량('+target+'명)과 맞추기</button>' : '') : '') + '</div>';
+    }).join('') : '<div style="color:#bbb;padding:10px 2px;font-size:13px">견적에 '+g[0]+' 항목이 없어요 — 견적서 탭에서 추가하면 여기 생겨요</div>';
+    return typeHead + blocks + '</div>';
   }).join('');
 }
 function copyVal(inputId){ var el=document.getElementById(inputId); if(!el) return; navigator.clipboard.writeText(el.value).then(function(){toast('복사됨: '+(el.value||'(빈 값)'));}); }
@@ -1250,7 +1344,41 @@ function addCost(){
   var 금액=document.getElementById('nc금액').value; if(!금액) return toast('금액을 입력하세요');
   busy(gs('addCost',{광고주ID:CUR,내역:document.getElementById('nc내역').value,실행회사:document.getElementById('nc회사').value,금액:금액,차수:selVal('nc차수')||CURROUND}));
 }
-function del(tab,id){ if(confirm('삭제할까요?')) busy(gs('delete',{탭:tab,ID:id})); }
+// ─── 정산: 견적 펼침 상세 (품목별 실행비 + 추가 실행비 + 입금) ───
+function settleDetail(id, r){
+  var costs=(DB.실행비||[]).filter(function(c){return c.광고주ID===id;});
+  var pays=(DB.입금||[]).filter(function(p){return p.광고주ID===id;});
+  var ts=tasksOf(id).filter(function(t){return roundOf(t)===r;});
+  var itemRows = ts.length ? ts.map(function(t){
+    var qty=Number(t.수량)||0, unit=Number(t.단가)||0;
+    var 견적가=(qty>0&&unit>0)?qty*unit:Math.round((Number(t.금액)||0)/1.1);
+    var exec=Number(t.실행비용)||0, mg=견적가-exec, rate=견적가>0?Math.round(mg/견적가*100):0;
+    return '<tr>' +
+      '<td class="q-item"><b>'+esc(t.품목)+'</b>'+(t.세부내용?'<small>'+esc(t.세부내용)+'</small>':'')+'</td>' +
+      '<td class="q-amt">'+won(견적가)+'</td>' +
+      '<td><input class="ex-co" value="'+esc(t.실행회사||'')+'" placeholder="실행회사" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)"></td>' +
+      '<td><input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="실행비" onchange="fmtNum(this);setExec(\''+t.ID+'\',\'실행비용\',this.value)"></td>' +
+      '<td class="q-amt" style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+' ('+rate+'%)</td></tr>';
+  }).join('') : '<tr><td colspan="5" style="color:#bbb;padding:8px">이 견적에 항목이 없어요 (견적서 탭에서 추가)</td></tr>';
+  var extraRows=costs.filter(function(c){return (Number(c.차수)||0)===r;}).map(function(x){
+    return '<div class="row"><div class="grow">'+esc(x.내역)+' — '+won(x.금액)+'원<small>'+esc(x.실행회사||'')+'</small></div><button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">삭제</button></div>';
+  }).join('');
+  var payRows=pays.filter(function(p){return (Number(p.차수)||0)===r;}).map(function(p){
+    return '<div class="row"><div class="grow">'+won(p.금액)+'원<small>'+esc(p.날짜)+' '+esc(p.메모)+'</small></div><button class="del" onclick="del(\'입금\',\''+p.ID+'\')">삭제</button></div>';
+  }).join('');
+  return '<div class="settle-detail" onclick="event.stopPropagation()">' +
+    '<div class="sd-title">📋 '+esc(roundLabel(id,r))+' · 품목별 실행비</div>' +
+    '<div class="ss-wrap"><table class="quote qtbl"><thead><tr><th>품목</th><th class="col-amt">견적가</th><th>실행회사</th><th class="col-amt">실행비</th><th class="col-amt">마진</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>' +
+    '<div class="sd-sub">진행 중 추가비용 (이 견적)</div>'+extraRows +
+    '<div class="form-grid" style="grid-template-columns:1fr 1fr 100px"><input id="ec내역" placeholder="추가 실행비 내역"><input id="ec회사" placeholder="실행회사"><input id="ec금액" type="number" placeholder="금액"></div>' +
+    '<button class="btn-ghost" onclick="addCostRound('+r+')">+ 이 견적에 실행비 추가</button>' +
+    '<div class="sd-sub">입금 (이 견적)</div>'+payRows +
+    '<div class="form-grid" style="grid-template-columns:1fr 1fr"><input id="ep금액" type="number" placeholder="입금액"><input id="ep메모" placeholder="메모"></div>' +
+    '<button class="btn-ghost" onclick="addPayRound('+r+')">+ 이 견적에 입금 추가</button></div>';
+}
+function addCostRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 금액=g('ec금액'); if(!금액) return toast('금액을 입력하세요'); busy(gs('addCost',{광고주ID:CUR,내역:g('ec내역'),실행회사:g('ec회사'),금액:금액,차수:r})); }
+function addPayRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 금액=g('ep금액'); if(!금액) return toast('금액을 입력하세요'); busy(gs('addPayment',{광고주ID:CUR,금액:금액,메모:g('ep메모'),차수:r})); }
+function del(tab,id){ if(!confirm('삭제할까요?')) return; DB[tab]=(DB[tab]||[]).filter(function(r){return r.ID!==id;}); rerender(); bg(gs('delete',{탭:tab,ID:id})); }
 
 // ─── 신규 광고주 ───
 function openNewClient() {
