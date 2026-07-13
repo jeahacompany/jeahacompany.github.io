@@ -1089,7 +1089,7 @@ function addQuoteLine(){
   if(품목==='+ 직접입력'){ 품목=(document.getElementById('nt품목직접').value||'').trim(); if(!품목) return toast('품목명을 입력하세요'); }
   var 세부=document.getElementById('nt세부').value;
   var 금액=Number(String(document.getElementById('nt금액').value).replace(/[^0-9]/g,''))||0;
-  var 견적명=roundLabel(CUR,CURROUND);
+  var 견적명=NEWQNAME[CUR+'_'+CURROUND]||''; // 커스텀 이름만 저장, 기본은 비움('견적서'로 표시)
   busy(gs('addTask',{광고주ID:CUR,품목:품목,세부내용:세부,금액:금액,차수:CURROUND,견적명:견적명,상태:'대기'}));
 }
 function newRound(id){
