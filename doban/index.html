@@ -114,6 +114,13 @@
   .inf-go { text-decoration:none; background:#e8590c; color:#fff; font-weight:700; border-radius:7px; padding:7px 11px; font-size:14px; }
   .inf-del { border:none; background:none; color:#ccc; cursor:pointer; font-size:15px; padding:4px; }
   .inf-del:hover { color:#e03131; }
+  .inf-label.sub { flex:0 0 130px; font-weight:500; color:#777; font-size:13px; padding-left:14px; }
+  /* 플랫폼 묶음 (네이버/인스타/구글/카카오/당근) */
+  .plat { border:1px solid #eee; border-radius:11px; padding:10px 12px; margin-bottom:8px; background:#fafbfc; }
+  .plat-head { display:flex; align-items:center; gap:9px; margin-bottom:7px; flex-wrap:wrap; }
+  .plat-name { font-weight:800; font-size:15px; flex:0 0 96px; }
+  .plat-link { flex:1 1 220px; min-width:160px; padding:8px 11px; border:1px solid #e3e3e3; border-radius:8px; font-size:12px; color:#555; }
+  .plat-link:focus { outline:2px solid #e8590c; outline-offset:-1px; border-color:#e8590c; }
   .panel h2 { font-size:19px; margin-bottom:2px; }
   .panel .sub { font-size:13px; color:#888; margin-bottom:12px; }
   .sec { background:#fff; border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
@@ -483,6 +490,38 @@ function roundExec(id,r){ return tasksOf(id).filter(function(t){return roundOf(t
 function totalExecOf(id){ return execTaskOf(id) + costSum(id); } // 작업 실행비 + 기타 실행비
 function seedsOf(id){ return (DB.섭외||[]).filter(function(s){return s.광고주ID===id;}); }
 function infosOf(id){ return (DB.정보||[]).filter(function(s){return s.광고주ID===id;}).sort(function(a,b){return (Number(a.순서)||0)-(Number(b.순서)||0);}); }
+// 계정정보를 플랫폼별로 묶어서 렌더 (네이버/인스타/구글/카카오/당근 = 아이디+비번 한 세트 + 바로가기 하나)
+var INFO_HIDE = ['상호명','주소','대표자','대표자 연락처']; // 업체정보에서 관리 → 계정정보에선 숨김
+var INFO_BASIC = ['담당자','담당자 연락처','플레이스 번호'];
+var INFO_PLATS = [['네이버','🟢'],['인스타','📷'],['구글','🔵'],['카카오','🟡'],['당근','🥕']];
+function infValRow(f, sub, delable){
+  return '<div class="inf-line">' +
+    '<span class="inf-label'+(sub?' sub':'')+'">'+esc(sub||f.항목)+'</span>' +
+    '<input class="inf-value" id="inf_'+f.ID+'" value="'+esc(f.값)+'" placeholder="입력" onchange="setInfo(\''+f.ID+'\',\'값\',this.value)">' +
+    '<button class="inf-copy" onclick="copyVal(\'inf_'+f.ID+'\')">📋 복사</button>' +
+    (delable?'<input class="inf-link" value="'+esc(f.링크||'')+'" placeholder="URL" onchange="setInfo(\''+f.ID+'\',\'링크\',this.value)">'+(f.링크?'<a class="inf-go" href="'+esc(f.링크)+'" target="_blank">→</a>':'')+'<button class="inf-del" onclick="del(\'정보\',\''+f.ID+'\')">✕</button>':'') +
+  '</div>';
+}
+function infoGroupHTML(id){
+  var infos = infosOf(id), used = {}, basic='', plat='', etc='';
+  infos.forEach(function(f){ if(INFO_HIDE.indexOf(f.항목)>=0) used[f.ID]=1; });
+  infos.forEach(function(f){ if(INFO_BASIC.indexOf(f.항목)>=0){ used[f.ID]=1; basic += infValRow(f); } });
+  INFO_PLATS.forEach(function(p){
+    var rows = infos.filter(function(f){ return String(f.항목).indexOf(p[0])===0; });
+    if(!rows.length) return;
+    rows.forEach(function(f){ used[f.ID]=1; });
+    var idRow = rows.filter(function(f){return String(f.항목).indexOf('아이디')>=0;})[0] || rows[0];
+    var pwRow = rows.filter(function(f){return /비밀번호|비번/.test(String(f.항목));})[0];
+    var link = idRow.링크||'';
+    plat += '<div class="plat"><div class="plat-head"><span class="plat-name">'+p[1]+' '+p[0]+'</span>' +
+      '<input class="plat-link" value="'+esc(link)+'" placeholder="바로가기 URL (예: 로그인 페이지)" onchange="setInfo(\''+idRow.ID+'\',\'링크\',this.value)">' +
+      (link?'<a class="inf-go" href="'+esc(link)+'" target="_blank">→ 바로가기</a>':'') + '</div>' +
+      infValRow(idRow,'아이디') + (pwRow?infValRow(pwRow,'비밀번호'):'') + '</div>';
+  });
+  infos.forEach(function(f){ if(!used[f.ID]) etc += infValRow(f, null, true); });
+  return (basic?'<div class="inf-list">'+basic+'</div>':'') + plat +
+    (etc?'<div style="font-size:12px;color:#999;margin:8px 0 4px">기타 (추가 항목)</div><div class="inf-list">'+etc+'</div>':'');
+}
 var STATUS_OPTS = ['-','예정','진행중','완료'];
 // 종류별 표 컬럼 (실제 시트 그대로). type: text/date/time/status/url
 var SEED_COLS = {
@@ -845,28 +884,23 @@ function openClient(id) {
     '<div><h2>'+esc(c.매장명)+'</h2><div class="sub">'+esc(c.지역)+' · 대표 '+esc(c.대표자)+' · '+esc(c.연락처)+'</div></div>' +
     '<button class="btn-ghost" onclick="closePanel()">✕</button></div>' +
 
-  '<div class="sec"><h3>상태 / 공유</h3>' +
+  '<div class="sec"><h3>🏪 업체 정보 <span style="font-size:11px;color:#999;font-weight:400">· 등록 정보 수정</span></h3>' +
+    '<div class="row"><span>매장명</span><input style="width:200px" value="'+esc(c.매장명||'')+'" onchange="setClientField(\'매장명\',this.value)"></div>' +
+    '<div class="row"><span>지역</span><input style="width:200px" value="'+esc(c.지역||'')+'" onchange="setClientField(\'지역\',this.value)"></div>' +
+    '<div class="row"><span>대표자</span><input style="width:200px" value="'+esc(c.대표자||'')+'" onchange="setClientField(\'대표자\',this.value)"></div>' +
+    '<div class="row"><span>대표자 연락처</span><input style="width:200px" value="'+esc(c.연락처||'')+'" onchange="setClientField(\'연락처\',this.value)"></div>' +
+    '<div class="row"><span>주소</span><input style="width:320px" value="'+esc(c.주소||'')+'" onchange="setClientField(\'주소\',this.value)"></div>' +
+    '<div class="row"><span>계약일</span><input type="date" style="width:150px" value="'+esc(c.계약일||'')+'" onchange="setClientField(\'계약일\',this.value)"></div>' +
     '<div class="row"><span>진행 상태</span><select style="width:130px" onchange="setClientField(\'상태\',this.value)">' +
       STATUSES.map(function(s){return '<option '+(c.상태===s?'selected':'')+'>'+s+'</option>';}).join('') + '</select></div>' +
-    '<div class="row"><span>담당 직원</span><input style="width:130px" value="'+esc(c.담당직원)+'" onchange="setClientField(\'담당직원\',this.value)"></div>' +
+    '<div class="row"><span>담당 직원 (우리)</span><input style="width:130px" value="'+esc(c.담당직원)+'" onchange="setClientField(\'담당직원\',this.value)"></div>' +
     '<div class="row"><span>점주 로그인 ID</span><input style="width:150px" value="'+esc(c.로그인ID||'')+'" placeholder="예: '+esc((c.매장명||'').replace(/\\s/g,''))+'" onchange="setClientField(\'로그인ID\',this.value)"></div>' +
     '<div class="row"><span>점주 비밀번호</span><input style="width:150px" value="'+esc(c.로그인PW||'')+'" placeholder="발급할 비번" onchange="setClientField(\'로그인PW\',this.value)"></div>' +
     '<div class="row"><div class="grow"><span>광고주 공유 링크</span><small>점주는 이 링크 + 위 ID/비번으로 자기 매장만 봅니다</small></div>' +
       '<button class="btn-ghost" onclick="copyShare(\''+share+'\')">링크 복사</button></div></div>' +
 
-  '<div class="sec"><h3>📋 계정 정보 <span style="font-size:11px;color:#999;font-weight:400">· 복사 눌러 바로 붙여넣기, 점주도 편집</span></h3>' +
-    '<div class="inf-list">' +
-    (infosOf(id).length ? infosOf(id).map(function(f){
-      return '<div class="inf-line">' +
-        '<span class="inf-label">'+esc(f.항목)+'</span>' +
-        '<input class="inf-value" id="inf_'+f.ID+'" value="'+esc(f.값)+'" placeholder="입력" onchange="setInfo(\''+f.ID+'\',\'값\',this.value)">' +
-        '<button class="inf-copy" onclick="copyVal(\'inf_'+f.ID+'\')">📋 복사</button>' +
-        '<input class="inf-link" value="'+esc(f.링크||'')+'" placeholder="바로가기 URL" onchange="setInfo(\''+f.ID+'\',\'링크\',this.value)">' +
-        (f.링크?'<a class="inf-go" href="'+esc(f.링크)+'" target="_blank">→</a>':'') +
-        '<button class="inf-del" onclick="del(\'정보\',\''+f.ID+'\')">✕</button>' +
-      '</div>';
-    }).join('') : '<div style="color:#bbb;padding:8px">정보 항목이 없어요</div>') +
-    '</div>' +
+  '<div class="sec"><h3>📋 계정 정보 <span style="font-size:11px;color:#999;font-weight:400">· 플랫폼별 아이디·비번, 복사해서 바로 붙여넣기</span></h3>' +
+    (infosOf(id).length ? infoGroupHTML(id) : '<div style="color:#bbb;padding:8px">정보 항목이 없어요</div>') +
     '<button class="add-row" onclick="addInfoRow()">+ 항목 추가 (옥외광고 등)</button></div>' +
 
   '<div class="sec"><h3>견적·작업 · 계약 총액 '+won(contractOf(id))+'원 ' +
