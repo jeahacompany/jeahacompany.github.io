@@ -50,7 +50,20 @@
   .quote-sum .ln { display:flex; justify-content:space-between; padding:6px 2px; font-size:14px; }
   .quote-sum .ln.tot { border-top:2px solid #eee; margin-top:6px; padding-top:10px; font-size:18px; font-weight:700; }
   .quote-sum .ln.tot b { color:#e8590c; }
-  .col-price { width:120px; } .col-qty { width:70px; } .col-amt { width:110px; }
+  .col-price { width:120px; } .col-qty { width:70px; } .col-amt { width:110px; } .col-no { width:36px; }
+  table.quote .q-no { width:36px; text-align:center; color:#aaa; font-size:12px; font-variant-numeric:tabular-nums; }
+  table.quote.qtbl td { vertical-align:middle; }
+  table.quote.qtbl .q-qty, table.quote.qtbl .q-unit { text-align:right; font-variant-numeric:tabular-nums; color:#555; white-space:nowrap; }
+  table.quote.qtbl .col-qty, table.quote.qtbl .col-price, table.quote.qtbl .col-amt { text-align:right; }
+  table.quote.qtbl .q-act { text-align:right; white-space:nowrap; width:120px; }
+  table.quote.qtbl .q-act .del { margin-left:6px; }
+  table.quote.qtbl .qr-exec td { padding-top:0; background:#fcfcfc; }
+  table.quote.qtbl .qr-exec .exl { font-size:12px; color:#888; }
+  table.quote.qtbl .qr-exec input { width:auto; display:inline-block; padding:5px 8px; font-size:12px; text-align:left; }
+  table.quote.qtbl .qr-exec .ex-co { width:120px; } table.quote.qtbl .qr-exec .ex-amt { width:100px; text-align:right; }
+  table.quote.qtbl .qr-exec .ex-mg { font-size:12px; color:#666; margin-left:8px; }
+  .q-addrow { margin-top:14px; background:#fafbfc; border:1px solid #eef0f2; border-radius:10px; padding:12px; }
+  .qar-title { font-size:13px; font-weight:700; color:#555; margin-bottom:8px; }
   /* 광고주 등록 폼 (미팅용 대형) */
   .reg-wrap { display:flex; justify-content:center; }
   .reg-card { background:#fff; border-radius:16px; padding:28px 32px; box-shadow:0 2px 12px rgba(0,0,0,.06); width:100%; max-width:760px; }
@@ -751,12 +764,12 @@ function renderRegisterView() {
     '<div class="reg-section"><div class="rs-title">견적서 (도반글로벌)</div>' +
       '<div class="rs-desc">필요한 항목만 수량을 넣으면 금액이 자동 계산돼요. 단가는 미팅에서 조정 가능. 수량 넣은 항목이 곧 작업이 됩니다.</div>' +
       '<div class="quote-wrap"><table class="quote"><thead><tr>' +
-        '<th>품목</th><th class="col-price">단가</th><th class="col-qty">수량</th><th class="col-amt" style="text-align:right">금액</th>' +
+        '<th class="col-no">NO</th><th>품목</th><th class="col-qty">식</th><th class="col-price">단가</th><th class="col-amt" style="text-align:right">금액</th>' +
       '</tr></thead><tbody>' +
         QUOTE_ITEMS.map(function(it,i){
-          return '<tr><td class="q-item"><b>'+esc(it[0])+'</b><small>'+esc(it[3])+'</small></td>' +
-            '<td><input id="qprice'+i+'" type="text" inputmode="numeric" value="'+it[1].toLocaleString('ko-KR')+'" oninput="fmtNum(this);recalcQuote()"></td>' +
+          return '<tr><td class="q-no">'+(i+1)+'</td><td class="q-item"><b>'+esc(it[0])+'</b><small>'+esc(it[3])+'</small></td>' +
             '<td><input id="qqty'+i+'" type="number" min="0" value="0" placeholder="0" oninput="recalcQuote()"></td>' +
+            '<td><input id="qprice'+i+'" type="text" inputmode="numeric" value="'+it[1].toLocaleString('ko-KR')+'" oninput="fmtNum(this);recalcQuote()"></td>' +
             '<td class="q-amt" id="qamt'+i+'">0</td></tr>';
         }).join('') +
       '</tbody></table></div>' +
@@ -799,7 +812,7 @@ function submitReg(){
   var sub=0, picked=[];
   QUOTE_ITEMS.forEach(function(it,i){
     var p=quoteVal('qprice'+i), q=quoteVal('qqty'+i);
-    if(q>0){ var amt=p*q; sub+=amt; picked.push({품목:it[0], 세부내용:q+it[2], 금액:Math.round(amt*1.1), 수량:q}); }
+    if(q>0){ var amt=p*q; sub+=amt; picked.push({품목:it[0], 세부내용:q+it[2], 금액:Math.round(amt*1.1), 수량:q, 단가:p}); }
   });
   var tot=sub+Math.round(sub*0.1);
   var payload={매장명:g('r매장명'),지역:g('r지역'),대표자:g('r대표자'),연락처:g('r연락처'),
@@ -807,7 +820,7 @@ function submitReg(){
   gs('addClient',payload).then(function(res){
     var cid=res.ID;
     return Promise.all(picked.map(function(t){
-      return gs('addTask',{광고주ID:cid,품목:t.품목,세부내용:t.세부내용,금액:t.금액,상태:'대기',등록일:g('r계약일')||undefined});
+      return gs('addTask',{광고주ID:cid,품목:t.품목,세부내용:t.세부내용,금액:t.금액,수량:t.수량,단가:t.단가,상태:'대기',등록일:g('r계약일')||undefined});
     })).then(function(){
       var bulks=picked.map(function(t){ var st=seedTypeOf(t.품목); return (st&&t.수량>0)?gs('addSeedBulk',{광고주ID:cid,종류:st,수량:t.수량}):null; }).filter(Boolean);
       return Promise.all(bulks);
@@ -842,13 +855,15 @@ function buildQuoteImage(store, date, subtitle, rows, totals){
   var colQty=W-330, colPrice=W-180, colAmt=W-pad;
   x.fillStyle='#fafafa'; x.fillRect(pad, tableTop, W-pad*2, headRowH);
   var hy=tableTop+22;
-  T('품목', pad+12, hy, 13, '#888', true);
-  if(hasVat){ T('수량', colQty, hy, 13, '#888', true, 'right'); T('단가', colPrice, hy, 13, '#888', true, 'right'); }
+  T('NO', pad+12, hy, 13, '#888', true);
+  T('품목', pad+42, hy, 13, '#888', true);
+  if(hasVat){ T('식', colQty, hy, 13, '#888', true, 'right'); T('단가', colPrice, hy, 13, '#888', true, 'right'); }
   T('금액', colAmt, hy, 13, '#888', true, 'right');
   var ry=tableTop+headRowH;
-  rows.forEach(function(r){
+  rows.forEach(function(r, idx){
     var by=ry+29;
-    T(r[0], pad+12, by, 14, '#222', false);
+    T(String(idx+1), pad+12, by, 13, '#888', false);
+    T(r[0], pad+42, by, 14, '#222', false);
     if(hasVat){ T(String(r[1]||''), colQty, by, 13, '#555', false, 'right'); if(r[2]) T(won(r[2]), colPrice, by, 13, '#555', false, 'right'); }
     T(won(r[3]), colAmt, by, 14, '#222', true, 'right');
     x.strokeStyle='#f2f2f2'; x.beginPath(); x.moveTo(pad,ry+rowH); x.lineTo(W-pad,ry+rowH); x.stroke();
@@ -884,16 +899,23 @@ function previewQuote(){
 // 광고주 상세에서 견적서: round 'all'(전체) | 숫자(해당 차수만)
 function clientQuoteImage(id, round){
   var c=DB.광고주.filter(function(x){return x.ID===id;})[0];
-  var ts=tasksOf(id).filter(function(t){return (Number(t.금액)||0)>0;});
+  var ts=tasksOf(id).filter(function(t){return (Number(t.금액)||0)>0 || (Number(t.단가)||0)>0;});
   var subtitle='';
   if(round!=='all'){
     ts=ts.filter(function(t){return roundOf(t)===Number(round);});
-    subtitle=round+'차 견적';
+    subtitle=roundLabel(id,Number(round));
   }
-  if(!ts.length) return toast('견적 금액이 있는 항목이 없어요');
-  var rows=ts.map(function(t){ return [t.품목+(t.세부내용?' · '+t.세부내용:''), '', '', Number(t.금액)||0]; });
-  var sum=ts.reduce(function(s,t){return s+(Number(t.금액)||0);},0);
-  buildQuoteImage(c.매장명, todayStr(), subtitle, rows, {tot:sum});
+  if(!ts.length) return toast('견적 항목이 없어요');
+  var sub=0;
+  var rows=ts.map(function(t){
+    var qty=Number(t.수량)||0, unit=Number(t.단가)||0;
+    var line=(qty>0&&unit>0)?qty*unit:Math.round((Number(t.금액)||0)/1.1); // 부가세 전
+    sub+=line;
+    return [t.품목+(t.세부내용?' · '+t.세부내용:''), qty>0?qty:'', unit>0?unit:'', line];
+  });
+  var vat=Math.round(sub*0.1);
+  var date=roundDateOf(id, round==='all'?CURROUND:Number(round))||todayStr();
+  buildQuoteImage(c.매장명, date, subtitle, rows, {sub:sub, vat:vat, tot:sub+vat});
 }
 function closeQuoteModal(){ document.getElementById('quoteModal').style.display='none'; }
 function downloadQuote(){ if(!lastQuoteBlob) return; var a=document.createElement('a'); a.href=URL.createObjectURL(lastQuoteBlob); a.download=lastQuoteName; a.click(); toast('이미지를 저장했어요'); }
@@ -1003,28 +1025,48 @@ function openClient(id) {
     '<div class="round-head"><b>'+esc(roundLabel(id,CURROUND))+'</b>' +
       '<input type="date" class="round-date" value="'+esc(roundDateOf(id,CURROUND))+'" onchange="setRoundDate(\''+id+'\','+CURROUND+',this.value)" title="견적일">' +
       '<span>'+roundTs.filter(function(t){return t.상태==='완료';}).length+'/'+roundTs.length+' 완료 · 견적 '+won(roundSum(id,CURROUND))+'원</span></div>' +
-    (roundTs.length ? roundTs.map(function (t) {
-      var amt = Number(t.금액)||0, exec = Number(t.실행비용)||0, mg = amt-exec, rate = amt>0?Math.round(mg/amt*100):0;
-      return '<div class="qline">' +
-        '<div class="qline-top"><div class="grow"><b>'+esc(t.품목)+'</b> <span class="qamt">'+won(amt)+'원</span>' +
-          '<small>'+esc(t.세부내용)+(t.완료일?' · 완료 '+esc(t.완료일):'')+'</small></div>' +
-          '<button class="pill t-'+esc(t.상태)+'" onclick="cycleTask(\''+t.ID+'\',\''+esc(t.상태)+'\')">'+esc(t.상태)+'</button>' +
-          '<button class="del" onclick="del(\'작업\',\''+t.ID+'\')">삭제</button></div>' +
-        (SHOWMARGIN ? '<div class="qline-exec">실행 <input class="ex-co" value="'+esc(t.실행회사||'')+'" placeholder="실행회사" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">' +
-          '<input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="실행비" onchange="setExec(\''+t.ID+'\',\'실행비용\',this.value)">' +
-          '<span class="ex-mg">마진 <b style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+'</b> ('+rate+'%)</span></div>' : '') +
-      '</div>';
-    }).join('') : '<div style="color:#aaa;font-size:13px;padding:10px 0">이 견적에 항목을 추가하세요</div>') +
+    (function(){
+      var rsub=0;
+      var body = roundTs.length ? roundTs.map(function (t, ri) {
+        var amtIncl = Number(t.금액)||0, qty = Number(t.수량)||0, unit = Number(t.단가)||0;
+        var line = (qty>0 && unit>0) ? qty*unit : Math.round(amtIncl/1.1); // 부가세 전 금액
+        rsub += line;
+        var exec = Number(t.실행비용)||0, mg = line-exec, rate = line>0?Math.round(mg/line*100):0;
+        return '<tr class="qr">' +
+            '<td class="q-no">'+(ri+1)+'</td>' +
+            '<td class="q-item"><b>'+esc(t.품목)+'</b>'+(t.세부내용?'<small>'+esc(t.세부내용)+'</small>':'')+(t.완료일?'<small>완료 '+esc(t.완료일)+'</small>':'')+'</td>' +
+            '<td class="q-qty">'+(qty>0?qty:'')+'</td>' +
+            '<td class="q-unit">'+(unit>0?won(unit):'')+'</td>' +
+            '<td class="q-amt">'+won(line)+'</td>' +
+            '<td class="q-act"><button class="pill t-'+esc(t.상태)+'" onclick="cycleTask(\''+t.ID+'\',\''+esc(t.상태)+'\')">'+esc(t.상태)+'</button>' +
+              '<button class="del" onclick="del(\'작업\',\''+t.ID+'\')">삭제</button></td>' +
+          '</tr>' +
+          (SHOWMARGIN ? '<tr class="qr-exec"><td></td><td colspan="5"><span class="exl">실행</span> <input class="ex-co" value="'+esc(t.실행회사||'')+'" placeholder="실행회사" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">' +
+            '<input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="실행비" onchange="setExec(\''+t.ID+'\',\'실행비용\',this.value)">' +
+            '<span class="ex-mg">마진 <b style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+'</b> ('+rate+'%)</span></td></tr>' : '');
+      }).join('') : '<tr><td colspan="6" style="color:#aaa;font-size:13px;padding:14px 8px">이 견적에 항목을 추가하세요 (아래에서 품목·식·단가 입력)</td></tr>';
+      var rvat=Math.round(rsub*0.1), rtot=rsub+rvat;
+      return '<div class="quote-wrap"><table class="quote qtbl"><thead><tr>' +
+          '<th class="col-no">NO</th><th>품목</th><th class="col-qty">식</th><th class="col-price">단가</th><th class="col-amt">금액</th><th class="col-act"></th>' +
+        '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+        '<div class="quote-sum">' +
+          '<div class="ln"><span>소계</span><span>'+won(rsub)+'</span></div>' +
+          '<div class="ln"><span>부가세 (10%)</span><span>'+won(rvat)+'</span></div>' +
+          '<div class="ln tot"><span>총계 (VAT포함)</span><b>'+won(rtot)+'원</b></div>' +
+        '</div>';
+    })() +
     (SHOWMARGIN && roundTs.length ? (function(){ var rq=roundSum(id,CURROUND), re=roundExec(id,CURROUND), rm=rq-re;
       return '<div class="round-margin"><span>이 견적 이익</span><span>견적 '+won(rq)+' − 실행 '+won(re)+' = <b style="color:'+(rm<0?'#c92a2a':'#237a3b')+'">'+won(rm)+'원</b> ('+(rq>0?Math.round(rm/rq*100):0)+'%)</span></div>';
     })() : '') +
-    '<div class="form-grid" style="grid-template-columns:1fr 90px 1fr">' +
-      '<select id="nt품목" onchange="ntAuto();ntEtc()">'+QUOTE_ITEMS.map(function(it){return '<option>'+esc(it[0])+'</option>';}).join('')+'<option>+ 직접입력</option></select>' +
-      '<input id="nt수량" type="number" min="0" placeholder="수량" oninput="ntAuto()">' +
-      '<input id="nt금액" inputmode="numeric" placeholder="금액" oninput="fmtNum(this)">' +
+    '<div class="q-addrow"><div class="qar-title">+ 「'+esc(roundLabel(id,CURROUND))+'」에 항목 추가</div>' +
+      '<div class="form-grid" style="grid-template-columns:1fr 66px 110px 110px">' +
+      '<select id="nt품목" onchange="ntPick();ntEtc()">'+QUOTE_ITEMS.map(function(it){return '<option>'+esc(it[0])+'</option>';}).join('')+'<option>+ 직접입력</option></select>' +
+      '<input id="nt수량" type="number" min="0" placeholder="식" oninput="ntAuto()">' +
+      '<input id="nt단가" inputmode="numeric" placeholder="단가" oninput="fmtNum(this);ntAuto()">' +
+      '<input id="nt금액" inputmode="numeric" placeholder="금액(자동)" oninput="fmtNum(this)">' +
       '<input id="nt품목직접" class="full" placeholder="품목 직접입력" style="display:none">' +
-      '<input id="nt세부" class="full" placeholder="세부내용 (예: 인플루언서 2명 추가)">' +
-      '<button class="btn-primary full" onclick="addQuoteLine()">+ 「'+esc(roundLabel(id,CURROUND))+'」에 항목 추가</button></div>' +
+      '<input id="nt세부" class="full" placeholder="비고 (선택, 예: 첨단점·쌍촌점 2개 관리)">' +
+      '<button class="btn-primary full" onclick="addQuoteLine()">+ 항목 추가</button></div></div>' +
     '<div style="display:flex;gap:6px;margin-top:10px">' +
       '<button class="btn-ghost" onclick="clientQuoteImage(\''+id+'\','+CURROUND+')">📄 이 견적서</button>' +
       '<button class="btn-ghost" onclick="clientQuoteImage(\''+id+'\',\'all\')">📄 전체 견적서</button></div></div>' +
@@ -1076,11 +1118,19 @@ function copyShare(url){ navigator.clipboard.writeText(url).then(function(){toas
 function busy(p){ return p.then(load).catch(function(e){toast('오류: '+e.message);}); }
 function setClientField(f,v){ var o={ID:CUR}; o[f]=v; busy(gs('updateClient',o)); }
 function cycleTask(id,cur){ busy(gs('setTaskStatus',{ID:id,상태:TASK_FLOW[cur]||'대기'})); }
-function ntAuto(){
+function ntPick(){ // 품목 선택 시 카탈로그 기본단가 자동 채움
   var sel=document.getElementById('nt품목').value;
-  var qty=Number(document.getElementById('nt수량').value)||0;
   var it=QUOTE_ITEMS.filter(function(x){return x[0]===sel;})[0];
-  if(it && it[1]>0 && qty>0) document.getElementById('nt금액').value=Math.round(it[1]*qty*1.1).toLocaleString('ko-KR');
+  var u=document.getElementById('nt단가');
+  if(u) u.value = (it && it[1]>0) ? it[1].toLocaleString('ko-KR') : '';
+  ntAuto();
+}
+function ntAuto(){ // 금액(부가세 전) = 식 × 단가
+  var qty=Number(document.getElementById('nt수량').value)||0;
+  var u=document.getElementById('nt단가');
+  var unit=u?(Number(String(u.value).replace(/[^0-9]/g,''))||0):0;
+  var amtEl=document.getElementById('nt금액');
+  if(amtEl && qty>0 && unit>0) amtEl.value=(qty*unit).toLocaleString('ko-KR');
 }
 function ntEtc(){
   var sel=document.getElementById('nt품목').value;
@@ -1094,10 +1144,13 @@ function addQuoteLine(){
   if(품목==='+ 직접입력'){ 품목=(document.getElementById('nt품목직접').value||'').trim(); if(!품목) return toast('품목명을 입력하세요'); }
   var 세부=document.getElementById('nt세부').value;
   var 수량=Number(document.getElementById('nt수량').value)||0;
-  var 금액=Number(String(document.getElementById('nt금액').value).replace(/[^0-9]/g,''))||0;
+  var 단가=Number(String(document.getElementById('nt단가').value).replace(/[^0-9]/g,''))||0;
+  var pre=Number(String(document.getElementById('nt금액').value).replace(/[^0-9]/g,''))||0;
+  if(!pre && 수량>0 && 단가>0) pre=수량*단가; // 금액 비면 식×단가
+  var 금액=Math.round(pre*1.1); // 저장은 부가세 포함(계약총액 기준 유지)
   var 견적명=NEWQNAME[CUR+'_'+CURROUND]||''; // 커스텀 이름만 저장, 기본은 비움('견적서'로 표시)
   var st=seedTypeOf(품목);
-  var chain=gs('addTask',{광고주ID:CUR,품목:품목,세부내용:세부,금액:금액,차수:CURROUND,견적명:견적명,상태:'대기'});
+  var chain=gs('addTask',{광고주ID:CUR,품목:품목,세부내용:세부,금액:금액,수량:수량,단가:단가,차수:CURROUND,견적명:견적명,상태:'대기'});
   if(st && 수량>0){ chain=chain.then(function(){ return gs('addSeedBulk',{광고주ID:CUR,종류:st,수량:수량}); }); }
   chain.then(load).then(function(){ if(st&&수량>0) toast('✅ '+st+' 탭에 '+수량+'줄 생성 — 직원이 채워요'); }).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
   return;
