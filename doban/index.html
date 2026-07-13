@@ -331,6 +331,7 @@
 
   <div id="registerView" style="display:none"></div>
   <div id="staffView" style="display:none"></div>
+  <div id="logView" style="display:none"></div>
 </div>
 
 <div class="overlay" id="overlay" onclick="closePanel()"></div>
@@ -343,7 +344,8 @@
     <div class="qmodal-actions">
       <button class="btn-ghost" onclick="closeQuoteModal()">닫기</button>
       <button class="btn-ghost" onclick="downloadQuote()">이미지 저장</button>
-      <button class="btn-primary" onclick="shareQuote()">📤 카카오로 공유</button>
+      <button class="btn-primary" onclick="copyQuoteImage()">📋 이미지 복사</button>
+      <button class="btn-primary" onclick="shareQuote()">📤 공유</button>
     </div>
   </div>
 </div>
@@ -542,8 +544,14 @@ function enter() {
   document.getElementById('pinErr').textContent='로그인 중…';
   loginTry(id, pw, 0);
 }
+function logAccessNow(name){
+  var env=navigator.userAgent;
+  var send=function(ip){ gs('logAccess',{이름:name||'',IP:ip||'',환경:env}).catch(function(){}); };
+  try{ fetch('https://api.ipify.org?format=json').then(function(r){return r.json();}).then(function(j){ send(j.ip); }).catch(function(){ send('(확인불가)'); }); }
+  catch(e){ send('(확인불가)'); }
+}
 function loginTry(id, pw, n) {
-  gs('all').then(function (d) { loginOK(d, id, pw); }).catch(function (e) {
+  gs('all').then(function (d) { if(loginOK(d, id, pw)) logAccessNow(ME?ME.이름:id); }).catch(function (e) {
     var el = document.getElementById('pinErr');
     if (n < 2) { el.textContent='연결 중… 잠시만요'; setTimeout(function(){ loginTry(id, pw, n+1); }, 1400); }
     else { el.textContent='연결이 불안정해요. 다시 눌러주세요.'; }
@@ -556,6 +564,28 @@ function autoLogin(id, pw, n){
   .catch(function(){ if(n<3) setTimeout(function(){ autoLogin(id, pw, n+1); }, 1500); });
 }
 function logout(){ localStorage.removeItem('doban_user'); location.reload(); }
+// ─── 로그 뷰 (관리자 전용): 접속로그 + 업데이트로그 + 백업 ───
+function renderLogView(){
+  var acc=(DB.접속로그||[]).slice().reverse();
+  var upd=(DB.업데이트로그||[]).slice().reverse();
+  document.getElementById('logView').innerHTML =
+    '<div class="sec"><h3>💾 백업 <span style="font-size:11px;color:#999;font-weight:400">· 데이터를 구글드라이브에 사본으로 저장 (자료 안 잃어버리게)</span></h3>' +
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+      '<button class="btn-primary" onclick="doBackup(this)">지금 백업하기</button>' +
+      '<button class="btn-ghost" onclick="doSetupBackup(this)">매일 자동백업 켜기</button>' +
+      '<span id="backupMsg" style="font-size:13px;color:#888"></span></div></div>' +
+    '<div class="sec"><h3>📋 접속 로그 <span style="font-size:11px;color:#999;font-weight:400">· 누가·언제·어디서 접속했나</span></h3>' +
+      '<div class="ss-wrap"><table class="ss"><thead><tr><th>시간</th><th>이름</th><th>IP</th><th>환경</th></tr></thead><tbody>' +
+      (acc.length?acc.map(function(a){ return '<tr><td>'+esc(a.시간)+'</td><td><b>'+esc(a.이름)+'</b></td><td>'+esc(a.IP)+'</td><td style="font-size:11px;color:#999">'+esc(String(a.환경||'').slice(0,70))+'</td></tr>'; }).join(''):'<tr><td colspan="4" style="color:#bbb;padding:12px">아직 접속 기록이 없어요</td></tr>') +
+      '</tbody></table></div></div>' +
+    '<div class="sec"><h3>🗒 업데이트 로그</h3>' +
+      '<div class="ss-wrap"><table class="ss"><thead><tr><th>날짜</th><th>버전</th><th>내용</th></tr></thead><tbody>' +
+      (upd.length?upd.map(function(u){ return '<tr><td style="white-space:nowrap">'+esc(u.날짜)+'</td><td><b>'+esc(u.버전)+'</b></td><td>'+esc(u.내용)+'</td></tr>'; }).join(''):'<tr><td colspan="3" style="color:#bbb;padding:12px">아직 없어요</td></tr>') +
+      '</tbody></table></div></div>';
+}
+function doBackup(btn){ btn.disabled=true; btn.textContent='백업 중…'; var m=document.getElementById('backupMsg'); m.textContent='구글드라이브에 사본 만드는 중…';
+  gs('backupNow').then(function(url){ m.innerHTML='✅ 백업 완료! <a href="'+esc(url)+'" target="_blank">백업 파일 열기</a>'; btn.disabled=false; btn.textContent='지금 백업하기'; return load(); }).catch(function(e){ m.textContent='오류: '+((e&&e.message)||e)+' (드라이브 권한 승인이 필요할 수 있어요)'; btn.disabled=false; btn.textContent='지금 백업하기'; }); }
+function doSetupBackup(btn){ btn.disabled=true; gs('setupBackup').then(function(){ document.getElementById('backupMsg').textContent='✅ 매일 새벽 3시 자동백업 켜졌어요'; btn.disabled=false; }).catch(function(e){ document.getElementById('backupMsg').textContent='오류(권한 승인 필요): '+((e&&e.message)||e); btn.disabled=false; }); }
 // ─── 직원 계정 관리 (관리자 전용) ───
 function renderStaffView(){
   var list = DB.직원||[];
@@ -699,11 +729,11 @@ function paySum(id){ return DB.입금.filter(function(r){return r.광고주ID===
 function costSum(id){ return DB.실행비.filter(function(r){return r.광고주ID===id && (Number(r.차수)||0)>0;}).reduce(function(s,r){return s+(Number(r.금액)||0);},0); } // 견적(차수)에 붙은 실행비만 — 미지정 옛 데모 제외
 
 // ─── 메인 렌더 (뷰 디스패처) ───
-var VIEWS = [['client','광고주별'],['task','작업 현황'],['settle','정산'],['register','+ 광고주 등록'],['staff','👥 직원']];
+var VIEWS = [['client','광고주별'],['task','작업 현황'],['settle','정산'],['register','+ 광고주 등록'],['staff','👥 직원'],['log','📋 로그']];
 function visibleViews(){
   return VIEWS.filter(function(t){
     if(t[0]==='settle') return canSeeMargin();   // 정산(마진)은 권한 있는 사람만
-    if(t[0]==='staff') return isAdmin();          // 직원 관리는 관리자만
+    if(t[0]==='staff' || t[0]==='log') return isAdmin(); // 직원관리·로그는 관리자만
     return true;
   });
 }
@@ -716,7 +746,7 @@ function render() {
       var cls = 'viewtab' + (VIEW===t[0]?' on':'') + (t[0]==='register'?' reg':'');
       return '<div class="'+cls+'" onclick="VIEW=\''+t[0]+'\';render()">'+t[1]+'</div>';
     }).join('') + '<div class="viewtab" onclick="logout()" style="color:#c92a2a">로그아웃</div>';
-  ['client','task','settle','register','staff'].forEach(function (v) {
+  ['client','task','settle','register','staff','log'].forEach(function (v) {
     var el=document.getElementById(v+'View'); if(el) el.style.display = VIEW===v ? '' : 'none';
   });
   // 미배정 작업 알림
@@ -729,6 +759,7 @@ function render() {
   else if (VIEW==='settle') renderSettleView();
   else if (VIEW==='register') renderRegisterView();
   else if (VIEW==='staff') renderStaffView();
+  else if (VIEW==='log') renderLogView();
 }
 function card(l,n){ return '<div class="card"><div class="lbl">'+l+'</div><div class="num">'+n+'</div></div>'; }
 
@@ -977,14 +1008,21 @@ function clientQuoteImage(id, round){
 }
 function closeQuoteModal(){ document.getElementById('quoteModal').style.display='none'; }
 function downloadQuote(){ if(!lastQuoteBlob) return; var a=document.createElement('a'); a.href=URL.createObjectURL(lastQuoteBlob); a.download=lastQuoteName; a.click(); toast('이미지를 저장했어요'); }
+function copyQuoteImage(){
+  if(!lastQuoteBlob) return toast('이미지가 아직 준비 안 됐어요');
+  if(navigator.clipboard && window.ClipboardItem){
+    navigator.clipboard.write([new ClipboardItem({'image/png': lastQuoteBlob})])
+      .then(function(){ toast('✅ 견적서 복사됨! 카톡 대화창에 붙여넣기(Ctrl+V) 하세요'); })
+      .catch(function(){ toast('복사가 막혔어요 — 이미지 저장 후 첨부하세요'); downloadQuote(); });
+  } else { toast('이 브라우저는 이미지 복사 미지원 — 저장 후 첨부하세요'); downloadQuote(); }
+}
 function shareQuote(){
   if(!lastQuoteBlob) return;
   var file=new File([lastQuoteBlob], lastQuoteName, {type:'image/png'});
   if(navigator.canShare && navigator.canShare({files:[file]})){
     navigator.share({files:[file], title:'견적서'}).catch(function(){});
   } else {
-    downloadQuote();
-    toast('이 기기에선 바로 공유가 안 돼요. 저장된 이미지를 카카오톡에 첨부해 보내세요');
+    copyQuoteImage(); // PC: 공유 대신 클립보드 복사
   }
 }
 
