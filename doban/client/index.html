@@ -95,7 +95,9 @@ function contentSection(list, only){
   if(only==='insta') list = list.filter(function(s){return !isBlog(s);});
   else if(only==='blog') list = list.filter(isBlog);
   if(!list.length) return '<div class="sec"><h3>'+title+'</h3><div class="none">아직 등록된 콘텐츠가 없습니다</div></div>';
-  var fmt=function(d,t){ if(!d) return ''; return esc(d)+(t&&String(t).indexOf('--')<0?' '+esc(t):''); };
+  var bad=function(v){ v=String(v==null?'':v).trim(); return !v || v.indexOf('--')>=0 || v.indexOf('1899')===0 || v.indexOf('1970')===0; }; // 시간전용 셀이 날짜로 잘못 직렬화된 값 제거
+  var clean=function(v){ if(bad(v)) return ''; var s=String(v).trim(); if(/^\d{6}$/.test(s)) return '20'+s.slice(0,2)+'-'+s.slice(2,4)+'-'+s.slice(4,6); return v; }; // 260709 → 2026-07-09
+  var fmt=function(d,t){ d=clean(d); if(!d) return ''; t=clean(t); return esc(d)+(t?' '+esc(t):''); };
   var line=function(ico,label,val,tbd){ return '<div class="cc-line"><span class="cc-ico">'+ico+'</span><span class="cc-lb">'+label+'</span>'+(val?'<b>'+val+'</b>':'<span class="cc-tbd">'+tbd+'</span>')+'</div>'; };
   var status=function(s,blog){ // 관리자 진행여부 우선 → 없으면 촬영/방문여부로 판별
     var p = s.진행여부;
@@ -110,7 +112,7 @@ function contentSection(list, only){
     var blog=isBlog(s), st=status(s,blog), up=(st.cls==='완료');
     var shoot = blog ? fmt(s.방문일정,s.방문시간) : fmt(s.촬영일정,s.촬영시간);
     if(!shoot && s.일정) shoot = esc(s.일정);
-    var upload = s.업로드일정 ? esc(s.업로드일정) : '';
+    var upload = clean(s.업로드일정) ? esc(clean(s.업로드일정)) : '';
     var url = s.URL || s.인스타URL || '';
     var body =
       line(blog?'🏠':'📸', blog?'방문':'촬영', shoot, blog?'방문 일정 조율 중':'촬영 일정 조율 중') +
