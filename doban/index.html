@@ -433,16 +433,21 @@ function gs(action, payload) {
     });
   }
   // 그 외(깃허브 페이지 등 외부 호스팅) → fetch로 JSON API 호출
-  return fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: action, payload: payload || {}, pin: PIN })
-  }).then(function (r) {
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 25000) : null;
+  var opt = { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: payload || {}, pin: PIN }) };
+  if (ctrl) opt.signal = ctrl.signal;
+  return fetch(API_URL, opt).then(function (r) {
+    if (timer) clearTimeout(timer);
     if (!r.ok) throw new Error('서버 연결 실패 (' + r.status + ')');
     return r.json();
   }).then(function (d) {
     if (!d || d.ok === false) throw new Error((d && d.error) || '알 수 없는 오류');
     return d.result;
+  }).catch(function (e) {
+    if (timer) clearTimeout(timer);
+    if (e && e.name === 'AbortError') throw new Error('서버 응답이 없어요 (시간 초과)');
+    throw e;
   });
 }
 function toast(m){ var t=document.getElementById('toast'); t.textContent=m; t.style.display='block'; setTimeout(function(){t.style.display='none'},2200); }
@@ -452,18 +457,31 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){retur
 // ─── 로그인 ───
 function enter() {
   PIN = document.getElementById('pinInput').value.trim();
+  if (!PIN) { document.getElementById('pinErr').textContent = 'PIN을 입력하세요'; return; }
+  document.getElementById('pinErr').textContent = '불러오는 중…';
+  loginTry(0);
+}
+function loginTry(n) {
   gs('all').then(function (d) {
     localStorage.setItem('doban_pin', PIN);
     document.getElementById('pinGate').style.display = 'none';
     DB = d; render();
   }).catch(function (e) {
-    document.getElementById('pinErr').textContent = 'PIN이 틀렸습니다';
+    var msg = String((e && e.message) || e);
+    var el = document.getElementById('pinErr');
+    if (/PIN/.test(msg)) { el.textContent = 'PIN이 틀렸습니다'; }        // 진짜 PIN 오류만
+    else if (n < 2) { el.textContent = '연결 중… 잠시만요'; setTimeout(function () { loginTry(n + 1); }, 1400); } // 연결 오류는 재시도
+    else { el.textContent = '연결이 불안정해요. 잠시 후 다시 눌러주세요.'; }
   });
 }
-if (PIN) { enter0(); }
-function enter0(){
+if (PIN) { enter0(0); }
+function enter0(n){
   gs('all').then(function(d){ document.getElementById('pinGate').style.display='none'; DB=d; render(); })
-  .catch(function(){ localStorage.removeItem('doban_pin'); PIN=''; });
+  .catch(function(e){
+    var msg = String((e && e.message) || e);
+    if (/PIN/.test(msg)) { localStorage.removeItem('doban_pin'); PIN=''; }  // 저장된 PIN이 진짜 틀렸을 때만 삭제
+    else if (n < 3) { setTimeout(function(){ enter0(n+1); }, 1500); }       // 연결 오류면 조용히 재시도(자동 기억 유지)
+  });
 }
 
 function load() {
