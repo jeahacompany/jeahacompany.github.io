@@ -101,9 +101,9 @@ function contentSection(list, only){
   var line=function(ico,label,val,tbd){ return '<div class="cc-line"><span class="cc-ico">'+ico+'</span><span class="cc-lb">'+label+'</span>'+(val?'<b>'+val+'</b>':'<span class="cc-tbd">'+tbd+'</span>')+'</div>'; };
   var status=function(s,blog){ // 관리자 진행여부 우선 → 없으면 촬영/방문여부로 판별
     var p = s.진행여부;
-    if(p==='게시완료' || s.URL || s.인스타URL || s.완료) return { label:'게시 완료', cls:'완료', color:'#237a3b' };
-    if(p==='편집중' || p==='작성중') return { label: blog?'글 작성 중':'편집 중', cls:'편집', color:'#2c6ee0' };
-    if(p==='촬영예정' || p==='방문예정') return { label: blog?'방문 예정':'촬영 예정', cls:'예정', color:'#9a6700' };
+    if(p==='게시완료' || p==='완료' || s.URL || s.인스타URL || s.완료) return { label:'게시 완료', cls:'완료', color:'#237a3b' };
+    if(p==='편집중' || p==='작성중' || p==='진행중') return { label: blog?'글 작성 중':'편집 중', cls:'편집', color:'#2c6ee0' };
+    if(p==='촬영예정' || p==='방문예정' || p==='대기') return { label: blog?'방문 예정':'촬영 예정', cls:'예정', color:'#9a6700' };
     var did = blog ? (s.방문여부==='완료') : (s.촬영여부==='완료');
     if(did) return { label: blog?'글 작성 중':'편집 중', cls:'편집', color:'#2c6ee0' };
     return { label: blog?'방문 예정':'촬영 예정', cls:'예정', color:'#9a6700' };
