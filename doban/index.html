@@ -297,6 +297,16 @@
   #pinGate input { text-align:center; font-size:20px; letter-spacing:6px; margin:14px 0; }
   .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff;
            padding:10px 20px; border-radius:20px; font-size:13px; display:none; z-index:100; }
+  #saveTick { position:fixed; top:16px; right:16px; background:#237a3b; color:#fff; padding:8px 16px; border-radius:20px; font-size:13px; font-weight:700; z-index:200; opacity:0; transform:translateY(-6px); transition:opacity .18s, transform .18s; pointer-events:none; box-shadow:0 2px 8px rgba(0,0,0,.15); }
+  #saveTick.on { opacity:1; transform:translateY(0); }
+  .share-box { margin-top:14px; background:#fff8f4; border:1px solid #ffd8bf; border-radius:10px; padding:13px 14px; }
+  .share-h { font-size:13px; font-weight:800; color:#e8590c; margin-bottom:8px; }
+  .share-url { font-size:13px; color:#333; background:#fff; border:1px solid #eee; border-radius:7px; padding:8px 10px; word-break:break-all; margin-bottom:8px; }
+  .share-cred { font-size:14px; color:#444; margin-bottom:10px; }
+  .share-cred b { color:#111; }
+  .share-cred .miss { color:#c92a2a; font-weight:700; }
+  .share-btns { display:flex; gap:8px; flex-wrap:wrap; }
+  .share-btns button { font-size:13px; padding:8px 14px; border-radius:8px; cursor:pointer; }
   .toast-undo { margin-left:12px; background:#ff922b; color:#fff; border:0; border-radius:12px; padding:4px 12px; font-weight:700; font-size:13px; cursor:pointer; }
   .toast-undo:hover { background:#f76707; }
   /* 견적서 이미지 모달 */
@@ -383,6 +393,7 @@
 <div class="overlay" id="overlay" onclick="closePanel()"></div>
 <div class="panel" id="panel"></div>
 <div class="toast" id="toast"></div>
+<div id="saveTick">✓ 저장됨</div>
 
 <div class="qmodal" id="quoteModal">
   <div class="qmodal-inner">
@@ -1192,7 +1203,7 @@ function openClient(id) {
   var pays = DB.입금.filter(function(r){return r.광고주ID===id;});
   var costs = DB.실행비.filter(function(r){return r.광고주ID===id;});
   var 입금 = paySum(id), 실행 = totalExecOf(id), 마진 = 입금-실행;
-  var share = (DB.웹앱주소||'') + '?c=' + c.공유코드;
+  var clientURL = location.origin + location.pathname.replace(/[^/]*$/,'') + 'client/';
   var DTABLIST = [['info','🏪 업체정보'],['acct','📋 계정정보'],['quote','📄 견적서'],['insta','📷 인스타'],['blog','✍️ 블로그']];
   if(canSeeMargin()) DTABLIST.push(['settle','💰 정산']);
   if(!DTABLIST.some(function(t){return t[0]===DTAB;})) DTAB='info';
@@ -1218,8 +1229,15 @@ function openClient(id) {
     '<div class="row"><span>담당 직원 (우리)</span><input style="width:130px" value="'+esc(c.담당직원)+'" onchange="setClientField(\'담당직원\',this.value)"></div>' +
     '<div class="row"><span>점주 로그인 ID</span><input style="width:150px" value="'+esc(c.로그인ID||'')+'" placeholder="예: '+esc((c.매장명||'').replace(/\\s/g,''))+'" onchange="setClientField(\'로그인ID\',this.value)"></div>' +
     '<div class="row"><span>점주 비밀번호</span><input style="width:150px" value="'+esc(c.로그인PW||'')+'" placeholder="발급할 비번" onchange="setClientField(\'로그인PW\',this.value)"></div>' +
-    '<div class="row"><div class="grow"><span>광고주 공유 링크</span><small>점주는 이 링크 + 위 ID/비번으로 자기 매장만 봅니다</small></div>' +
-      '<button class="btn-ghost" onclick="copyShare(\''+share+'\')">링크 복사</button></div>' +
+    '<div class="share-box">' +
+      '<div class="share-h">📤 점주에게 보내기</div>' +
+      '<div class="share-url">'+esc(clientURL)+'</div>' +
+      '<div class="share-cred">아이디 <b>'+(c.로그인ID?esc(c.로그인ID):'<span class=\'miss\'>미설정</span>')+'</b> · 비번 <b>'+(c.로그인PW?esc(c.로그인PW):'<span class=\'miss\'>미설정</span>')+'</b></div>' +
+      '<div class="share-btns">' +
+        '<button class="btn-primary" onclick="copyClientInvite(\''+id+'\')">📋 링크+아이디+비번 복사</button>' +
+        '<button class="btn-ghost" onclick="window.open(\''+clientURL+'\',\'_blank\')">🔗 페이지 열기</button></div>' +
+      '<small style="color:#999">점주는 이 링크 열고 위 아이디·비번으로 로그인해 자기 매장만 봅니다</small>' +
+    '</div>' +
     '<div style="margin-top:16px;border-top:1px solid #f0f0f0;padding-top:14px">' +
       '<button class="del-client" onclick="archiveClient(\''+id+'\')">🗑 이 광고주 삭제 (삭제함에 보관)</button></div></div>' +
   '</div>' + dp('acct') +
@@ -1332,11 +1350,20 @@ function openClient(id) {
 }
 function closePanel(){ CUR=null; document.getElementById('overlay').style.display='none'; document.getElementById('panel').classList.remove('open'); }
 function copyShare(url){ navigator.clipboard.writeText(url).then(function(){toast('공유 링크가 복사됐어요');}); }
+function copyClientInvite(id){
+  var c=(DB.광고주||[]).filter(function(x){return x.ID===id;})[0]; if(!c) return;
+  if(!c.로그인ID || !c.로그인PW){ toast('먼저 로그인 ID·비밀번호를 입력하세요'); return; }
+  var url=location.origin+location.pathname.replace(/[^/]*$/,'')+'client/';
+  var msg=c.매장명+' 마케팅 현황 페이지\n'+url+'\n아이디: '+c.로그인ID+'\n비밀번호: '+c.로그인PW;
+  navigator.clipboard.writeText(msg).then(function(){ toast('📋 복사됨! 점주 카톡에 붙여넣기(Ctrl+V) 하세요'); }).catch(function(){ toast('복사 실패 — 직접 전달해 주세요'); });
+}
 
 // ─── 액션 ───
 function busy(p){ return p.then(load).catch(function(e){toast('오류: '+e.message);}); }
 // ─── 낙관적 업데이트: 화면은 즉시 반영(로컬), 저장은 백그라운드 ───
-function bg(p){ return Promise.resolve(p).catch(function(e){ toast('⚠ 저장 실패 — 새로고침 하세요: '+((e&&e.message)||e)); }); }
+var _saveTickT=null;
+function saveOK(){ var t=document.getElementById('saveTick'); if(!t) return; t.classList.add('on'); clearTimeout(_saveTickT); _saveTickT=setTimeout(function(){ t.classList.remove('on'); },1300); }
+function bg(p){ return Promise.resolve(p).then(function(r){ saveOK(); return r; }).catch(function(e){ toast('⚠ 저장 실패 — 새로고침 하세요: '+((e&&e.message)||e)); }); }
 function patchLocal(tab, id, fields){ var row=(DB[tab]||[]).filter(function(r){return r.ID===id;})[0]; if(row) Object.keys(fields).forEach(function(k){ row[k]=fields[k]; }); return row; }
 function rerender(){ if(CUR) openClient(CUR); } // 네트워크 없이 로컬 재렌더
 function setClientField(f,v){ var o={ID:CUR}; o[f]=v; patchLocal('광고주',CUR,o); bg(gs('updateClient',o)); }
