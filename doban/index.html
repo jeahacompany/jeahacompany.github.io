@@ -256,6 +256,8 @@
   table.ss .ct-url { min-width:52px; }                /* URL: 주소는 잘려도 됨(클릭하면 열림) */
   table.ss .ct-url input { min-width:30px; padding-left:4px; padding-right:2px; }
   table.ss .ct-status { min-width:96px; }             /* 진행 상태: 글자 안 잘리게 */
+  table.ss .ct-review { min-width:160px; }             /* 리뷰이벤트 당첨자 아이디 */
+  table.ss .ct-review input::placeholder { color:#ccc; font-size:11px; }
   table.ss .ss-st { font-weight:700; text-align:center; min-width:88px; }
   table.ss select.st-완료 { color:#c92a2a; } table.ss select.st-진행중 { color:#9a6700; }
   table.ss select.st-예정 { color:#1c64d9; } table.ss select.st-- { color:#bbb; }
@@ -754,6 +756,8 @@ var SEED_COLS = {
     {k:'촬영시간', label:'촬영 시간', type:'time'},
     {k:'업로드일정', label:'업로드 일정', type:'date'},
     {k:'URL', label:'업로드', type:'url'},
+    {k:'리뷰이벤트', label:'🎁리뷰이벤트 당첨자', type:'text', ph:'@아이디 (여러명은 공백)', cls:'ct-review'},
+    {k:'리뷰이벤트기한', label:'사용기한', type:'date'},
     {k:'비고', label:'비고', type:'text'}
   ],
   '블로그': [
@@ -1542,7 +1546,7 @@ function seedCellHTML(s,col){
       ' oninput="seedTime(this,\''+s.ID+'\',\''+col.k+'\')"'+
       ' onchange="seedTimeCommit(this,\''+s.ID+'\',\''+col.k+'\')">';
   }
-  return '<input type="text" value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
+  return '<input type="text"'+(col.ph?' placeholder="'+esc(col.ph)+'"':'')+' value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
 }
 function seedTableHTML(id, groups){
   var seeds=seedsOf(id);
@@ -1580,7 +1584,7 @@ function seedTableHTML(id, groups){
         '<div class="seed-gh clickable" onclick="toggleSeed(\''+key+'\')">'+(open?'▼':'▶')+' 📄 '+esc(roundLabel(id,r))+(date?' <b class="sd-date">'+esc(date)+'</b>':'')+' <span>등록 '+list.length+(target?' / 견적 '+target+'명':'')+' · 완료 '+list.filter(seedDone).length+'</span></div>' +
         (open ? '<div class="ss-wrap"><table class="ss"><thead><tr>'+cols.map(function(c){return '<th>'+esc(c.label)+'</th>';}).join('')+'<th></th></tr></thead>' +
         '<tbody>'+(list.length?list.map(function(s){
-          return '<tr>'+cols.map(function(c){return '<td class="ct-'+c.type+'">'+seedCellHTML(s,c)+'</td>';}).join('') +
+          return '<tr>'+cols.map(function(c){return '<td class="ct-'+c.type+(c.cls?' '+c.cls:'')+'">'+seedCellHTML(s,c)+'</td>';}).join('') +
             '<td class="ss-act"><button class="del-x" onclick="delSeed(\''+s.ID+'\')" title="이 줄 삭제">✕</button></td></tr>';
         }).join(''):'<tr><td colspan="'+(cols.length+1)+'" style="text-align:center;color:#bbb;padding:8px">비어있음</td></tr>')+'</tbody></table></div>' +
         (target!==list.length ? '<button class="add-row fill" onclick="this.disabled=true;this.textContent=\'맞추는 중…\';syncSeed(\''+id+'\','+r+')">🔄 견적수량('+target+'명)과 맞추기</button> ' : '') +

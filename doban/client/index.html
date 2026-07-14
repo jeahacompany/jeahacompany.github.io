@@ -62,6 +62,13 @@
   .cst-편집 { background:#e7f0ff; color:#2c6ee0; }
   .cst-예약 { background:#efe9ff; color:#7048e8; }
   .cst-완료 { background:#d3f9d8; color:#237a3b; }
+  .re-box { margin-top:10px; padding:10px 12px; background:#fff6fb; border:1px solid #ffd6ec; border-radius:10px; }
+  .re-h { font-size:12px; font-weight:800; color:#c2185b; margin-bottom:7px; }
+  .re-ids { display:flex; flex-wrap:wrap; gap:6px; }
+  .re-id { display:inline-block; font-size:13px; font-weight:700; color:#c2185b; text-decoration:none; background:#fff; border:1px solid #f5c6da; border-radius:20px; padding:5px 12px; }
+  .re-id:hover { background:#ffe3f0; }
+  .re-due { font-size:12.5px; color:#8a5; margin-top:8px; color:#6d4c41; }
+  .re-due b { color:#c2185b; }
   .cc-links { display:flex; gap:8px; flex-wrap:wrap; margin-top:9px; }
   .cc-link { display:inline-block; font-size:13px; font-weight:600; color:#e8590c; text-decoration:none;
              background:#fff4ec; padding:7px 14px; border-radius:9px; }
@@ -118,6 +125,19 @@ function contentSection(list, only){
     if(did) return { label: blog?'글 작성 중':'편집 중', cls:'편집', color:'#2c6ee0' };
     return { label: blog?'방문 예정':'촬영 예정', cls:'예정', color:'#9a6700' };
   };
+  var reviewEvent=function(s){
+    var raw=String(s.리뷰이벤트||'').trim(); if(!raw) return '';
+    var ids=raw.split(/[\s,]+/).filter(Boolean);
+    var chips=ids.map(function(id){
+      var disp, u;
+      if(/^https?:\/\//i.test(id)){ u=id; disp='@'+id.replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/[\/?].*$/,''); }
+      else { disp='@'+id.replace(/^@/,''); u='https://instagram.com/'+id.replace(/^@/,''); }
+      return '<a class="re-id" href="'+esc(u)+'" target="_blank">'+esc(disp)+'</a>';
+    }).join('');
+    var due=clean(s.리뷰이벤트기한);
+    var dueHtml = due ? '<div class="re-due">🗓 <b>'+esc(due)+dow(due)+'</b> 까지 사용</div>' : '';
+    return '<div class="re-box"><div class="re-h">🎁 리뷰 이벤트 당첨자</div><div class="re-ids">'+chips+'</div>'+dueHtml+'</div>';
+  };
   var card=function(s){
     var blog=isBlog(s), st=status(s,blog), up=(st.cls==='완료');
     var shoot = blog ? fmt(s.방문일정,s.방문시간) : fmt(s.촬영일정,s.촬영시간);
@@ -135,6 +155,7 @@ function contentSection(list, only){
       '<div class="cc-top"><span class="cc-name">'+esc(s.계정명||'섭외 진행 중')+'</span>' +
         '<span class="cc-st cst-'+st.cls+'">'+st.label+'</span></div>' +
       '<div class="cc-body">'+body+'</div>' +
+      reviewEvent(s) +
       (links?'<div class="cc-links">'+links+'</div>':'') +
     '</div>';
   };
