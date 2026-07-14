@@ -38,6 +38,12 @@
   .none { text-align:center; color:#aaa; padding:20px; font-size:13px; }
   .cc-group { margin-bottom:14px; }
   .cc-group:last-child { margin-bottom:0; }
+  .rgroup { margin-bottom:12px; }
+  .rgroup:last-child { margin-bottom:0; }
+  .rgh { cursor:pointer; user-select:none; font-size:14px; font-weight:700; color:#333; padding:9px 11px; background:#f7f8fa; border:1px solid #eef0f3; border-radius:9px; margin-bottom:9px; display:flex; align-items:center; gap:7px; }
+  .rgh:active { background:#eef0f3; }
+  .rgh .rgh-ar { color:#e8590c; font-size:11px; }
+  .rgh .rgh-c { color:#e8590c; font-size:12px; font-weight:600; margin-left:auto; }
   .cc-gh { font-size:13px; font-weight:700; color:#444; margin-bottom:8px; }
   .cc-gh span { color:#e8590c; font-size:12px; font-weight:500; margin-left:4px; }
   .cc { border:1px solid #eee; border-radius:12px; padding:12px 14px; margin-bottom:8px; }
@@ -132,14 +138,19 @@ function contentSection(list, only){
       (links?'<div class="cc-links">'+links+'</div>':'') +
     '</div>';
   };
-  var groups = GROUPS.map(function(g){
-    var arr = g[0]==='인스타' ? list.filter(function(s){return !isBlog(s);}) : list.filter(isBlog);
+  // 견적(차수)별로 묶어 토글 — 관리자 견적과 동일하게 (견적 없는 차수는 백엔드에서 이미 제외)
+  var byR={}; list.forEach(function(s){ var r=Number(s.차수)||1; (byR[r]=byR[r]||[]).push(s); });
+  var rounds=Object.keys(byR).map(Number).sort(function(a,b){return a-b;});
+  var single = rounds.length<=1;
+  var groups = rounds.map(function(r){
+    var arr=byR[r];
     var up=arr.filter(function(s){return !!s.완료;}).length;
-    var gh = only ? '' : '<div class="cc-gh">'+g[1]+' <span>'+up+'/'+arr.length+' 완료</span></div>'; // 탭 분리 시 그룹헤더 생략
-    var inner = arr.length ? arr.map(card).join('') : '<div class="none">아직 등록된 '+g[0]+' 콘텐츠가 없습니다</div>';
-    return '<div class="cc-group">'+gh+inner+'</div>';
+    var key=(only||'x')+'_'+r, open = ROPEN[key]!==false;
+    var hdr = single ? '' : '<div class="rgh" onclick="toggleRound(\''+key+'\')"><span class="rgh-ar">'+(open?'▼':'▶')+'</span> '+r+'차 견적 <span class="rgh-c">'+up+'/'+arr.length+' 완료</span></div>';
+    var body = (single||open) ? arr.map(card).join('') : '';
+    return '<div class="rgroup">'+hdr+body+'</div>';
   }).join('');
-  var head = only ? '<h3>'+title+' <span style="font-size:12px;color:#e8590c;font-weight:600">'+list.filter(function(s){return !!s.완료;}).length+'/'+list.length+' 완료</span></h3>' : '<h3>'+title+'</h3>';
+  var head = '<h3>'+title+' <span style="font-size:12px;color:#e8590c;font-weight:600">'+list.filter(function(s){return !!s.완료;}).length+'/'+list.length+' 완료</span></h3>';
   return '<div class="sec">'+head+groups+'</div>';
 }
 
@@ -147,6 +158,12 @@ function showTab(n, btn){
   ['home','insta','blog','info','log','doc'].forEach(function(t){ var e=document.getElementById('tab-'+t); if(e) e.style.display = t===n?'':'none'; });
   Array.from(document.querySelectorAll('.tabbar button')).forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on'); window.scrollTo(0,0);
+}
+var ROPEN = {}; // 견적(차수) 그룹 펼침 상태 {키:false=접힘}
+function toggleRound(key){
+  ROPEN[key] = ROPEN[key]===false ? true : false; // 기본 펼침 → 처음 누르면 접힘
+  var it=document.getElementById('tab-insta'); if(it) it.innerHTML=contentSection(data.콘텐츠||[], 'insta');
+  var bt=document.getElementById('tab-blog'); if(bt) bt.innerHTML=contentSection(data.콘텐츠||[], 'blog');
 }
 
 // ─── 점주 로그인 게이트 ───
