@@ -87,7 +87,7 @@ function doLogin(){
   document.getElementById('go').textContent='확인 중...';
   api({blogClaim:{s:S,nick:nick}}).then(function(res){
     if(!res.ok){ renderLogin(res.error||'들어갈 수 없습니다'); return; }
-    NICK=nick; DATA=res.result; sessionStorage.setItem('doban_blog_'+S, nick); renderForm();
+    NICK=nick; DATA=res.result; localStorage.setItem('doban_blog_'+S, nick); renderForm();
   }).catch(function(){ renderLogin('네트워크 오류. 다시 시도해 주세요'); });
 }
 
@@ -129,7 +129,7 @@ function renderForm(){
       '<div class="err" id="err"></div>'+
     '</div>';
   document.getElementById('save').onclick=doSave;
-  document.getElementById('logout').onclick=function(){ sessionStorage.removeItem('doban_blog_'+S); NICK=''; DATA=null; renderLogin(); };
+  document.getElementById('logout').onclick=function(){ localStorage.removeItem('doban_blog_'+S); NICK=''; DATA=null; renderLogin(); };
 }
 function today(){ var d=new Date(); var z=function(n){return (n<10?'0':'')+n;}; return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
 var DOWK=['일','월','화','수','목','금','토'];
@@ -159,7 +159,7 @@ function doSave(){
 (function(){
   setStoreTitle();
   if(!S){ document.getElementById('app').innerHTML='<div class="card"><h2>링크 오류</h2><p class="hint">올바른 업체 링크로 접속해 주세요. (담당자에게 문의)</p></div>'; return; }
-  var saved=sessionStorage.getItem('doban_blog_'+S);
+  var saved=localStorage.getItem('doban_blog_'+S);
   if(saved){ document.getElementById('app').innerHTML='<div class="card"><p class="hint">불러오는 중...</p></div>';
     api({blogClaim:{s:S,nick:saved}}).then(function(res){ if(res.ok){ NICK=saved; DATA=res.result; renderForm(); } else renderLogin(); }).catch(function(){ renderLogin(); });
   } else renderLogin();

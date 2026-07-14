@@ -315,12 +315,18 @@
 
 <div id="pinGate">
   <div class="box">
-    <h2>🔒 도반글로벌</h2>
-    <p style="font-size:13px;color:#888;margin-top:6px">직원 로그인</p>
-    <input id="loginId" placeholder="아이디 (예: 박지호)" autocomplete="username" style="text-align:center;font-size:16px;letter-spacing:0;margin:14px 0 8px" onkeydown="if(event.key==='Enter')document.getElementById('loginPw').focus()">
-    <input id="loginPw" type="password" placeholder="비밀번호" autocomplete="current-password" style="text-align:center;font-size:16px;letter-spacing:0;margin-bottom:6px" onkeydown="if(event.key==='Enter')enter()">
-    <button class="btn-primary" style="width:100%" onclick="enter()">로그인</button>
-    <p id="pinErr" style="color:#c92a2a;font-size:12px;margin-top:8px"></p>
+    <div id="loginLoading" style="display:none">
+      <h2>🔒 도반글로벌</h2>
+      <p style="font-size:13px;color:#888;margin-top:16px">불러오는 중…</p>
+    </div>
+    <div id="loginForm">
+      <h2>🔒 도반글로벌</h2>
+      <p style="font-size:13px;color:#888;margin-top:6px">직원 로그인</p>
+      <input id="loginId" placeholder="아이디 (예: 박지호)" autocomplete="username" style="text-align:center;font-size:16px;letter-spacing:0;margin:14px 0 8px" onkeydown="if(event.key==='Enter')document.getElementById('loginPw').focus()">
+      <input id="loginPw" type="password" placeholder="비밀번호" autocomplete="current-password" style="text-align:center;font-size:16px;letter-spacing:0;margin-bottom:6px" onkeydown="if(event.key==='Enter')enter()">
+      <button class="btn-primary" style="width:100%" onclick="enter()">로그인</button>
+      <p id="pinErr" style="color:#c92a2a;font-size:12px;margin-top:8px"></p>
+    </div>
   </div>
 </div>
 
@@ -576,7 +582,7 @@ function findStaff(list, id, pw){ return (list||[]).filter(function(u){ return S
 function loginOK(d, id, pw){
   var u = findStaff(d.직원, id, pw);
   if(!u){ document.getElementById('pinErr').textContent='아이디 또는 비밀번호가 틀렸습니다'; return false; }
-  ME = u; localStorage.setItem('doban_user', id+''+pw);
+  ME = u; localStorage.setItem('doban_user', JSON.stringify({id:id, pw:pw}));
   document.getElementById('pinGate').style.display='none';
   DB = d; render(); return true;
 }
@@ -599,13 +605,19 @@ function loginTry(id, pw, n) {
     else { el.textContent='연결이 불안정해요. 다시 눌러주세요.'; }
   });
 }
-// 자동 로그인 (저장된 아이디/비번 재대조 — 직원 삭제/비번변경 시 자동 로그아웃)
-(function(){ var s=localStorage.getItem('doban_user'); if(s){ var p=s.split(''); autoLogin(p[0], p[1], 0); } })();
+// 자동 로그인 (저장된 세션 복원 — 로그인창 대신 로딩만 보이게, 일시 실패엔 세션 유지)
+function _showLoginForm(msg){ var lf=document.getElementById('loginForm'), ll=document.getElementById('loginLoading'), g=document.getElementById('pinGate'); if(g) g.style.display='flex'; if(ll) ll.style.display='none'; if(lf) lf.style.display='block'; if(msg){ var e=document.getElementById('pinErr'); if(e) e.textContent=msg; } }
+(function(){ var s=localStorage.getItem('doban_user'); if(!s) return; var id,pw; try{ var o=JSON.parse(s); id=o.id; pw=o.pw; }catch(e){ var p=s.split(String.fromCharCode(1)); id=p[0]; pw=p[1]; } if(!id) return; var lf=document.getElementById('loginForm'), ll=document.getElementById('loginLoading'); if(lf) lf.style.display='none'; if(ll) ll.style.display='block'; autoLogin(id, pw, 0); })();
 function autoLogin(id, pw, n){
-  gs('all').then(function(d){ var u=findStaff(d.직원, id, pw); if(u) loginOK(d, id, pw); else localStorage.removeItem('doban_user'); })
-  .catch(function(){ if(n<3) setTimeout(function(){ autoLogin(id, pw, n+1); }, 1500); });
+  gs('all').then(function(d){
+    var u=findStaff(d.직원, id, pw);
+    if(u){ loginOK(d, id, pw); }
+    else if((d.직원||[]).length){ localStorage.removeItem('doban_user'); _showLoginForm('세션이 만료됐어요. 다시 로그인해 주세요.'); }
+    else { if(n<6) setTimeout(function(){ autoLogin(id, pw, n+1); }, 1500); else _showLoginForm(''); }
+  }).catch(function(){ if(n<8) setTimeout(function(){ autoLogin(id, pw, n+1); }, 1500); else _showLoginForm('연결이 불안정해요. 새로고침 해주세요.'); });
 }
 function logout(){ localStorage.removeItem('doban_user'); location.reload(); }
+
 // ─── 로그 뷰 (관리자 전용): 접속로그 + 업데이트로그 + 백업 ───
 function renderLogView(){
   var acc=(DB.접속로그||[]).slice().reverse();

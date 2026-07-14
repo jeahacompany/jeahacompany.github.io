@@ -151,7 +151,7 @@ function showTab(n, btn){
 
 // ─── 점주 로그인 게이트 ───
 var AUTHKEY = 'doban_client_' + (location.search || '');
-function needLogin(){ return data && data.로그인ID && sessionStorage.getItem(AUTHKEY)!=='ok'; }
+function needLogin(){ return data && data.로그인ID && localStorage.getItem(AUTHKEY)!=='ok'; }
 function renderLogin(msg){
   app.innerHTML =
     '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>'+esc(data.매장명)+'</h1><div class="sub">마케팅 현황 로그인</div></div>' +
@@ -165,7 +165,7 @@ function renderLogin(msg){
 }
 function doLogin(){
   var id=document.getElementById('lid').value.trim(), pw=document.getElementById('lpw').value.trim();
-  if(String(id)===String(data.로그인ID) && String(pw)===String(data.로그인PW)){ sessionStorage.setItem(AUTHKEY,'ok'); renderApp(); }
+  if(String(id)===String(data.로그인ID) && String(pw)===String(data.로그인PW)){ localStorage.setItem(AUTHKEY,'ok'); renderApp(); }
   else renderLogin('아이디 또는 비밀번호가 틀렸습니다');
 }
 
@@ -189,7 +189,7 @@ function boot(){
     return;
   }
   // 아이디 로그인 방식 (링크 없이 각자 로그인)
-  var saved = sessionStorage.getItem('doban_client_login');
+  var saved = localStorage.getItem('doban_client_login');
   if(saved){ try{ var s=JSON.parse(saved); clientLoginFetch(s.id, s.pw, true); return; }catch(e){} }
   renderStandaloneLogin('');
 }
@@ -213,13 +213,13 @@ function clientLoginFetch(id, pw, silent){
   fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ clientLogin:{ id:id, pw:pw } }) })
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if(!d || d.ok===false || !d.result){ sessionStorage.removeItem('doban_client_login'); renderStandaloneLogin('아이디 또는 비밀번호가 틀렸습니다'); return; }
+      if(!d || d.ok===false || !d.result){ localStorage.removeItem('doban_client_login'); renderStandaloneLogin('아이디 또는 비밀번호가 틀렸습니다'); return; }
       data = d.result; CODE = data.공유코드 || null;
-      sessionStorage.setItem('doban_client_login', JSON.stringify({ id:id, pw:pw }));
+      localStorage.setItem('doban_client_login', JSON.stringify({ id:id, pw:pw }));
       renderApp();
     }).catch(function(){ renderStandaloneLogin('서버 연결에 실패했습니다'); });
 }
-function clientLogout(){ sessionStorage.removeItem('doban_client_login'); sessionStorage.removeItem(AUTHKEY); location.reload(); }
+function clientLogout(){ localStorage.removeItem('doban_client_login'); localStorage.removeItem(AUTHKEY); location.reload(); }
 
 function renderApp() {
   var done = data.작업.filter(function(t){return t.상태==='완료';}).length;
