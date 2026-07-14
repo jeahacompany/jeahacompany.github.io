@@ -746,7 +746,7 @@ function infoGroupHTML(id){
     return '<div class="plat"><div class="plat-head"><span class="plat-name">'+(PLAT_ICON[p]||'🔗')+' '+esc(p)+'</span>' +
       '<input class="plat-link" value="'+esc(link)+'" placeholder="바로가기 URL (예: 로그인 페이지)" onchange="setInfo(\''+linkRow.ID+'\',\'링크\',this.value)">' +
       (link?'<a class="inf-go" href="'+esc(link)+'" target="_blank">→ 바로가기</a>':'') +
-      (isCustom?'<button class="plat-del" onclick="delInfoGroup('+JSON.stringify(delIds)+')">✕ 삭제</button>':'') + '</div>' +
+      (isCustom?'<button class="plat-del" onclick="delInfoGroup('+esc(JSON.stringify(delIds))+')">✕ 삭제</button>':'') + '</div>' +
       (g.id?infValRow(g.id,'아이디'):'') + (g.pw?infValRow(g.pw,'비밀번호'):'') + '</div>';
   }).join('');
   var etc=''; infos.forEach(function(f){ if(!used[f.ID]) etc += infValRow(f, null, true); });
