@@ -230,7 +230,11 @@ function boot(){
   }
   // 아이디 로그인 방식 (링크 없이 각자 로그인)
   var saved = localStorage.getItem('doban_client_login');
-  if(saved){ try{ var s=JSON.parse(saved); clientLoginFetch(s.id, s.pw, true); return; }catch(e){} }
+  if(saved){ try{ var s=JSON.parse(saved);
+    var cached = localStorage.getItem('doban_client_cache_'+s.id); // 이전에 받은 데이터 즉시 표시
+    if(cached){ try{ data=JSON.parse(cached); CODE=data.공유코드||null; renderApp(); }catch(e){} }
+    clientLoginFetch(s.id, s.pw, true); return; // 최신 데이터는 백그라운드로 새로고침
+  }catch(e){} }
   renderStandaloneLogin('');
 }
 function renderStandaloneLogin(msg){
@@ -256,6 +260,7 @@ function clientLoginFetch(id, pw, silent){
       if(!d || d.ok===false || !d.result){ localStorage.removeItem('doban_client_login'); renderStandaloneLogin('아이디 또는 비밀번호가 틀렸습니다'); return; }
       data = d.result; CODE = data.공유코드 || null;
       localStorage.setItem('doban_client_login', JSON.stringify({ id:id, pw:pw }));
+      try{ localStorage.setItem('doban_client_cache_'+id, JSON.stringify(d.result)); }catch(e){} // 다음 방문 즉시 로딩용 캐시
       renderApp();
     }).catch(function(){ renderStandaloneLogin('서버 연결에 실패했습니다'); });
 }
