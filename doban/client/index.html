@@ -150,6 +150,7 @@ function contentSection(list, only){
       line('🔖','상태', '<span style="color:'+st.color+';font-weight:700">'+st.label+'</span>', '');
     var links = '';
     if(url) links += '<a class="cc-link" href="'+esc(url)+'" target="_blank">🔗 '+(blog?'후기 보기':'콘텐츠 보기')+'</a>';
+    if(blog){ var iurl=String(s.인스타URL||'').trim(); if(iurl && iurl!==url){ var isInsta=/instagram\.com/i.test(iurl); links += '<a class="cc-link" href="'+esc(iurl)+'" target="_blank">'+(isInsta?'📱 인스타':'📎 네이버 클립')+'</a>'; } }
     if(s.영수증URL) links += '<a class="cc-link sub" href="'+esc(s.영수증URL)+'" target="_blank">🧾 영수증 리뷰</a>';
     return '<div class="cc'+(up?' done':'')+'">' +
       '<div class="cc-top"><span class="cc-name">'+esc(s.계정명||'섭외 진행 중')+'</span>' +
