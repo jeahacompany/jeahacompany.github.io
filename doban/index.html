@@ -1350,7 +1350,17 @@ function copyClientInvite(id){
   var c=(DB.광고주||[]).filter(function(x){return x.ID===id;})[0]; if(!c) return;
   if(!c.로그인ID || !c.로그인PW){ toast('먼저 로그인 ID·비밀번호를 입력하세요'); return; }
   var url=location.origin+location.pathname.replace(/[^/]*$/,'')+'client/';
-  var msg=c.매장명+' 마케팅 현황 페이지\n'+url+'\n아이디: '+c.로그인ID+'\n비밀번호: '+c.로그인PW;
+  var msg=
+    '안녕하세요, '+c.매장명+' 사장님 😊\n'+
+    '도반글로벌 마케팅 진행현황 페이지 안내드립니다.\n\n'+
+    '▼ 접속 링크\n'+url+'\n\n'+
+    '▼ 로그인 정보\n'+
+    '· 아이디 : '+c.로그인ID+'\n'+
+    '· 비밀번호 : '+c.로그인PW+'\n'+
+    '  (비밀번호는 사업자등록번호 뒷 5자리입니다)\n\n'+
+    '한 번 로그인하시면 다음부터는 자동으로 열려요.\n'+
+    '진행 상황을 언제든 실시간으로 확인하실 수 있습니다.\n\n'+
+    '— 도반글로벌 유한회사';
   navigator.clipboard.writeText(msg).then(function(){ toast('📋 복사됨! 점주 카톡에 붙여넣기(Ctrl+V) 하세요'); }).catch(function(){ toast('복사 실패 — 직접 전달해 주세요'); });
 }
 
