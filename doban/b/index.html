@@ -54,7 +54,8 @@
 <div class="toast" id="toast"></div>
 
 <script>
-var EXEC='https://script.google.com/macros/s/AKfycbz5vefvosq2qYIMY3ZO1YalFqqEtTII9YJshUwSe4TeWjEcJtv_LAdWpf3JMkmAsEVEcw/exec';
+var SB_URL='https://bgkdkfmdndhqgfdygmfm.supabase.co';
+var SB_KEY='sb_publishable_KxsYIOy5d4i7TR5PVBExLg_8UvNz6v9';
 var S = new URLSearchParams(location.search).get('s') || '';
 var STORE = (new URLSearchParams(location.search).get('n') || '').replace(/_/g,' ').trim(); // 링크에 실린 업체명(표시용)
 var NICK = '', DATA = null;
@@ -64,7 +65,13 @@ function setStoreTitle(nm){ nm=(nm||STORE||'').replace(/_/g,' ').trim(); documen
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},1800); }
 function api(body){
-  return fetch(EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json();});
+  var fn, args;
+  if(body.blogClaim){ fn='blog_claim'; args={ p_code:body.blogClaim.s, p_nick:body.blogClaim.nick }; }
+  else if(body.blogSave){ fn='blog_save'; args={ p_code:body.blogSave.s, p_nick:body.blogSave.nick, p_fields:body.blogSave.fields }; }
+  else return Promise.reject(new Error('unknown'));
+  return fetch(SB_URL+'/rest/v1/rpc/'+fn, { method:'POST',
+    headers:{ 'apikey':SB_KEY, 'Authorization':'Bearer '+SB_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify(args) }).then(function(r){ return r.json(); });
 }
 
 function renderLogin(msg){

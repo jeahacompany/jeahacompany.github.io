@@ -91,14 +91,20 @@
 <body>
 <div class="wrap" id="app"></div>
 <script>
-// 백엔드 주소 (Apps Script 웹앱 exec) — 배포 URL 바뀌면 이 한 줄만 교체
-var API_URL = 'https://script.google.com/macros/s/AKfycbz5vefvosq2qYIMY3ZO1YalFqqEtTII9YJshUwSe4TeWjEcJtv_LAdWpf3JMkmAsEVEcw/exec';
+// 백엔드: Supabase RPC. URL/키 바뀌면 이 두 줄만 교체
+var SB_URL = 'https://bgkdkfmdndhqgfdygmfm.supabase.co';
+var SB_KEY = 'sb_publishable_KxsYIOy5d4i7TR5PVBExLg_8UvNz6v9';
+function sbRpc(fn, args){
+  return fetch(SB_URL+'/rest/v1/rpc/'+fn, { method:'POST',
+    headers:{ 'apikey':SB_KEY, 'Authorization':'Bearer '+SB_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify(args||{}) }).then(function(r){ return r.json(); });
+}
 var data = null, CODE = null;
 var app = document.getElementById('app');
 function saveInfo(id, field, val){
-  fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body: JSON.stringify({ clientSaveInfo:{ code:CODE, ID:id, '값':(field==='값'?val:undefined), '링크':(field==='링크'?val:undefined) } }) })
-    .then(function(r){return r.json();}).then(function(d){ if(!d||d.ok===false) alert('저장 실패'); });
+  sbRpc('client_save_info', { p_code:CODE, p_info_id:id,
+      p_val:(field==='값'?val:null), p_link:(field==='링크'?val:null) })
+    .then(function(d){ if(!d||d.ok===false) alert('저장 실패'); });
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
@@ -219,8 +225,7 @@ function boot(){
   if(code){ // 기존 링크(?c=코드) 하위호환
     CODE = code;
     app.innerHTML = '<div class="head"><div class="co">DOBAN GLOBAL</div><div class="sub" style="margin-top:20px">불러오는 중…</div></div>';
-    fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ client: code }) })
-      .then(function(r){ return r.json(); })
+    sbRpc('client_data', { p_code: code })
       .then(function(d){
         if(!d || d.ok===false || !d.result){ notFound('없는 코드이거나 준비 중입니다'); return; }
         data = d.result; CODE = data.공유코드 || code;
@@ -254,8 +259,7 @@ function doStandaloneLogin(){
 }
 function clientLoginFetch(id, pw, silent){
   if(!silent) app.innerHTML='<div class="head"><div class="co">DOBAN GLOBAL</div><div class="sub" style="margin-top:20px">로그인 중…</div></div>';
-  fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ clientLogin:{ id:id, pw:pw } }) })
-    .then(function(r){ return r.json(); })
+  sbRpc('client_login', { p_id:id, p_pw:pw })
     .then(function(d){
       if(!d || d.ok===false || !d.result){ localStorage.removeItem('doban_client_login'); renderStandaloneLogin('아이디 또는 비밀번호가 틀렸습니다'); return; }
       data = d.result; CODE = data.공유코드 || null;
