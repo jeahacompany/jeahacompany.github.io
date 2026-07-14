@@ -141,13 +141,14 @@ function contentSection(list, only){
   // 견적(차수)별로 묶어 토글 — 관리자 견적과 동일하게 (견적 없는 차수는 백엔드에서 이미 제외)
   var byR={}; list.forEach(function(s){ var r=Number(s.차수)||1; (byR[r]=byR[r]||[]).push(s); });
   var rounds=Object.keys(byR).map(Number).sort(function(a,b){return a-b;});
-  var single = rounds.length<=1;
+  var nameMap=(data&&data.견적명맵)||{};
   var groups = rounds.map(function(r){
     var arr=byR[r];
     var up=arr.filter(function(s){return !!s.완료;}).length;
     var key=(only||'x')+'_'+r, open = ROPEN[key]!==false;
-    var hdr = single ? '' : '<div class="rgh" onclick="toggleRound(\''+key+'\')"><span class="rgh-ar">'+(open?'▼':'▶')+'</span> '+r+'차 견적 <span class="rgh-c">'+up+'/'+arr.length+' 완료</span></div>';
-    var body = (single||open) ? arr.map(card).join('') : '';
+    var label = nameMap[r] || (r+'차 견적'); // 견적명(점심마케팅 등), 없으면 N차 견적
+    var hdr = '<div class="rgh" onclick="toggleRound(\''+key+'\')"><span class="rgh-ar">'+(open?'▼':'▶')+'</span> '+esc(label)+' <span class="rgh-c">'+up+'/'+arr.length+' 완료</span></div>';
+    var body = open ? arr.map(card).join('') : ''; // 한 개여도 무조건 토글
     return '<div class="rgroup">'+hdr+body+'</div>';
   }).join('');
   var head = '<h3>'+title+' <span style="font-size:12px;color:#e8590c;font-weight:600">'+list.filter(function(s){return !!s.완료;}).length+'/'+list.length+' 완료</span></h3>';
