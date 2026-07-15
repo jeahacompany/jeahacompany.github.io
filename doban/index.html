@@ -552,6 +552,7 @@ if (typeof google === 'undefined' && /[?&]mock=1/.test(location.search)) {
   })();
 }
 
+var APP_VER = 'v1.0.0';           // 화면 하단 표기 + 업데이트로그 기준 버전
 var DB = null, PIN = '2944', ME = null, FILTER = '전체', CUR = null, VIEW = 'client', ASSIGNEE = '전체', CURROUND = 1, SHOWMARGIN = false, DTAB = 'info';
 function canSeeMargin(){ return !!(ME && ME.마진보기 === 'Y'); }
 function isAdmin(){ return !!(ME && ME.역할 === 'admin'); }
@@ -638,11 +639,15 @@ function renderLogView(){
   var acc=(DB.접속로그||[]).slice().reverse();
   var upd=(DB.업데이트로그||[]).slice().reverse();
   document.getElementById('logView').innerHTML =
-    '<div class="sec"><h3>💾 백업 <span style="font-size:11px;color:#999;font-weight:400">· 데이터를 구글드라이브에 사본으로 저장 (자료 안 잃어버리게)</span></h3>' +
-    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
-      '<button class="btn-primary" onclick="doBackup(this)">지금 백업하기</button>' +
-      '<button class="btn-ghost" onclick="doSetupBackup(this)">매일 자동백업 켜기</button>' +
-      '<span id="backupMsg" style="font-size:13px;color:#888"></span></div></div>' +
+    '<div class="sec"><h3>💾 백업 <span style="font-size:11px;color:#999;font-weight:400">· 데이터 안 잃어버리게</span></h3>' +
+    '<div style="font-size:13px;color:#555;line-height:1.7">' +
+      '✅ <b>매일 오후 1시 자동백업</b> 중 — 컴퓨터의 OneDrive 폴더(<code>OneDrive\\doban_backup</code>)에 저장돼 클라우드로 동기화, 최근 60일치 보관.<br>' +
+      '<span style="color:#888">지금 당장 파일로 받고 싶으면 아래 버튼:</span></div>' +
+    '<div style="margin-top:10px"><button class="btn-primary" onclick="downloadBackupJSON()">📥 지금 전체 데이터 받기 (JSON)</button></div></div>' +
+    '<div class="sec"><h3>📊 엑셀 내보내기 <span style="font-size:11px;color:#999;font-weight:400">· 표를 엑셀(CSV)로 저장 — 엑셀에서 바로 열림</span></h3>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      ['광고주','작업','섭외','입금','실행비','정보'].map(function(t){ return '<button class="btn-ghost" onclick="exportCSV(\''+t+'\')">'+t+' ⬇</button>'; }).join('') +
+      '</div></div>' +
     '<div class="sec"><h3>📋 접속 로그 <span style="font-size:11px;color:#999;font-weight:400">· 누가·언제·어디서 접속했나</span></h3>' +
       '<div class="ss-wrap"><table class="ss"><thead><tr><th>시간</th><th>이름</th><th>IP</th><th>환경</th></tr></thead><tbody>' +
       (acc.length?acc.map(function(a){ return '<tr><td>'+esc(a.시간)+'</td><td><b>'+esc(a.이름)+'</b></td><td>'+esc(a.IP)+'</td><td style="font-size:11px;color:#999">'+esc(String(a.환경||'').slice(0,70))+'</td></tr>'; }).join(''):'<tr><td colspan="4" style="color:#bbb;padding:12px">아직 접속 기록이 없어요</td></tr>') +
@@ -652,9 +657,30 @@ function renderLogView(){
       (upd.length?upd.map(function(u){ return '<tr><td style="white-space:nowrap">'+esc(u.날짜)+'</td><td><b>'+esc(u.버전)+'</b></td><td>'+esc(u.내용)+'</td></tr>'; }).join(''):'<tr><td colspan="3" style="color:#bbb;padding:12px">아직 없어요</td></tr>') +
       '</tbody></table></div></div>';
 }
-function doBackup(btn){ btn.disabled=true; btn.textContent='백업 중…'; var m=document.getElementById('backupMsg'); m.textContent='구글드라이브에 사본 만드는 중…';
-  gs('backupNow').then(function(url){ m.innerHTML='✅ 백업 완료! <a href="'+esc(url)+'" target="_blank">백업 파일 열기</a>'; btn.disabled=false; btn.textContent='지금 백업하기'; return load(); }).catch(function(e){ m.textContent='오류: '+((e&&e.message)||e)+' (드라이브 권한 승인이 필요할 수 있어요)'; btn.disabled=false; btn.textContent='지금 백업하기'; }); }
-function doSetupBackup(btn){ btn.disabled=true; gs('setupBackup').then(function(){ document.getElementById('backupMsg').textContent='✅ 매일 새벽 3시 자동백업 켜졌어요'; btn.disabled=false; }).catch(function(e){ document.getElementById('backupMsg').textContent='오류(권한 승인 필요): '+((e&&e.message)||e); btn.disabled=false; }); }
+// 브라우저에서 파일 다운로드 (엑셀·JSON 백업 공통)
+function downloadFile(name, content, type){
+  var blob=new Blob([content],{type:type}), url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); setTimeout(function(){URL.revokeObjectURL(url);},1500);
+}
+function pad2(n){ return (n<10?'0':'')+n; }
+function todayStr(){ var d=new Date(); return d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate()); }
+// 전체 데이터 JSON 백업 (수동, 언제든)
+function downloadBackupJSON(){
+  var out={ 백업일시:new Date().toISOString(), 버전:APP_VER };
+  ['광고주','작업','로그','입금','실행비','섭외','정보','직원','접속로그','업데이트로그'].forEach(function(t){ out[t]=DB[t]||[]; });
+  downloadFile('doban_backup_'+todayStr()+'.json', JSON.stringify(out,null,2), 'application/json');
+  toast('📥 전체 데이터 JSON 저장됨');
+}
+// 표를 엑셀(CSV)로 — 한글 안 깨지게 BOM 포함
+function exportCSV(tab){
+  var rows=DB[tab]||[]; if(!rows.length){ toast(tab+' 데이터가 없어요'); return; }
+  var cols=Object.keys(rows[0]);
+  var cell=function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  var csv=cols.join(',')+'\n'+rows.map(function(r){ return cols.map(function(c){ return cell(r[c]); }).join(','); }).join('\n');
+  downloadFile('doban_'+tab+'_'+todayStr()+'.csv', String.fromCharCode(0xFEFF)+csv, 'text/csv;charset=utf-8'); // BOM=엑셀 한글깨짐 방지
+  toast('📊 '+tab+' 엑셀 저장됨 ('+rows.length+'줄)');
+}
 // ─── 직원 계정 관리 (관리자 전용) ───
 function renderStaffView(){
   var list = DB.직원||[];
@@ -811,6 +837,8 @@ function visibleViews(){
   });
 }
 function render() {
+  // 화면 하단 버전 표기 (클릭 → 업데이트로그)
+  (function(){ var vb=document.getElementById('verBadge'); if(!vb){ vb=document.createElement('div'); vb.id='verBadge'; vb.style.cssText='position:fixed;right:10px;bottom:8px;font-size:11px;color:#aaa;background:rgba(255,255,255,.9);border:1px solid #eee;padding:2px 9px;border-radius:11px;cursor:pointer;z-index:6'; vb.title='업데이트 로그 보기'; vb.onclick=function(){ VIEW='log'; render(); }; document.body.appendChild(vb); } vb.textContent='도반 '+APP_VER; })();
   var vv = visibleViews();
   if(!vv.some(function(t){return t[0]===VIEW;})) VIEW='client'; // 권한 없는 탭이면 광고주별로
   document.getElementById('viewtabs').innerHTML =
