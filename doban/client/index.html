@@ -186,8 +186,9 @@ function contentSection(list, only){
   var byR={}; list.forEach(function(s){ var r=Number(s.차수)||1; (byR[r]=byR[r]||[]).push(s); });
   var rounds=Object.keys(byR).map(Number).sort(function(a,b){return a-b;});
   var nameMap=(data&&data.견적명맵)||{};
+  var ordCmp=function(a,b){ var ha=(a.sort_no!=null&&a.sort_no!==''), hb=(b.sort_no!=null&&b.sort_no!==''); if(ha&&hb) return (Number(a.sort_no)||0)-(Number(b.sort_no)||0); if(ha) return -1; if(hb) return 1; return 0; };
   var groups = rounds.map(function(r){
-    var arr=byR[r];
+    var arr=byR[r].slice().sort(ordCmp); // 관리자가 정한 순서대로 (점주도 동일)
     var up=arr.filter(function(s){return !!s.완료;}).length;
     var key=(only||'x')+'_'+r, open = ROPEN[key]!==false;
     var label = nameMap[r] || (r+'차 견적'); // 견적명(점심마케팅 등), 없으면 N차 견적

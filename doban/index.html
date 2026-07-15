@@ -258,6 +258,10 @@
   table.ss .ct-status { min-width:96px; }             /* 진행 상태: 글자 안 잘리게 */
   table.ss .ct-review { min-width:160px; }             /* 리뷰이벤트 당첨자 아이디 */
   table.ss .ct-review input::placeholder { color:#ccc; font-size:11px; }
+  table.ss th.ss-drag, table.ss td.ss-drag { width:26px; min-width:26px; text-align:center; }
+  table.ss td.ss-drag { color:#c3c3c3; cursor:grab; user-select:none; font-size:16px; line-height:1; }
+  table.ss td.ss-drag:active { cursor:grabbing; color:#e8590c; }
+  table.ss tbody tr.drag-over td { border-top:2px solid #e8590c; }
   table.ss .ss-st { font-weight:700; text-align:center; min-width:88px; }
   table.ss select.st-완료 { color:#c92a2a; } table.ss select.st-진행중 { color:#9a6700; }
   table.ss select.st-예정 { color:#1c64d9; } table.ss select.st-- { color:#bbb; }
@@ -1590,6 +1594,31 @@ function seedCellHTML(s,col){
   }
   return '<input type="text"'+(col.ph?' placeholder="'+esc(col.ph)+'"':'')+' value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
 }
+// ─── 명단 순서(드래그 재정렬) ───
+function seedOrderCmp(a,b){
+  var ha=(a.sort_no!=null&&a.sort_no!==''), hb=(b.sort_no!=null&&b.sort_no!=='');
+  if(ha&&hb) return (Number(a.sort_no)||0)-(Number(b.sort_no)||0);
+  if(ha) return -1; if(hb) return 1;              // 순서 지정된 게 위
+  return String(a.ID).localeCompare(String(b.ID)); // 나머지는 등록순
+}
+var _dragSeed=null;
+function seedDrag(e,sid){ _dragSeed=sid; try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',sid); }catch(_){} }
+function seedDropOn(e,targetSid){
+  if(e&&e.preventDefault) e.preventDefault();
+  var src=_dragSeed; _dragSeed=null;
+  if(!src || src===targetSid) return;
+  var a=(DB.섭외||[]).filter(function(x){return x.ID===src;})[0];
+  var b=(DB.섭외||[]).filter(function(x){return x.ID===targetSid;})[0];
+  if(!a||!b) return;
+  if(a.광고주ID!==b.광고주ID || String(a.종류||'인플루언서')!==String(b.종류||'인플루언서') || (Number(a.차수)||1)!==(Number(b.차수)||1)) return; // 같은 그룹 안에서만
+  var grp=(DB.섭외||[]).filter(function(x){ return x.광고주ID===a.광고주ID && String(x.종류||'인플루언서')===String(a.종류||'인플루언서') && (Number(x.차수)||1)===(Number(a.차수)||1); }).sort(seedOrderCmp);
+  var ids=grp.map(function(x){return x.ID;});
+  ids.splice(ids.indexOf(src),1);           // 끌던 걸 빼고
+  ids.splice(ids.indexOf(targetSid),0,src); // 놓은 행 앞에 삽입
+  var rows=ids.map(function(id,i){ var no=String((i+1)*10); patchLocal('섭외',id,{sort_no:no}); return {ID:id, sort_no:no}; });
+  rerender();
+  bg(gs('updateBulk',{탭:'섭외',rows:rows}));
+}
 function seedTableHTML(id, groups){
   var seeds=seedsOf(id);
   return groups.map(function(g){
@@ -1619,16 +1648,18 @@ function seedTableHTML(id, groups){
         : '<div class="blogpub err">이 업체에 공유코드가 없어 링크를 만들 수 없어요.</div>';
     }
     var blocks=rk.length ? rk.map(function(r){
-      var list=byR[r]||[];
+      var list=(byR[r]||[]).slice().sort(seedOrderCmp);
       var target=tasksOf(id).filter(function(t){return roundOf(t)===r && seedTypeOf(t.품목)===g[0];}).reduce(function(s,t){return s+(Number(t.수량)||0);},0);
       var key=g[0]+'_'+r, open=!!SEEDOPEN[key], date=roundDateShow(id,r);
       return '<div class="seed-group">' +
         '<div class="seed-gh clickable" onclick="toggleSeed(\''+key+'\')">'+(open?'▼':'▶')+' 📄 '+esc(roundLabel(id,r))+(date?' <b class="sd-date">'+esc(date)+'</b>':'')+' <span>등록 '+list.length+(target?' / 견적 '+target+'명':'')+' · 완료 '+list.filter(seedDone).length+'</span></div>' +
-        (open ? '<div class="ss-wrap"><table class="ss"><thead><tr>'+cols.map(function(c){return '<th>'+esc(c.label)+'</th>';}).join('')+'<th></th></tr></thead>' +
+        (open ? '<div class="ss-wrap"><table class="ss"><thead><tr><th class="ss-drag"></th>'+cols.map(function(c){return '<th>'+esc(c.label)+'</th>';}).join('')+'<th></th></tr></thead>' +
         '<tbody>'+(list.length?list.map(function(s){
-          return '<tr>'+cols.map(function(c){return '<td class="ct-'+c.type+(c.cls?' '+c.cls:'')+'">'+seedCellHTML(s,c)+'</td>';}).join('') +
+          return '<tr ondragover="event.preventDefault()" ondrop="seedDropOn(event,\''+s.ID+'\')">' +
+            '<td class="ss-drag" draggable="true" ondragstart="seedDrag(event,\''+s.ID+'\')" title="드래그해서 순서 변경">⠿</td>' +
+            cols.map(function(c){return '<td class="ct-'+c.type+(c.cls?' '+c.cls:'')+'">'+seedCellHTML(s,c)+'</td>';}).join('') +
             '<td class="ss-act"><button class="del-x" onclick="delSeed(\''+s.ID+'\')" title="이 줄 삭제">✕</button></td></tr>';
-        }).join(''):'<tr><td colspan="'+(cols.length+1)+'" style="text-align:center;color:#bbb;padding:8px">비어있음</td></tr>')+'</tbody></table></div>' +
+        }).join(''):'<tr><td colspan="'+(cols.length+2)+'" style="text-align:center;color:#bbb;padding:8px">비어있음</td></tr>')+'</tbody></table></div>' +
         (target!==list.length ? '<button class="add-row fill" onclick="this.disabled=true;this.textContent=\'맞추는 중…\';syncSeed(\''+id+'\','+r+')">🔄 견적수량('+target+'명)과 맞추기</button> ' : '') +
         '<button class="add-row" onclick="addSeedRow(\''+g[0]+'\','+r+')">+ 행 추가</button>' : '') + '</div>';
     }).join('') : '<div style="color:#bbb;padding:10px 2px;font-size:13px">견적에 '+g[0]+' 항목이 없어요 — 견적서 탭에서 추가하면 여기 생겨요</div>';
