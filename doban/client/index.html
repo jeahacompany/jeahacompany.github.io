@@ -155,8 +155,9 @@ function contentSection(list, only){
   };
   var commentEvent=function(s){
     if(isBlog(s)) return '';                 // 인스타(인플루언서) 카드에만
-    var on = String(s.댓글이벤트||'').trim()==='진행중';
-    return '<div class="ce-box'+(on?' on':'')+'">💬 댓글 이벤트 '+(on?'<b>진행중</b>':'진행 안함')+'</div>';
+    var v = String(s.댓글이벤트||'').trim();
+    if(v!=='진행' && v!=='진행중') return ''; // 진행일 때만 표시, 없으면 안 뜸
+    return '<div class="ce-box on">💬 댓글 이벤트 <b>진행</b></div>';
   };
   var card=function(s){
     var blog=isBlog(s), st=status(s,blog), up=(st.cls==='완료');
