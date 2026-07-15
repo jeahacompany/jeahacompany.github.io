@@ -429,7 +429,8 @@
               <option value="inProgress">▶ 진행중만</option>
               <option value="notInProgress">⏸ 진행 전만</option>
             </select>
-            <span id="recCount" style="font-size:13px; color:#888; margin-left:auto;"></span>
+            <button class="btn" onclick="exportRecordsCsv()" style="margin-left:auto;">📥 엑셀 내보내기</button>
+            <span id="recCount" style="font-size:13px; color:#888;"></span>
           </div>
           <div class="table-scroll">
           <table class="records" id="adminRecordsTable">
@@ -516,6 +517,7 @@
           <button class="btn range-btn" data-days="14" onclick="setSettleRange(14)">최근 14일</button>
           <button class="btn range-btn" data-days="30" onclick="setSettleRange(30)">최근 30일</button>
           <button class="btn secondary" onclick="resetSettleRange()">전체 기간</button>
+          <button class="btn" onclick="exportSettlementCsv()" style="margin-left:auto;">📥 엑셀 내보내기</button>
           <span id="settleScopeLabel" class="scope-label"></span>
         </div>
         <div class="settle-cards">
@@ -539,6 +541,7 @@
         <div class="subtabs">
           <button class="subtab active" id="logSubUpdate" onclick="showLogSub('update')">📋 업데이트 내역</button>
           <button class="subtab" id="logSubAccess" onclick="showLogSub('access')">🖥 접속 로그</button>
+          <button class="subtab" id="logSubAudit" onclick="showLogSub('audit')">🧾 변경 이력</button>
         </div>
         <div id="logSub-update">
           <p class="muted" style="margin:2px 0 14px;">재하 리뷰 시스템에 적용된 개선/업데이트 기록입니다. (관리자 전용)</p>
@@ -553,6 +556,18 @@
           <table class="records" id="accessLogTable">
             <thead><tr><th>사용자</th><th>구분</th><th>접속 시각</th><th>위치</th><th>IP 주소</th><th>기기 · 브라우저</th></tr></thead>
             <tbody id="accessLogTbody"></tbody>
+          </table>
+          </div>
+        </div>
+        <div id="logSub-audit" style="display:none;">
+          <div style="display:flex; align-items:center; gap:10px; margin:2px 0 12px; flex-wrap:wrap;">
+            <span class="muted">누가·언제·무엇을 바꿨는지 전부 기록됩니다. (견적 상태변경·단가수정·삭제·비번변경 등)</span>
+            <button class="btn secondary" onclick="loadAuditLog()" style="margin-left:auto;">새로고침</button>
+          </div>
+          <div class="table-scroll">
+          <table class="records" id="auditLogTable">
+            <thead><tr><th>시각</th><th>사용자</th><th>한 일</th><th>대상</th><th>위치·IP</th></tr></thead>
+            <tbody id="auditLogTbody"></tbody>
           </table>
           </div>
         </div>
@@ -1000,6 +1015,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // ---------- 관리자: 접속·업데이트 로그 ----------
 // 업데이트 내역 (개발/개선 기록 — 새 기능 추가할 때마다 위에 한 줄씩 추가)
 const UPDATE_LOG = [
+  { date:'2026-07-15', cat:'관리자', title:'v2.0 — 서버 이전(속도↑) + 서비스 강화', desc:'백엔드를 구글시트에서 Supabase(전용 DB)로 옮겨 훨씬 빨라졌습니다(기능·데이터는 그대로). 추가로 비밀번호 암호화, 변경 이력(감사로그) 화면, 매일 자동 백업, 엑셀 내보내기(정산·전체기록), 에러 자동기록, 로그인 실패 제한을 넣었습니다.' },
   { date:'2026-07-09', cat:'관리자', title:'로그인 분리 + 보류 캠페인 탭', desc:'관리자 페이지에는 관리자만, 고객 페이지에는 고객만 로그인되도록 분리했습니다. 전체 기록이 [전체 캠페인·완료·보류·삭제] 탭으로 나뉘고, 신청은 했지만 진행 안 하는 건은 "보류" 버튼으로 보류 탭에서 따로 관리할 수 있습니다.' },
   { date:'2026-07-09', cat:'견적', title:'견적서 텍스트·이미지 복사', desc:'견적서 위에서 "📋 텍스트 복사"(카톡용 글자) 또는 "📷 이미지로 복사"(견적서 표 그대로 이미지)를 눌러 카톡 등 어디든 바로 붙여넣을 수 있습니다. (견적 요청 화면·견적 보기 모두, 고객·관리자 공통)' },
   { date:'2026-07-09', cat:'관리자', title:'데이터 새로고침 버튼', desc:'회사 설정에 "🔄 새로고침" 버튼을 추가했습니다. 최신 견적·고객·상태를 다시 불러오며, 로그인 세션이 만료됐어도 자동으로 다시 로그인됩니다.' },
@@ -1038,12 +1054,48 @@ function renderUpdateLog(){
     </div>`).join('');
 }
 function showLogSub(which){
-  const isUpdate = which === 'update';
-  document.getElementById('logSub-update').style.display = isUpdate ? 'block' : 'none';
-  document.getElementById('logSub-access').style.display = isUpdate ? 'none' : 'block';
-  document.getElementById('logSubUpdate').className = 'subtab' + (isUpdate ? ' active' : '');
-  document.getElementById('logSubAccess').className = 'subtab' + (isUpdate ? '' : ' active');
-  if(isUpdate) renderUpdateLog(); else loadAccessLog();
+  [['update','logSub-update','logSubUpdate'],['access','logSub-access','logSubAccess'],['audit','logSub-audit','logSubAudit']]
+    .forEach(([w,div,btn])=>{
+      document.getElementById(div).style.display = (w===which) ? 'block' : 'none';
+      document.getElementById(btn).className = 'subtab' + (w===which ? ' active' : '');
+    });
+  if(which==='update') renderUpdateLog();
+  else if(which==='access') loadAccessLog();
+  else loadAuditLog();
+}
+// 감사로그 action 코드 → 사람이 읽는 말
+const _auditLabel = {
+  'auth.login':'로그인', 'saveQuote':'견적 생성', 'updateQuote':'견적 수정',
+  'toggleField':'상태 변경', 'updateMemo':'메모 수정', 'setMarginAdj':'마진 수정',
+  'setMarginDetail':'마진 세부수정', 'deleteQuote':'견적 삭제', 'restoreQuote':'견적 복구',
+  'saveCompanySettings':'회사설정 변경', 'adminCreateClient':'고객사 추가', 'adminCreateAdmin':'관리자 추가',
+  'adminSaveClientRates':'고객 단가수정', 'adminResetClientPassword':'비번 초기화',
+  'adminChangeUsername':'아이디 변경', 'changeMyUsername':'내 아이디 변경', 'changeMyPassword':'내 비번 변경',
+  'adminDeleteClient':'고객사 삭제', 'adminRestoreClient':'고객사 복구'
+};
+async function loadAuditLog(){
+  const tbody = document.getElementById('auditLogTbody');
+  if(!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999; padding:16px;">불러오는 중…</td></tr>';
+  try{
+    const rows = await call('listAuditLog', token);
+    if(!rows || !rows.length){ tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999; padding:16px;">변경 기록이 아직 없습니다.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r=>{
+      const label = _auditLabel[r.action] || r.action || '';
+      let detail = '';
+      if(r.detail){ try{ detail = Array.isArray(r.detail) ? r.detail.slice(1).map(x=>typeof x==='object'?JSON.stringify(x):x).join(', ') : ''; }catch(_){ } }
+      const target = (r.target||'') + (detail ? ' <span style="color:#999;">('+esc(detail).slice(0,60)+')</span>' : '');
+      return `<tr>
+        <td style="font-variant-numeric:tabular-nums; white-space:nowrap;">${esc(r.at||'')}</td>
+        <td><b>${esc(r.actor||'')}</b> ${r.role==='admin'?'<span class="role-badge role-admin" style="font-size:10px;">관리자</span>':''}</td>
+        <td>${esc(label)}</td>
+        <td style="font-size:12px;">${target}</td>
+        <td style="font-size:12px; color:#888;">${esc(r.location||'-')}<br>${esc(r.ip||'')}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#c0392b; padding:16px;">변경 이력을 불러오지 못했습니다.</td></tr>';
+  }
 }
 // user-agent → "Windows · Chrome" 형태
 function parseUA(ua){
@@ -1739,6 +1791,43 @@ function setSettleRange(days){ settleDays = days; const m = document.getElementB
 function resetSettleRange(){ settleDays = 0; const m = document.getElementById('settleMonth'); if(m) m.value = ''; renderSettlement(); }
 // 수동 집계제외이거나 이익이 0원 이하면 → 정산 집계에서 완전히 제외(매출·이익·건수·건당)
 function isSettleExcluded(q){ return q.excluded || quoteProfit(q) <= 0; }
+// ---------- 엑셀(CSV) 내보내기 ----------
+function downloadCsv(filename, rows){
+  const csv = rows.map(r=>r.map(c=>{
+    const s = (c==null?'':String(c));
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(',')).join('\r\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});  // BOM → 엑셀 한글 안깨짐
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+// 현재 정산 필터(월/최근N일)에 맞는 견적 목록
+function currentSettleActive(){
+  const sel = (document.getElementById('settleMonth')||{}).value || '';
+  let cutoff = '';
+  if(!sel && settleDays > 0){ const d=new Date(); d.setDate(d.getDate()-(settleDays-1));
+    cutoff = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  return quotes.filter(q=>!q.archived).filter(q=> sel ? (String(q.date||'').slice(0,7)===sel) : (cutoff ? (String(q.date||'')>=cutoff) : true));
+}
+function exportSettlementCsv(){
+  const active = currentSettleActive().slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  const rows = [['견적번호','날짜','고객사','수량','매출(원)','이익(원)','건당이익(원)','집계']];
+  active.forEach(q=>{
+    const mg = quoteProfit(q), qy = quoteTotalQty(q.items), sales = Number(q.total)||0, excl = isSettleExcluded(q);
+    rows.push([q.quoteNo, q.date, q.client, qy, sales, mg, excl?'':(qy?Math.round(mg/qy):0), excl?'제외':'포함']);
+  });
+  downloadCsv('정산_'+new Date().toISOString().slice(0,10)+'.csv', rows);
+}
+// 전체 기록(현재 탭 필터 반영) 내보내기
+function exportRecordsCsv(){
+  const list = quotes.filter(q=>!q.archived).filter(q=> recView==='completed'?q.completed : recView==='held'?q.held : true)
+    .slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  const rows = [['견적번호','날짜','고객사','합계금액(원)','진행','입금','작업완료','보류']];
+  list.forEach(q=> rows.push([q.quoteNo, q.date, q.client, Number(q.total)||0,
+    q.inProgress?'진행중':'진행전', q.deposited?'입금':'미입금', q.completed?'완료':'미완료', q.held?'보류':'']));
+  downloadCsv('전체기록_'+new Date().toISOString().slice(0,10)+'.csv', rows);
+}
 function renderSettlement(){
   const sel = (document.getElementById('settleMonth')||{}).value || ''; // 'YYYY-MM' 또는 ''(전체)
   // 최근 N일 필터 기준일 (월 선택이 없을 때만)
@@ -2100,6 +2189,24 @@ document.getElementById('loginPass').addEventListener('keydown', e=>{ if(e.key==
 document.getElementById('quoteDate').valueAsDate = new Date();
 
 function getSavedLogin(){ try{ return JSON.parse(localStorage.getItem('qa_login') || 'null'); }catch(e){ return null; } }
+
+// ---------- 버전 표기 + 전역 에러 자동기록 ----------
+const APP_VERSION = 'v2.0.0';
+(function(){
+  const f = document.createElement('div');
+  f.style.cssText = 'text-align:center; color:#bbb; font-size:11px; padding:18px 0 24px;';
+  f.textContent = '재하 리뷰 시스템 ' + APP_VERSION + ' · Supabase';
+  document.body.appendChild(f);
+})();
+let _lastErr = '';
+function _reportError(where, msg, detail){
+  try{
+    if(msg === _lastErr) return; _lastErr = msg;   // 같은 에러 도배 방지
+    call('logError', token || '', where, String(msg||'').slice(0,500), detail||{});
+  }catch(_){}
+}
+window.addEventListener('error', function(e){ _reportError('window.onerror', (e && e.message)||'error', { src:(e&&e.filename)||'', line:(e&&e.lineno)||0 }); });
+window.addEventListener('unhandledrejection', function(e){ _reportError('unhandledrejection', (e && e.reason && (e.reason.message||e.reason))||'rejection', {}); });
 
 (async function init(){
   // 저장된 로그인 정보가 있으면 로그인칸에 미리 채워둠(체크박스도 켜둠)
