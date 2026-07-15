@@ -73,6 +73,9 @@
   .re-ids { display:flex; flex-wrap:wrap; gap:6px; }
   .re-id { display:inline-block; font-size:13px; font-weight:700; color:#c2185b; text-decoration:none; background:#fff; border:1px solid #f5c6da; border-radius:20px; padding:5px 12px; }
   .re-id:hover { background:#ffe3f0; }
+  .ce-box { margin-top:10px; padding:9px 12px; border-radius:10px; font-size:12.5px; font-weight:700; color:#999; background:#f5f5f7; border:1px solid #eee; }
+  .ce-box.on { color:#7048e8; background:#f3f0ff; border-color:#dcd0ff; }
+  .ce-box.on b { color:#5f3dc4; }
   .re-due { font-size:12.5px; color:#8a5; margin-top:8px; color:#6d4c41; }
   .re-due b { color:#c2185b; }
   .cc-links { display:flex; gap:8px; flex-wrap:wrap; margin-top:9px; }
@@ -151,17 +154,9 @@ function contentSection(list, only){
     return '<div class="re-box"><div class="re-h">🎁 리뷰 이벤트 당첨자</div><div class="re-ids">'+chips+'</div>'+dueHtml+'</div>';
   };
   var commentEvent=function(s){
-    if(String(s.댓글이벤트||'').trim()!=='진행중') return '';
-    var raw=String(s.댓글이벤트아이디||'').trim();
-    if(!raw) return '<div class="re-box"><div class="re-h">💬 댓글 이벤트 진행중</div><div class="re-due">당첨자 발표 예정이에요 🎉</div></div>';
-    var ids=raw.split(/[\s,]+/).filter(Boolean);
-    var chips=ids.map(function(id){
-      var disp, u;
-      if(/^https?:\/\//i.test(id)){ u=id; disp='@'+id.replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/[\/?].*$/,''); }
-      else { disp='@'+id.replace(/^@/,''); u='https://instagram.com/'+id.replace(/^@/,''); }
-      return '<a class="re-id" href="'+esc(u)+'" target="_blank">'+esc(disp)+'</a>';
-    }).join('');
-    return '<div class="re-box"><div class="re-h">💬 댓글 이벤트 당첨자</div><div class="re-ids">'+chips+'</div></div>';
+    if(isBlog(s)) return '';                 // 인스타(인플루언서) 카드에만
+    var on = String(s.댓글이벤트||'').trim()==='진행중';
+    return '<div class="ce-box'+(on?' on':'')+'">💬 댓글 이벤트 '+(on?'<b>진행중</b>':'진행 안함')+'</div>';
   };
   var card=function(s){
     var blog=isBlog(s), st=status(s,blog), up=(st.cls==='완료');
