@@ -150,6 +150,19 @@ function contentSection(list, only){
     var dueHtml = due ? '<div class="re-due">🗓 <b>'+esc(due)+dow(due)+'</b> 까지 사용</div>' : '';
     return '<div class="re-box"><div class="re-h">🎁 리뷰 이벤트 당첨자</div><div class="re-ids">'+chips+'</div>'+dueHtml+'</div>';
   };
+  var commentEvent=function(s){
+    if(String(s.댓글이벤트||'').trim()!=='진행중') return '';
+    var raw=String(s.댓글이벤트아이디||'').trim();
+    if(!raw) return '<div class="re-box"><div class="re-h">💬 댓글 이벤트 진행중</div><div class="re-due">당첨자 발표 예정이에요 🎉</div></div>';
+    var ids=raw.split(/[\s,]+/).filter(Boolean);
+    var chips=ids.map(function(id){
+      var disp, u;
+      if(/^https?:\/\//i.test(id)){ u=id; disp='@'+id.replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/[\/?].*$/,''); }
+      else { disp='@'+id.replace(/^@/,''); u='https://instagram.com/'+id.replace(/^@/,''); }
+      return '<a class="re-id" href="'+esc(u)+'" target="_blank">'+esc(disp)+'</a>';
+    }).join('');
+    return '<div class="re-box"><div class="re-h">💬 댓글 이벤트 당첨자</div><div class="re-ids">'+chips+'</div></div>';
+  };
   var card=function(s){
     var blog=isBlog(s), st=status(s,blog), up=(st.cls==='완료');
     var shoot = blog ? fmt(s.방문일정,s.방문시간) : fmt(s.촬영일정,s.촬영시간);
@@ -169,6 +182,7 @@ function contentSection(list, only){
         '<span class="cc-st cst-'+st.cls+'">'+st.label+'</span></div>' +
       '<div class="cc-body">'+body+'</div>' +
       reviewEvent(s) +
+      commentEvent(s) +
       (links?'<div class="cc-links">'+links+'</div>':'') +
     '</div>';
   };
