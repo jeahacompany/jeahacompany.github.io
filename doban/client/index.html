@@ -186,7 +186,13 @@ function contentSection(list, only){
   var byR={}; list.forEach(function(s){ var r=Number(s.차수)||1; (byR[r]=byR[r]||[]).push(s); });
   var rounds=Object.keys(byR).map(Number).sort(function(a,b){return a-b;});
   var nameMap=(data&&data.견적명맵)||{};
-  var ordCmp=function(a,b){ var ha=(a.sort_no!=null&&a.sort_no!==''), hb=(b.sort_no!=null&&b.sort_no!==''); if(ha&&hb) return (Number(a.sort_no)||0)-(Number(b.sort_no)||0); if(ha) return -1; if(hb) return 1; return 0; };
+  var schD=function(s){ var blog=(s.종류==='블로그'||s.종류==='체험단'); var d=String((blog?s.방문일정:s.촬영일정)||'').trim(); return /^\d{4}-\d{2}-\d{2}/.test(d)?d.slice(0,10):''; };
+  var ordCmp=function(a,b){
+    var da=schD(a), db=schD(b);
+    if(da&&db){ if(da!==db) return da<db?-1:1; } else if(da) return -1; else if(db) return 1; // 방문/촬영 빠른 날짜순
+    var ha=(a.sort_no!=null&&a.sort_no!==''), hb=(b.sort_no!=null&&b.sort_no!=='');
+    if(ha&&hb) return (Number(a.sort_no)||0)-(Number(b.sort_no)||0); if(ha) return -1; if(hb) return 1; return 0;
+  };
   var groups = rounds.map(function(r){
     var arr=byR[r].slice().sort(ordCmp); // 관리자가 정한 순서대로 (점주도 동일)
     var up=arr.filter(function(s){return !!s.완료;}).length;

@@ -126,6 +126,10 @@
   select.task-st.st-대기 { background:#eef0f3; color:#777; }
   select.task-st.st-진행중 { background:#fff3cd; color:#9a6700; }
   select.task-st.st-완료 { background:#d3f9d8; color:#237a3b; }
+  button.task-st { flex:0 0 auto; width:auto; border:none; border-radius:14px; padding:7px 18px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  button.task-st.st-대기 { background:#eef0f3; color:#777; }
+  button.task-st.st-진행중 { background:#fff3cd; color:#9a6700; }
+  button.task-st.st-완료 { background:#d3f9d8; color:#237a3b; }
   .task-row { background:#fff; border-radius:10px; padding:10px 14px; margin-bottom:6px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 3px rgba(0,0,0,.05); cursor:pointer; height:56px; box-sizing:border-box; }
   .task-row:hover { background:#fff8f4; }
   .task-row .store { font-weight:700; width:120px; min-width:120px; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -369,6 +373,8 @@
       <tbody id="tbody"></tbody>
     </table>
   </div>
+
+  <div id="todayView" style="display:none"><div id="todayBody"></div></div>
 
   <div id="taskView" style="display:none">
     <div class="cards" id="taskcards"></div>
@@ -828,7 +834,7 @@ function paySum(id){ return DB.입금.filter(function(r){return r.광고주ID===
 function costSum(id){ return DB.실행비.filter(function(r){return r.광고주ID===id && (Number(r.차수)||0)>0;}).reduce(function(s,r){return s+(Number(r.금액)||0);},0); } // 견적(차수)에 붙은 실행비만 — 미지정 옛 데모 제외
 
 // ─── 메인 렌더 (뷰 디스패처) ───
-var VIEWS = [['client','광고주별'],['task','작업 현황'],['settle','정산'],['register','+ 광고주 등록'],['staff','👥 직원'],['log','📋 로그'],['trash','🗑 삭제함']];
+var VIEWS = [['today','📅 오늘'],['client','광고주별'],['task','작업 현황'],['settle','정산'],['register','+ 광고주 등록'],['staff','👥 직원'],['log','📋 로그'],['trash','🗑 삭제함']];
 function visibleViews(){
   return VIEWS.filter(function(t){
     if(t[0]==='settle') return canSeeMargin();   // 정산(마진)은 권한 있는 사람만
@@ -847,15 +853,18 @@ function render() {
       var cls = 'viewtab' + (VIEW===t[0]?' on':'') + (t[0]==='register'?' reg':'');
       return '<div class="'+cls+'" onclick="VIEW=\''+t[0]+'\';render()">'+t[1]+'</div>';
     }).join('') + '<div class="viewtab" onclick="logout()" style="color:#c92a2a">로그아웃</div>';
-  ['client','task','settle','register','staff','log','trash'].forEach(function (v) {
+  ['today','client','task','settle','register','staff','log','trash'].forEach(function (v) {
     var el=document.getElementById(v+'View'); if(el) el.style.display = VIEW===v ? '' : 'none';
   });
-  // 미배정 작업 알림
+  // 알림바: 오늘 방문/촬영 + 미배정 작업
   var un = DB.작업.filter(function(t){ return !t.담당자 && t.상태!=='완료' && !isDeletedClient(t.광고주ID); }).length;
-  document.getElementById('alertBar').innerHTML = (un>0 && VIEW!=='register')
-    ? '<div class="alert" onclick="VIEW=\'task\';ASSIGNEE=\'미배정\';render()">⚠️ 담당자 미배정 작업 <b>'+un+'건</b> — 눌러서 배정하세요</div>'
-    : '';
-  if (VIEW==='client') renderClientView();
+  var todayN = todayVisits().length;
+  var alertHTML = '';
+  if(todayN>0 && VIEW!=='today') alertHTML += '<div class="alert" style="background:#e7f5ff;border-color:#a5d8ff;color:#1971c2" onclick="VIEW=\'today\';render()">📅 오늘 방문·촬영 <b>'+todayN+'건</b> — 눌러서 확인하세요</div>';
+  if(un>0 && VIEW!=='register') alertHTML += '<div class="alert" onclick="VIEW=\'task\';ASSIGNEE=\'미배정\';render()">⚠️ 담당자 미배정 작업 <b>'+un+'건</b> — 눌러서 배정하세요</div>';
+  document.getElementById('alertBar').innerHTML = alertHTML;
+  if (VIEW==='today') renderTodayView();
+  else if (VIEW==='client') renderClientView();
   else if (VIEW==='task') renderTaskView();
   else if (VIEW==='settle') renderSettleView();
   else if (VIEW==='register') renderRegisterView();
@@ -1181,6 +1190,38 @@ function shareQuote(){
 // ─── 작업 현황 뷰 ───
 function storeName(id){ var c = DB.광고주.filter(function(x){return x.ID===id;})[0]; return c ? c.매장명 : id; }
 function isDeletedClient(id){ var c=(DB.광고주||[]).filter(function(x){return x.ID===id;})[0]; return c && c.상태==='삭제됨'; }
+// ─── 오늘 방문·촬영 (당일 일정) ───
+function todayVisits(){
+  var t=todayISO();
+  return (DB.섭외||[]).filter(function(s){
+    if(isDeletedClient(s.광고주ID) || String(s.공개)==='N') return false;
+    return seedSchedDate(s)===t;
+  });
+}
+function renderTodayView(){
+  var t=todayISO(), list=todayVisits();
+  var isB=function(s){ return s.종류==='블로그'||s.종류==='체험단'; };
+  var blog=list.filter(isB), insta=list.filter(function(s){return !isB(s);});
+  var rowsHTML=function(arr,label,timeK){
+    if(!arr.length) return '<div style="color:#bbb;padding:8px 2px;font-size:13px">오늘 '+label+' 일정 없음</div>';
+    return '<div class="ss-wrap"><table class="ss"><thead><tr><th>매장</th><th>이름</th><th>시간</th><th>상태</th></tr></thead><tbody>'+
+      arr.slice().sort(function(a,b){ return String(a[timeK]||'').localeCompare(String(b[timeK]||'')); }).map(function(s){
+        return '<tr onclick="openClient(\''+s.광고주ID+'\')" style="cursor:pointer">'+
+          '<td><b>'+esc(storeName(s.광고주ID))+'</b></td>'+
+          '<td>'+esc(s.계정명||'-')+'</td>'+
+          '<td><b>'+esc(s[timeK]||'-')+'</b></td>'+
+          '<td>'+esc(s.진행여부||'-')+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+  };
+  document.getElementById('todayBody').innerHTML =
+    '<div class="sec"><h2 style="margin-bottom:2px">📅 오늘 방문·촬영 <span style="font-size:13px;color:#888;font-weight:400">('+esc(t)+')</span></h2>'+
+    '<div style="color:#666;font-size:14px;margin-bottom:14px">오늘 방문하거나 촬영 예정인 사람들이에요. 줄을 누르면 매장 상세로 갑니다.</div>'+
+    (list.length===0
+      ? '<div style="text-align:center;color:#aaa;padding:44px">오늘은 방문·촬영 일정이 없어요 🎉</div>'
+      : '<h3>🏠 블로그 방문 ('+blog.length+')</h3>'+rowsHTML(blog,'블로그 방문','방문시간')+
+        '<h3 style="margin-top:18px">📸 인스타 촬영 ('+insta.length+')</h3>'+rowsHTML(insta,'인스타 촬영','촬영시간')
+    )+'</div>';
+}
 function renderTaskView() {
   var all = DB.작업.filter(function(t){ return !isDeletedClient(t.광고주ID); });
   var 대기 = all.filter(function(t){return t.상태==='대기';}).length;
@@ -1212,9 +1253,7 @@ function renderTaskView() {
           '<span class="store" title="'+esc(storeName(t.광고주ID))+'">'+esc(storeName(t.광고주ID))+'</span>' +
           '<span class="item"><span class="nm">'+esc(t.품목)+'</span>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</span>' +
           who +
-          '<select class="task-st st-'+esc(t.상태)+'" onclick="event.stopPropagation()" onchange="setTaskStatusVal(\''+t.ID+'\',this.value)">' +
-            ['대기','진행중','완료'].map(function(s){return '<option'+(s===t.상태?' selected':'')+'>'+s+'</option>';}).join('') +
-          '</select></div>';
+          '<button class="task-st st-'+esc(t.상태)+'" onclick="event.stopPropagation();cycleTask(\''+t.ID+'\',\''+esc(t.상태)+'\')" title="눌러서 대기→진행중→완료 순환">'+esc(t.상태)+'</button></div>';
       }).join('') : '') + '</div>';
   }).join('') || '<div style="text-align:center;color:#aaa;padding:30px">작업이 없습니다</div>';
 }
@@ -1623,11 +1662,15 @@ function seedCellHTML(s,col){
   return '<input type="text"'+(col.ph?' placeholder="'+esc(col.ph)+'"':'')+' value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
 }
 // ─── 명단 순서(드래그 재정렬) ───
+function seedSchedDate(s){ var blog=(s.종류==='블로그'||s.종류==='체험단'); var d=String((blog?s.방문일정:s.촬영일정)||'').trim(); return /^\d{4}-\d{2}-\d{2}/.test(d)?d.slice(0,10):''; }
 function seedOrderCmp(a,b){
+  var da=seedSchedDate(a), db=seedSchedDate(b);
+  if(da&&db){ if(da!==db) return da<db?-1:1; }    // 방문/촬영 빠른 날짜가 위
+  else if(da) return -1; else if(db) return 1;    // 날짜 있는 게 위, 미정은 아래
   var ha=(a.sort_no!=null&&a.sort_no!==''), hb=(b.sort_no!=null&&b.sort_no!=='');
-  if(ha&&hb) return (Number(a.sort_no)||0)-(Number(b.sort_no)||0);
-  if(ha) return -1; if(hb) return 1;              // 순서 지정된 게 위
-  return String(a.ID).localeCompare(String(b.ID)); // 나머지는 등록순
+  if(ha&&hb) return (Number(a.sort_no)||0)-(Number(b.sort_no)||0); // 같은 날짜면 드래그 순서
+  if(ha) return -1; if(hb) return 1;
+  return String(a.ID).localeCompare(String(b.ID));
 }
 var _dragSeed=null;
 function seedDrag(e,sid){ _dragSeed=sid; try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',sid); }catch(_){} }
