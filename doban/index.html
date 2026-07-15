@@ -1198,29 +1198,41 @@ function todayVisits(){
     return seedSchedDate(s)===t;
   });
 }
+var TODAY_RANGE='today'; // 기본: 오늘(D-day)
+var RANGE_OPTS=[['yesterday','어제',-1,-1],['today','오늘',0,0],['week','일주일',0,6],['2week','2주',0,13],['month','한달',0,29]];
+function isoOffset(n){ var d=new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+function dowKo(iso){ var d=new Date(iso+'T00:00:00'); return isNaN(d)?'':['일','월','화','수','목','금','토'][d.getDay()]; }
+function scheduleInRange(){
+  var o=RANGE_OPTS.filter(function(x){return x[0]===TODAY_RANGE;})[0]||RANGE_OPTS[1];
+  var from=isoOffset(o[2]), to=isoOffset(o[3]);
+  return (DB.섭외||[]).filter(function(s){ if(isDeletedClient(s.광고주ID)||String(s.공개)==='N') return false; var d=seedSchedDate(s); return d && d>=from && d<=to; });
+}
 function renderTodayView(){
-  var t=todayISO(), list=todayVisits();
-  var isB=function(s){ return s.종류==='블로그'||s.종류==='체험단'; };
-  var blog=list.filter(isB), insta=list.filter(function(s){return !isB(s);});
-  var rowsHTML=function(arr,label,timeK){
-    if(!arr.length) return '<div style="color:#bbb;padding:8px 2px;font-size:13px">오늘 '+label+' 일정 없음</div>';
-    return '<div class="ss-wrap"><table class="ss"><thead><tr><th>매장</th><th>이름</th><th>시간</th><th>상태</th></tr></thead><tbody>'+
-      arr.slice().sort(function(a,b){ return String(a[timeK]||'').localeCompare(String(b[timeK]||'')); }).map(function(s){
-        return '<tr onclick="openClient(\''+s.광고주ID+'\')" style="cursor:pointer">'+
-          '<td><b>'+esc(storeName(s.광고주ID))+'</b></td>'+
-          '<td>'+esc(s.계정명||'-')+'</td>'+
-          '<td><b>'+esc(s[timeK]||'-')+'</b></td>'+
-          '<td>'+esc(s.진행여부||'-')+'</td></tr>';
-      }).join('')+'</tbody></table></div>';
-  };
+  var list=scheduleInRange(), t=todayISO();
+  var isB=function(s){return s.종류==='블로그'||s.종류==='체험단';};
+  var chips=RANGE_OPTS.map(function(o){ return '<div class="chip'+(TODAY_RANGE===o[0]?' on':'')+'" onclick="TODAY_RANGE=\''+o[0]+'\';render()">'+o[1]+'</div>'; }).join('');
+  var byD={}; list.forEach(function(s){ (byD[seedSchedDate(s)]=byD[seedSchedDate(s)]||[]).push(s); });
+  var dates=Object.keys(byD).sort();
+  var body = dates.length===0
+    ? '<div style="text-align:center;color:#aaa;padding:44px">이 기간엔 방문·촬영 일정이 없어요 🎉</div>'
+    : dates.map(function(d){
+        var arr=byD[d].slice().sort(function(a,b){ var ta=isB(a)?a.방문시간:a.촬영시간, tb=isB(b)?b.방문시간:b.촬영시간; return String(ta||'').localeCompare(String(tb||'')); });
+        var isToday=(d===t);
+        var rows=arr.map(function(s){ var tm=isB(s)?s.방문시간:s.촬영시간;
+          return '<tr onclick="openClient(\''+s.광고주ID+'\')" style="cursor:pointer">'+
+            '<td style="text-align:center">'+(isB(s)?'🏠':'📸')+'</td>'+
+            '<td><b>'+esc(storeName(s.광고주ID))+'</b></td>'+
+            '<td>'+esc(s.계정명||'-')+'</td>'+
+            '<td><b>'+esc(tm||'-')+'</b></td>'+
+            '<td>'+esc(s.진행여부||'-')+'</td></tr>'; }).join('');
+        return '<h3 style="margin-top:16px'+(isToday?';color:#e8590c':'')+'">'+esc(d)+' ('+dowKo(d)+')'+(isToday?' · 오늘':'')+' <span style="font-size:12px;color:#888;font-weight:400">'+arr.length+'건</span></h3>'+
+          '<div class="ss-wrap"><table class="ss"><thead><tr><th></th><th>매장</th><th>이름</th><th>시간</th><th>상태</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+      }).join('');
   document.getElementById('todayBody').innerHTML =
-    '<div class="sec"><h2 style="margin-bottom:2px">📅 오늘 방문·촬영 <span style="font-size:13px;color:#888;font-weight:400">('+esc(t)+')</span></h2>'+
-    '<div style="color:#666;font-size:14px;margin-bottom:14px">오늘 방문하거나 촬영 예정인 사람들이에요. 줄을 누르면 매장 상세로 갑니다.</div>'+
-    (list.length===0
-      ? '<div style="text-align:center;color:#aaa;padding:44px">오늘은 방문·촬영 일정이 없어요 🎉</div>'
-      : '<h3>🏠 블로그 방문 ('+blog.length+')</h3>'+rowsHTML(blog,'블로그 방문','방문시간')+
-        '<h3 style="margin-top:18px">📸 인스타 촬영 ('+insta.length+')</h3>'+rowsHTML(insta,'인스타 촬영','촬영시간')
-    )+'</div>';
+    '<div class="sec"><h2 style="margin-bottom:8px">📅 방문·촬영 일정</h2>'+
+    '<div class="chips" style="margin-bottom:12px">'+chips+'</div>'+
+    '<div style="color:#666;font-size:13px;margin-bottom:6px">기간을 골라서 누가 방문·촬영하는지 보세요. 줄 누르면 매장 상세로. (📸촬영 · 🏠방문)</div>'+
+    body+'</div>';
 }
 function renderTaskView() {
   var all = DB.작업.filter(function(t){ return !isDeletedClient(t.광고주ID); });

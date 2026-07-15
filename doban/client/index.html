@@ -333,9 +333,18 @@ function renderApp() {
       basic + plat + '</div>';
   })();
 
+  // 오늘 방문·촬영 예정자 배너 (점주가 열면 바로 보임)
+  var _ct=(function(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);})();
+  var _todayList=(data.콘텐츠||[]).filter(function(s){ var blog=(s.종류==='블로그'||s.종류==='체험단'); var d=String((blog?s.방문일정:s.촬영일정)||'').slice(0,10); return d===_ct; });
+  var todayBanner=_todayList.length
+    ? '<div style="margin:14px 0 4px;padding:13px 16px;background:linear-gradient(135deg,#fff4e6,#ffe8cc);border:1px solid #ffd8a8;border-radius:12px;color:#d9480f;font-size:14px;line-height:1.7">'+
+      '📅 <b>오늘 방문·촬영 예정!</b><br>'+
+      _todayList.map(function(s){ var blog=(s.종류==='블로그'||s.종류==='체험단'); var tm=blog?s.방문시간:s.촬영시간; return '· <b>'+esc(s.계정명||'담당자')+'</b>'+(tm?' '+esc(tm):'')+(blog?' 방문':' 촬영'); }).join('<br>')+'</div>'
+    : '';
   app.innerHTML =
     '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>'+esc(data.매장명)+'</h1>' +
     '<div class="sub">마케팅 진행 현황 <a onclick="clientLogout()" style="color:#c92a2a;cursor:pointer;font-size:12px;margin-left:8px;text-decoration:underline">로그아웃</a></div></div>' +
+    todayBanner +
     '<div id="tab-home" class="tabpane">'+homeTab+'</div>' +
     '<div id="tab-insta" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [], 'insta')+'</div>' +
     '<div id="tab-blog" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [], 'blog')+'</div>' +
