@@ -338,49 +338,13 @@ function renderApp() {
 
 boot();
 
-// ── PWA: 서비스워커 등록 + 홈화면 설치 버튼 (점주가 앱처럼 설치) ──
+// ── PWA: 서비스워커만 조용히 등록(빠른 로딩·오프라인). 설치 팝업은 표시 안 함 ──
 (function(){
   if('serviceWorker' in navigator){
     window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
   }
-  var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-  if(standalone) return; // 이미 설치됨
-  var dismissed=false; try{ dismissed = localStorage.getItem('doban_pwa_dismiss')==='1'; }catch(e){}
-  if(dismissed) return;
-  var deferred=null, bar=null;
-  function showBar(){
-    if(bar){ bar.style.display='flex'; return; }
-    bar=document.createElement('div');
-    bar.style.cssText='position:fixed;left:12px;right:12px;bottom:80px;max-width:536px;margin:0 auto;z-index:40;background:#e8590c;border-radius:12px;box-shadow:0 6px 18px rgba(232,89,12,.4);display:flex;align-items:center;overflow:hidden;';
-    var add=document.createElement('button');
-    add.innerHTML='📲 홈 화면에 앱으로 추가';
-    add.style.cssText='flex:1;padding:14px 16px;background:none;border:none;color:#fff;font-size:15px;font-weight:700;text-align:left;cursor:pointer;';
-    var x=document.createElement('button');
-    x.innerHTML='✕';
-    x.style.cssText='padding:14px 16px;background:none;border:none;color:#fff;opacity:.8;font-size:14px;cursor:pointer;';
-    bar.appendChild(add); bar.appendChild(x);
-    document.body.appendChild(bar);
-    add.onclick=function(){
-      if(deferred){ deferred.prompt(); deferred.userChoice.then(function(){ deferred=null; bar.style.display='none'; }); }
-      else { iosGuide(); }
-    };
-    x.onclick=function(){ bar.style.display='none'; try{localStorage.setItem('doban_pwa_dismiss','1');}catch(e){} };
-  }
-  function iosGuide(){
-    var m=document.createElement('div');
-    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;';
-    m.innerHTML='<div style="background:#fff;border-radius:16px;padding:22px 20px;max-width:320px;text-align:center;">'+
-      '<div style="font-size:36px;margin-bottom:6px">📲</div>'+
-      '<div style="font-size:17px;font-weight:700;margin-bottom:8px">홈 화면에 추가하기</div>'+
-      '<div style="font-size:14px;color:#555;line-height:1.7">사파리 아래쪽 <b>공유 버튼</b>(⬆️네모)을 누른 뒤<br><b>「홈 화면에 추가」</b>를 선택하세요.</div>'+
-      '<button id="__iosok" style="margin-top:16px;padding:10px 22px;background:#e8590c;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">알겠어요</button></div>';
-    m.onclick=function(e){ if(e.target===m||e.target.id==='__iosok') document.body.removeChild(m); };
-    document.body.appendChild(m);
-  }
-  var isIos=/iphone|ipad|ipod/i.test(navigator.userAgent);
-  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e; showBar(); });
-  window.addEventListener('appinstalled', function(){ if(bar) bar.style.display='none'; });
-  if(isIos){ window.addEventListener('load', function(){ setTimeout(showBar, 800); }); }
+  // 브라우저 기본 설치 팝업 억제 (귀찮음 방지). 설치는 브라우저 메뉴로만 조용히 가능.
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); });
 })();
 </script>
 </body>
