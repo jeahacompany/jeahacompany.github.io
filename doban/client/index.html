@@ -18,6 +18,17 @@
             border-top:1px solid #eee; display:flex; z-index:20; box-shadow:0 -2px 10px rgba(0,0,0,.04); }
   .tabbar button { flex:1; border:none; background:none; padding:9px 0 11px; font-size:11px; color:#999; cursor:pointer; }
   .tabbar button.on { color:#e8590c; font-weight:700; }
+  .crange-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .crange { flex:0 0 auto; border:1px solid #e5e5e5; background:#fff; color:#666; border-radius:16px; padding:6px 15px; font-size:13px; font-weight:600; cursor:pointer; }
+  .crange.on { background:#e8590c; color:#fff; border-color:#e8590c; }
+  .td-date { font-size:13px; font-weight:800; color:#555; margin:14px 0 6px; }
+  .td-date.today { color:#e8590c; }
+  .td-item { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #f0f0f0; border-radius:10px; padding:10px 12px; margin-bottom:6px; font-size:14px; }
+  .td-ic { font-size:16px; }
+  .td-tm { color:#e8590c; font-weight:700; margin-left:2px; }
+  .td-kind { margin-left:auto; font-size:11px; color:#999; background:#f5f5f7; border-radius:8px; padding:3px 8px; }
+  .memo-box { width:100%; min-height:140px; border:1px solid #ddd; border-radius:10px; padding:12px; font-size:14px; font-family:inherit; resize:vertical; box-sizing:border-box; }
+  .memo-box:focus { outline:none; border-color:#e8590c; }
   .tabbar .ic { display:block; font-size:19px; margin-bottom:2px; }
   .head { text-align:center; padding:26px 0 18px; }
   .head .co { color:#e8590c; font-weight:700; font-size:13px; letter-spacing:2px; }
@@ -207,7 +218,7 @@ function contentSection(list, only){
 }
 
 function showTab(n, btn){
-  ['home','insta','blog','info','log','doc'].forEach(function(t){ var e=document.getElementById('tab-'+t); if(e) e.style.display = t===n?'':'none'; });
+  ['today','home','insta','blog','info','doc'].forEach(function(t){ var e=document.getElementById('tab-'+t); if(e) e.style.display = t===n?'':'none'; });
   Array.from(document.querySelectorAll('.tabbar button')).forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on'); window.scrollTo(0,0);
 }
@@ -293,6 +304,39 @@ function clientLoginFetch(id, pw, silent){
 }
 function clientLogout(){ localStorage.removeItem('doban_client_login'); localStorage.removeItem(AUTHKEY); location.reload(); }
 
+// ─── 오늘 탭 (일정 기간선택 + 메모) ───
+var CRANGE='today';
+var CRANGE_OPTS=[['today','오늘',0,0],['tomorrow','내일',1,1],['week','일주일',0,6],['2week','14일',0,13],['month','한달',0,29]];
+function cIso(n){ var d=new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+function cDow(iso){ var d=new Date(iso+'T00:00:00'); return isNaN(d)?'':['일','월','화','수','목','금','토'][d.getDay()]; }
+function setCRange(r){ CRANGE=r; var e=document.getElementById('tab-today'); if(e) e.innerHTML=todayTabHTML(); }
+function todayTabHTML(){
+  var o=CRANGE_OPTS.filter(function(x){return x[0]===CRANGE;})[0]||CRANGE_OPTS[0];
+  var from=cIso(o[2]), to=cIso(o[3]), t=cIso(0);
+  var isB=function(s){return s.종류==='블로그'||s.종류==='체험단';};
+  var schD=function(s){ var d=String((isB(s)?s.방문일정:s.촬영일정)||'').slice(0,10); return /^\d{4}-\d{2}-\d{2}/.test(d)?d:''; };
+  var list=(data.콘텐츠||[]).filter(function(s){ var d=schD(s); return d && d>=from && d<=to; });
+  var chips=CRANGE_OPTS.map(function(x){ return '<button class="crange'+(CRANGE===x[0]?' on':'')+'" onclick="setCRange(\''+x[0]+'\')">'+x[1]+'</button>'; }).join('');
+  var byD={}; list.forEach(function(s){ (byD[schD(s)]=byD[schD(s)]||[]).push(s); });
+  var dates=Object.keys(byD).sort();
+  var sched = dates.length===0
+    ? '<div class="none" style="padding:22px 8px">이 기간엔 방문·촬영 일정이 없어요 🙂</div>'
+    : dates.map(function(d){
+        var arr=byD[d].slice().sort(function(a,b){ var ta=isB(a)?a.방문시간:a.촬영시간, tb=isB(b)?b.방문시간:b.촬영시간; return String(ta||'').localeCompare(String(tb||'')); });
+        var isToday=(d===t);
+        return '<div class="td-date'+(isToday?' today':'')+'">'+esc(d)+' ('+cDow(d)+')'+(isToday?' · 오늘':'')+'</div>'+
+          arr.map(function(s){ var tm=isB(s)?s.방문시간:s.촬영시간;
+            return '<div class="td-item"><span class="td-ic">'+(isB(s)?'🏠':'📸')+'</span><b>'+esc(s.계정명||'담당')+'</b>'+(tm?'<span class="td-tm">'+esc(tm)+'</span>':'')+'<span class="td-kind">'+(isB(s)?'방문':'촬영')+'</span></div>'; }).join('');
+      }).join('');
+  var memoVal = (data.메모!=null && data.메모!=='') ? data.메모 : (localStorage.getItem('doban_memo_'+(CODE||''))||'');
+  return '<div class="sec"><h3>📅 방문·촬영 일정</h3><div class="crange-bar">'+chips+'</div>'+sched+'</div>'+
+    '<div class="sec"><h3>📝 메모 <span style="font-size:11px;color:#aaa;font-weight:400">· 자동 저장</span></h3>'+
+    '<textarea class="memo-box" placeholder="메모를 자유롭게 적으세요. 자동으로 저장됩니다." oninput="saveMemo(this.value)">'+esc(memoVal)+'</textarea></div>';
+}
+function saveMemo(val){
+  try{ localStorage.setItem('doban_memo_'+(CODE||''), val); }catch(e){}
+  clearTimeout(window._memoT); window._memoT=setTimeout(function(){ if(CODE) sbRpc('client_save_memo',{p_code:CODE, p_memo:val}).catch(function(){}); }, 700);
+}
 function renderApp() {
   var done = data.작업.filter(function(t){return t.상태==='완료';}).length;
   var total = data.작업.length;
@@ -345,19 +389,19 @@ function renderApp() {
     '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>'+esc(data.매장명)+'</h1>' +
     '<div class="sub">마케팅 진행 현황 <a onclick="clientLogout()" style="color:#c92a2a;cursor:pointer;font-size:12px;margin-left:8px;text-decoration:underline">로그아웃</a></div></div>' +
     todayBanner +
-    '<div id="tab-home" class="tabpane">'+homeTab+'</div>' +
+    '<div id="tab-today" class="tabpane">'+todayTabHTML()+'</div>' +
+    '<div id="tab-home" class="tabpane" style="display:none">'+homeTab+'</div>' +
     '<div id="tab-insta" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [], 'insta')+'</div>' +
     '<div id="tab-blog" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [], 'blog')+'</div>' +
     '<div id="tab-info" class="tabpane" style="display:none">'+infoTab+'</div>' +
-    '<div id="tab-log" class="tabpane" style="display:none">'+logTab+'</div>' +
     '<div id="tab-doc" class="tabpane" style="display:none">'+docTab+'</div>' +
     '<footer>도반글로벌 유한회사<br>광주광역시 광산구 왕버들로 101, 2층 · 010-2944-1236</footer>' +
     '<nav class="tabbar">' +
-      '<button class="on" onclick="showTab(\'home\',this)"><span class="ic">📊</span>진행현황</button>' +
+      '<button class="on" onclick="showTab(\'today\',this)"><span class="ic">📅</span>오늘</button>' +
+      '<button onclick="showTab(\'home\',this)"><span class="ic">📊</span>진행현황</button>' +
       '<button onclick="showTab(\'insta\',this)"><span class="ic">📷</span>인스타</button>' +
       '<button onclick="showTab(\'blog\',this)"><span class="ic">✍️</span>블로그</button>' +
       '<button onclick="showTab(\'info\',this)"><span class="ic">📋</span>내정보</button>' +
-      '<button onclick="showTab(\'log\',this)"><span class="ic">📝</span>기록</button>' +
       '<button onclick="showTab(\'doc\',this)"><span class="ic">📄</span>계약서</button>' +
     '</nav>';
 }
