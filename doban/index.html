@@ -593,7 +593,9 @@ function loginOK(d, id, pw){
   if(!u){ document.getElementById('pinErr').textContent='아이디 또는 비밀번호가 틀렸습니다'; return false; }
   ME = u; localStorage.setItem('doban_user', JSON.stringify({id:id, pw:pw}));
   document.getElementById('pinGate').style.display='none';
-  DB = d; render(); return true;
+  DB = d; render();
+  try{ var oc=localStorage.getItem('doban_open'); if(oc && DB.광고주.some(function(c){return c.ID===oc && c.상태!=='삭제됨';})) openClient(oc); }catch(e){} // 새로고침 시 보던 업체 복원
+  return true;
 }
 function enter() {
   var id=document.getElementById('loginId').value.trim(), pw=document.getElementById('loginPw').value.trim();
@@ -1193,6 +1195,7 @@ function openClient(id) {
   if (!c0) return;
   if (CUR !== id) CURROUND = maxRoundOf(id); // 다른 광고주 열면 최신 차수로
   CUR = id;
+  try{ localStorage.setItem('doban_open', id); }catch(e){} // 새로고침 복원용
   if (!canSeeMargin()) SHOWMARGIN = false; // 마진 권한 없으면 항상 숨김
   var c = c0;
   var ts = tasksOf(id);
@@ -1350,7 +1353,7 @@ function openClient(id) {
   document.getElementById('overlay').style.display = 'block';
   document.getElementById('panel').classList.add('open');
 }
-function closePanel(){ CUR=null; document.getElementById('overlay').style.display='none'; document.getElementById('panel').classList.remove('open'); }
+function closePanel(){ CUR=null; try{ localStorage.removeItem('doban_open'); }catch(e){} document.getElementById('overlay').style.display='none'; document.getElementById('panel').classList.remove('open'); }
 function copyShare(url){ navigator.clipboard.writeText(url).then(function(){toast('공유 링크가 복사됐어요');}); }
 function copyClientInvite(id){
   var c=(DB.광고주||[]).filter(function(x){return x.ID===id;})[0]; if(!c) return;
