@@ -119,6 +119,12 @@
   .sd-editrow .sd-amt { width:120px; text-align:right; font-variant-numeric:tabular-nums; }
   .sd-editrow .sd-paydate { color:#aaa; font-size:11px; white-space:nowrap; }
   .sd-editrow .del { margin-left:auto; }
+  .sd-editrow .sd-dt { width:135px; cursor:pointer; }
+  .sd-editrow .sd-lb { font-size:11.5px; font-weight:800; color:#4263eb; white-space:nowrap; }
+  .sd-co-tag { font-size:11.5px; font-weight:700; color:#1971c2; background:#e7f5ff; border-radius:6px; padding:1px 7px; }
+  .sd-co-tag.warn { color:#c92a2a; background:#fff5f5; }
+  .sd-hint { font-size:11.5px; color:#a08a6c; background:#fff9f2; border:1px solid #ffe8d6; border-radius:8px; padding:6px 10px; margin-top:6px; }
+  .sd-hint b { color:#e8590c; }
   .sd-readrow { display:flex; align-items:center; gap:8px; padding:8px 4px; border-bottom:1px solid #f2f2f2; font-size:13px; }
   .sd-readrow .grow { flex:1; } .sd-readrow small { display:block; color:#aaa; font-size:11px; }
   .sd-edit { background:#eef4ff; border:1px solid #cfe0ff; color:#2c6ee0; font-size:12px; font-weight:700; padding:4px 10px; border-radius:7px; cursor:pointer; white-space:nowrap; }
@@ -1295,10 +1301,12 @@ function renderVendorLedger(cs){
   // ② 실행비(견적 밖 대행비·시트에서 이관한 과거 지출)
   rows = rows.concat((DB.실행비||[]).filter(function(e){
     var v=String(e.실행회사||'').trim();
-    return idset[e.광고주ID] && v!=='' && v.indexOf('자체')!==0 && (Number(e.금액)||0)>0;
+    // 실행회사가 비어도 '줄 돈'이라 원장에 올림 (자체집행만 제외)
+    return idset[e.광고주ID] && v.indexOf('자체')!==0 && (Number(e.금액)||0)>0;
   }).map(function(e){
+    var who=String(e.실행회사||'').trim() || String(e.내역||'').trim() || '(받는 사람 미지정)';
     return { id:e.ID, src:'cost', store:storeName(e.광고주ID), round:e.내역||'',
-             item:e.내역||'', vendor:String(e.실행회사).trim(), cost:Number(e.금액)||0,
+             item:e.내역||'추가비용', vendor:who, cost:Number(e.금액)||0,
              st:payStateOf(e), due:e.pay_due||'', date:e.pay_date||e.날짜||'', tax:e.tax_status||'' };
   }));
   rows.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); }); // 최근 먼저
@@ -2473,13 +2481,19 @@ function settleDetail(id, r){
   var extraRows=costs.filter(function(c){return (Number(c.차수)||0)===r;}).map(function(x){
     if(SDEDIT[x.ID]) return '<div class="sd-editrow">' +
       '<input class="sd-narae" value="'+esc(x.내역||'')+'" placeholder="내역" onchange="editCost(\''+x.ID+'\',\'내역\',this.value)">' +
+      '<input class="sd-co" list="dl-vendors" value="'+esc(x.실행회사||'')+'" placeholder="받는 사람/외주사" onchange="editCost(\''+x.ID+'\',\'실행회사\',this.value)">' +
+      '<input type="date" class="sd-dt" value="'+esc(x.날짜||'')+'" title="날짜" onclick="try{this.showPicker()}catch(e){}" onchange="editCost(\''+x.ID+'\',\'날짜\',this.value)">' +
       '<input class="sd-amt" inputmode="numeric" value="'+(Number(x.금액)?Number(x.금액).toLocaleString('ko-KR'):'')+'" placeholder="금액" onchange="fmtNum(this);editCost(\''+x.ID+'\',\'금액\',this.value)">' +
       '<button class="sd-done" onclick="sdToggle(\''+x.ID+'\')">✓ 완료</button><button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">삭제</button></div>';
-    return '<div class="sd-readrow"><div class="grow">'+esc(x.내역||'(내역 없음)')+' — <b>'+won(x.금액)+'원</b></div>' +
+    return '<div class="sd-readrow"><div class="grow">'+esc(x.내역||'(내역 없음)')+
+        (x.실행회사?' <span class="sd-co-tag">→ '+esc(x.실행회사)+'</span>':' <span class="sd-co-tag warn">→ 받는 사람 미지정</span>')+
+        ' — <b>'+won(x.금액)+'원</b><small>'+esc(x.날짜||'')+'</small></div>' +
       '<button class="sd-edit" onclick="sdToggle(\''+x.ID+'\')">✏ 수정</button><button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">삭제</button></div>';
   }).join('');
   var payRows=pays.filter(function(p){return (Number(p.차수)||0)===r;}).map(function(p){
     if(SDEDIT[p.ID]) return '<div class="sd-editrow">' +
+      '<span class="sd-lb">입금일</span>' +
+      '<input type="date" class="sd-dt" value="'+esc(p.날짜||'')+'" title="입금일 — 눌러서 달력" onclick="try{this.showPicker()}catch(e){}" onchange="editPay(\''+p.ID+'\',\'날짜\',this.value)">' +
       '<input class="sd-amt" inputmode="numeric" value="'+(Number(p.금액)?Number(p.금액).toLocaleString('ko-KR'):'')+'" placeholder="입금액" onchange="fmtNum(this);editPay(\''+p.ID+'\',\'금액\',this.value)">' +
       '<input class="sd-memo" value="'+esc(p.메모||'')+'" placeholder="메모" onchange="editPay(\''+p.ID+'\',\'메모\',this.value)">' +
       '<button class="sd-done" onclick="sdToggle(\''+p.ID+'\')">✓ 완료</button><button class="del" onclick="del(\'입금\',\''+p.ID+'\')">삭제</button></div>';
@@ -2490,8 +2504,11 @@ function settleDetail(id, r){
     '<div class="sd-title">📋 '+esc(roundLabel(id,r))+' · 품목별 실행비</div>' +
     '<div class="ss-wrap"><table class="quote qtbl"><thead><tr><th>품목</th><th class="col-amt" title="부가세 포함 청구액">견적가 <span class="vat-i">VAT+</span></th><th>실행회사</th><th class="col-amt" title="부가세 포함 대행비">실행비 <span class="vat-i">VAT+</span></th><th class="col-amt">마진</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>' +
     '<div class="sd-sub">진행 중 추가비용 (이 견적)</div>'+extraRows +
-    '<div class="form-grid" style="grid-template-columns:1fr 140px"><input id="ec내역" placeholder="추가 실행비 내역"><input id="ec금액" inputmode="numeric" placeholder="금액" oninput="fmtNum(this)"></div>' +
+    '<div class="form-grid" style="grid-template-columns:1fr 190px 140px"><input id="ec내역" placeholder="추가 실행비 내역 (예: 교통비)">'+
+      '<input id="ec실행회사" list="dl-vendors" placeholder="받는 사람/외주사">'+
+      '<input id="ec금액" inputmode="numeric" placeholder="금액(VAT 포함)" oninput="fmtNum(this)"></div>' +
     '<button class="btn-ghost" onclick="addCostRound('+r+')">+ 이 견적에 실행비 추가</button>' +
+    '<div class="sd-hint">💡 여기 넣은 비용도 <b>줄 돈</b>이라 🏭 대행비 원장에 자동으로 올라가요 (받는 사람을 적어야 계좌가 연결돼요)</div>' +
     '<div class="sd-sub">입금 (이 견적)</div>'+payRows +
     '<div class="form-grid" style="grid-template-columns:1fr 1fr"><input id="ep금액" inputmode="numeric" placeholder="입금액" oninput="fmtNum(this)"><input id="ep메모" placeholder="메모"></div>' +
     '<button class="btn-ghost" onclick="addPayRound('+r+')">+ 이 견적에 입금 추가</button></div>';
@@ -2509,10 +2526,13 @@ function quickPay(id, r, val){
   DB.입금.push(tmp); rerender();
   bg(gs('addPayment',{광고주ID:id,금액:amt,차수:r}).then(function(res){ var row=(DB.입금||[]).filter(function(p){return p.ID===tmp.ID;})[0]; if(row&&res&&res.ID){ row.ID=res.ID; } }));
 }
-function addCostRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 내역=g('ec내역'), 금액=numVal(g('ec금액')); if(!금액) return toast('금액을 입력하세요');
-  var tmp={ID:'tmp'+Date.now(),광고주ID:CUR,내역:내역,금액:금액,차수:r,날짜:todayISO()};
-  DB.실행비.push(tmp); rerender(); // 즉시 반영
-  bg(gs('addCost',{광고주ID:CUR,내역:내역,금액:금액,차수:r}).then(function(res){ var row=(DB.실행비||[]).filter(function(c){return c.ID===tmp.ID;})[0]; if(row&&res&&res.ID){ row.ID=res.ID; } }));
+function addCostRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';};
+  var 내역=g('ec내역'), 실행회사=g('ec실행회사'), 금액=numVal(g('ec금액')); if(!금액) return toast('금액을 입력하세요');
+  var tmp={ID:'tmp'+Date.now(),광고주ID:CUR,내역:내역,실행회사:실행회사,금액:금액,차수:r,날짜:todayISO()};
+  DB.실행비.push(tmp); rerender(); // 즉시 반영 (대행비 원장에도 바로 올라감)
+  bg(gs('addCost',{광고주ID:CUR,내역:내역,실행회사:실행회사,금액:금액,차수:r}).then(function(res){ var row=(DB.실행비||[]).filter(function(c){return c.ID===tmp.ID;})[0]; if(row&&res&&res.ID){ row.ID=res.ID; } }));
+  ['ec내역','ec실행회사','ec금액'].forEach(function(x){ var e=document.getElementById(x); if(e) e.value=''; });
+  toast('✅ 추가비용 등록 — 대행비 원장에서 지급 처리하세요');
 }
 function addPayRound(r){ var g=function(x){var e=document.getElementById(x);return e?e.value:'';}; var 금액=numVal(g('ep금액')), 메모=g('ep메모'); if(!금액) return toast('금액을 입력하세요');
   var tmp={ID:'tmp'+Date.now(),광고주ID:CUR,금액:금액,메모:메모,차수:r,날짜:todayISO()};
