@@ -61,6 +61,23 @@
   .vm-box { margin:-3px 0 9px; padding:0 2px; }
   .vm-box textarea { width:100%; box-sizing:border-box; min-height:66px; border:1.5px solid #ffd8a8; background:#fff9f2; border-radius:12px; padding:11px; font-size:15px; font-family:inherit; resize:vertical; }
   .vm-box textarea:focus { outline:none; border-color:#e8590c; }
+  /* 서류(계약서 탭) */
+  .doc-email { margin-bottom:14px; }
+  .doc-email label { display:block; font-size:13px; font-weight:700; color:#555; margin-bottom:5px; }
+  .doc-email input { width:100%; box-sizing:border-box; border:1.5px solid #e5e5e5; border-radius:10px; padding:12px; font-size:15px; }
+  .doc-email input:focus { outline:none; border-color:#e8590c; }
+  .cdoc { border:1px solid #eee; border-radius:12px; padding:13px 14px; margin-bottom:10px; background:#fff; }
+  .cdoc-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+  .cdoc-label { font-weight:800; font-size:15px; }
+  .cdoc-badge { font-size:11.5px; font-weight:700; color:#999; background:#f1f3f5; border-radius:8px; padding:3px 9px; }
+  .cdoc-badge.ok { color:#2f9e44; background:#e6fcf0; }
+  .cdoc-file { font-size:13px; color:#666; background:#f8f8fa; border-radius:8px; padding:8px 11px; margin-bottom:8px; word-break:break-all; }
+  .cdoc-btns { display:flex; gap:8px; }
+  .cdoc-btn { flex:1; border:1.5px solid #e5e5e5; background:#fff; border-radius:10px; padding:11px; font-size:14px; font-weight:700; cursor:pointer; }
+  .cdoc-btn.del { color:#c92a2a; border-color:#ffc9c9; }
+  .cdoc-up { display:block; text-align:center; border:1.5px dashed #ffc999; background:#fff7f0; color:#e8590c; border-radius:12px; padding:15px; font-size:15px; font-weight:800; cursor:pointer; }
+  .cdoc-up:active { background:#ffeede; }
+  .doc-note { font-size:12px; color:#aaa; margin-top:12px; line-height:1.6; }
   .memo-box { width:100%; min-height:140px; border:1px solid #ddd; border-radius:10px; padding:12px; font-size:14px; font-family:inherit; resize:vertical; box-sizing:border-box; }
   .memo-box:focus { outline:none; border-color:#e8590c; }
   .tabbar .ic { display:block; font-size:19px; margin-bottom:2px; }
@@ -413,6 +430,58 @@ function saveVMemo(id, val){
   (data.콘텐츠||[]).forEach(function(s){ if(String(s.ID)===String(id)) s.visit_memo=val; });
   clearTimeout(window._vmT[id]); window._vmT[id]=setTimeout(function(){ if(CODE) sbRpc('client_save_visit_memo',{p_code:CODE, p_seed_id:id, p_memo:val}).catch(function(){}); }, 700);
 }
+
+// ── 서류(계약서 탭): 사업자등록증·영업신고증·통장사본 업로드 (관리자와 공유) ──
+var CDOC_BUCKET='docs';
+function cDocExt(name){ var m=/\.([a-zA-Z0-9]+)$/.exec(name||''); return m?m[1].toLowerCase():'dat'; }
+function cDocRow(label, field){
+  var path=(data&&data[field])||'', fname=path?path.split('/').pop():'';
+  return '<div class="cdoc">'+
+    '<div class="cdoc-top"><span class="cdoc-label">'+label+'</span>'+
+      (path?'<span class="cdoc-badge ok">✓ 첨부됨</span>':'<span class="cdoc-badge">미첨부</span>')+'</div>'+
+    (path
+      ? '<div class="cdoc-file">📎 '+esc(fname)+'</div><div class="cdoc-btns"><button class="cdoc-btn" onclick="cViewDoc(\''+esc(path)+'\')">👁 보기</button><button class="cdoc-btn del" onclick="cDelDoc(\''+field+'\',\''+esc(path)+'\')">🗑 삭제</button></div>'
+      : '<label class="cdoc-up">📎 파일 선택해서 올리기<input type="file" accept="image/*,application/pdf,.pdf" style="display:none" onchange="cUploadDoc(\''+field+'\',this)"></label>')+
+  '</div>';
+}
+function docTabHTML(){
+  return '<div class="sec"><h3>📄 서류 <span style="font-size:11px;color:#aaa;font-weight:400">· 세금계산서·인허가</span></h3>'+
+    '<div class="doc-email"><label>세금계산서 이메일</label><input type="email" value="'+esc((data&&data.tax_email)||'')+'" placeholder="tax@example.com" oninput="saveDocEmail(this.value)"></div>'+
+    cDocRow('사업자등록증','doc_bizreg')+
+    cDocRow('영업신고증','doc_bizpermit')+
+    cDocRow('통장 사본','doc_bankbook')+
+    '<div class="doc-note">📎 올리면 담당자(도반글로벌)도 함께 봐요. 이미지·PDF, 10MB 이하 · 안전하게 비공개 저장됩니다.</div>'+
+  '</div>';
+}
+function refreshDocTab(){ var e=document.getElementById('tab-doc'); if(e) e.innerHTML=docTabHTML(); }
+function saveDocEmail(v){ if(data) data.tax_email=v; clearTimeout(window._deT); window._deT=setTimeout(function(){ if(CODE) sbRpc('client_save_doc',{p_code:CODE,p_field:'tax_email',p_val:v}).catch(function(){}); },600); }
+function cUploadDoc(field, inp){
+  var f=inp.files&&inp.files[0]; if(!f) return;
+  if(f.size>10*1024*1024){ alert('10MB 이하 파일만 올려주세요'); inp.value=''; return; }
+  var path=(CODE||'x')+'/'+field+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+cDocExt(f.name);
+  var lbl=inp.parentNode; if(lbl){ lbl.textContent='⏳ 업로드 중…'; lbl.style.pointerEvents='none'; }
+  fetch(SB_URL+'/storage/v1/object/'+CDOC_BUCKET+'/'+encodeURI(path), {
+    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'x-upsert':'true'}, body:f
+  }).then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); })
+   .then(function(){ if(data) data[field]=path; return sbRpc('client_save_doc',{p_code:CODE,p_field:field,p_val:path}); })
+   .then(function(){ refreshDocTab(); })
+   .catch(function(e){ alert('업로드 실패: '+((e&&e.message)||e)); refreshDocTab(); });
+}
+function cViewDoc(path){
+  fetch(SB_URL+'/storage/v1/object/sign/'+CDOC_BUCKET+'/'+encodeURI(path), {
+    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}, body:JSON.stringify({expiresIn:3600})
+  }).then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); return r.json(); })
+   .then(function(d){ window.open(SB_URL+'/storage/v1'+d.signedURL,'_blank'); })
+   .catch(function(e){ alert('열기 실패: '+((e&&e.message)||e)); });
+}
+function cDelDoc(field, path){
+  if(!confirm('이 서류를 삭제할까요?')) return;
+  fetch(SB_URL+'/storage/v1/object/'+CDOC_BUCKET+'/'+encodeURI(path), {
+    method:'DELETE', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+  }).then(function(){ if(data) data[field]=''; return sbRpc('client_save_doc',{p_code:CODE,p_field:field,p_val:''}); })
+   .then(function(){ refreshDocTab(); })
+   .catch(function(e){ alert('삭제 실패: '+((e&&e.message)||e)); });
+}
 function renderApp() {
   var done = data.작업.filter(function(t){return t.상태==='완료';}).length;
   var total = data.작업.length;
@@ -433,7 +502,7 @@ function renderApp() {
       return '<div class="log"><span class="d">'+esc(l.날짜)+'</span><br>'+esc(l.내용)+'</div>';
     }).join('') || '<div class="none">아직 기록이 없습니다</div>') + '</div>';
 
-  var docTab = '<div class="sec"><h3>계약서</h3><div class="none">준비 중입니다.<br>계약서·전자서명이 곧 여기에 표시됩니다.</div></div>';
+  var docTab = docTabHTML();
 
   var infoTab = (function(){
     var infos=(data.정보||[]).slice().sort(function(a,b){return (Number(a.순서)||0)-(Number(b.순서)||0);});
