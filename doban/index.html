@@ -329,7 +329,8 @@
   table.qsheet-tbl tbody tr:hover { background:#fff8f2; }
   table.qsheet-tbl tr.vl-grp td { background:#f6f4f1; font-size:12.5px; padding:8px 10px; border-top:2px solid #eee; }
   table.qsheet-tbl tr.vl-grp:hover td { background:#f6f4f1; }
-  .pay-btn { border:none; border-radius:7px; padding:5px 11px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .pay-btn { border:none; border-radius:8px; padding:8px 14px; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .pay-btn:hover { filter:brightness(.95); }
   .pay-btn.unpaid { background:#ffe3e3; color:#c92a2a; }
   .pay-btn.paid { background:#e6fcf0; color:#237a3b; }
   .pay-btn.req { background:#fff4e0; color:#e8850a; }
@@ -349,7 +350,11 @@
   .pl-due .pl-head { border-left-color:#4263eb; } .pl-due .pl-emo { background:#edf2ff; } .pl-due .pl-cnt { background:#4263eb; }
   .pl-unpaid .pl-head { border-left-color:#adb5bd; } .pl-unpaid .pl-emo { background:#f1f3f5; } .pl-unpaid .pl-cnt { background:#868e96; }
   .pl-done .pl-head { border-left-color:#37b24d; } .pl-done .pl-emo { background:#e6fcf0; } .pl-done .pl-cnt { background:#37b24d; }
-  .pay-badge { font-size:11.5px; font-weight:800; border-radius:7px; padding:3px 8px; white-space:nowrap; }
+  .pay-badge { font-size:12.5px; font-weight:800; border-radius:8px; padding:7px 11px; white-space:nowrap; border:none; }
+  .pay-badge.clickable, .tax-badge.clickable { cursor:pointer; }
+  .pay-badge.clickable:hover, .tax-badge.clickable:hover { filter:brightness(.94); }
+  .undo-x { opacity:.45; font-size:11px; margin-left:2px; }
+  .pay-badge.clickable:hover .undo-x, .tax-badge.clickable:hover .undo-x { opacity:1; color:#c92a2a; }
   .pay-badge.req { background:#fff4e0; color:#e8850a; }
   .pay-badge.due { background:#edf2ff; color:#4263eb; }
   .pay-badge.done { background:#e6fcf0; color:#237a3b; }
@@ -358,9 +363,10 @@
   .due-in { border:1px solid #dbe4ff; border-radius:6px; padding:4px 6px; font-size:11.5px; width:120px; flex:0 0 auto; cursor:pointer; background:#fff; }
   /* 세금계산서 단계 */
   .tax-act { display:flex; justify-content:flex-end; gap:5px; margin-top:5px; }
-  .tax-btn { border:1px solid #d0bfff; background:#f3f0ff; color:#6741d9; border-radius:7px; padding:4px 9px; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .tax-btn { border:1px solid #d0bfff; background:#f3f0ff; color:#6741d9; border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .tax-btn:hover { filter:brightness(.96); }
   .tax-btn.ok { border-color:#b2f2bb; background:#e6fcf0; color:#237a3b; }
-  .tax-badge { font-size:11px; font-weight:800; border-radius:6px; padding:3px 8px; white-space:nowrap; background:#f3f0ff; color:#6741d9; }
+  .tax-badge { font-size:12px; font-weight:800; border-radius:8px; padding:7px 11px; white-space:nowrap; background:#f3f0ff; color:#6741d9; border:none; }
   .tax-badge.ok { background:#e6fcf0; color:#237a3b; }
   /* 진행 순서 안내 */
   .pay-guide { margin-top:12px; background:#fff; border:1px solid #eee; border-radius:11px; padding:12px 14px; font-size:12.5px; color:#666; line-height:1.9; }
@@ -406,6 +412,11 @@
   .vgrp.waiting { border-color:#ffd8a8; }
   .vgrp.waiting .vgrp-head { background:#fff7f0; }
   .vgrp.waiting .vgrp-cnt { background:#f59f00; }
+  .vgrp.todo { border-color:#ffc9c9; }
+  .vgrp.todo .vgrp-head { background:#fff5f5; }
+  .vgrp.todo .vgrp-cnt { background:#c92a2a; }
+  .vgrp.todo .vgrp-sub { color:#c07070; }
+  .vh-miss { font-size:11px; font-weight:800; background:#fff5f5; color:#c92a2a; border-radius:6px; padding:2px 8px; }
   .vh-ty.wait { background:#fff4e0; color:#e8850a; }
   .vadd-hint { flex-basis:100%; font-size:11.5px; color:#a06a2a; }
   .vadd-hint b { color:#e8590c; }
@@ -1219,9 +1230,10 @@ function undoTax(id,src){ setPay(id,{tax_status:''},src); }
 function taxBtns(r,acc){
   if(!taxNeeded(r.vendor)) return '';
   var t=r.tax||'';
-  if(t==='확인완료') return '<span class="tax-badge ok" title="회계과장이 계산서 확인 완료">🧾 계산서 확인됨</span>'+
-    (acc?' <button class="mini-btn" onclick="undoTax(\''+r.id+'\',\''+r.src+'\')">취소</button>':'');
-  if(t==='발행요청') return '<span class="tax-badge req">🧾 발행 요청함</span>'+
+  if(t==='확인완료') return (acc
+    ? '<button class="tax-badge ok clickable" title="다시 누르면 확인 취소" onclick="undoTax(\''+r.id+'\',\''+r.src+'\')">🧾 계산서 확인됨 <span class="undo-x">✕</span></button>'
+    : '<span class="tax-badge ok">🧾 계산서 확인됨</span>');
+  if(t==='발행요청') return '<button class="tax-badge req clickable" title="다시 누르면 발행요청 취소" onclick="undoTax(\''+r.id+'\',\''+r.src+'\')">🧾 발행 요청함 <span class="undo-x">✕</span></button>'+
     (acc?' <button class="tax-btn ok" title="계산서 받으셨으면 눌러주세요" onclick="okTax(\''+r.id+'\',\''+r.src+'\')">✓ 계산서 확인</button>':'');
   return '<button class="tax-btn" title="외주사에게 세금계산서 끊어달라고 요청" onclick="reqTax(\''+r.id+'\',\''+r.src+'\')">🧾 계산서 요청</button>';
 }
@@ -1303,12 +1315,13 @@ function renderVendorLedger(cs){
       ' onclick="try{this.showPicker()}catch(e){}" onfocus="try{this.showPicker()}catch(e){}"'+
       ' onchange="setPayDue(\''+r.id+'\',this.value,\''+s+'\')"></span>'; };
     var doneBtn=function(lb){ return '<button class="pay-btn paid" title="실제로 송금하신 뒤 눌러주세요" onclick="donePay(\''+r.id+'\',\''+s+'\')">'+lb+'</button>'; };
-    if(r.st==='done') return '<span class="pay-badge done">✓ 지급완료 '+esc(r.date||'')+'</span>'+
-      (acc?' <button class="mini-btn" onclick="undoPay(\''+r.id+'\',\''+s+'\')">취소</button>':'');
+    if(r.st==='done') return (acc
+      ? '<button class="pay-badge done clickable" title="다시 누르면 지급완료가 취소돼요" onclick="undoPay(\''+r.id+'\',\''+s+'\')">✓ 지급완료 '+esc(r.date||'')+' <span class="undo-x">✕</span></button>'
+      : '<span class="pay-badge done">✓ 지급완료 '+esc(r.date||'')+'</span>');
     if(r.st==='due') return (acc
-      ? dateIn()+' '+doneBtn('✓ 지급완료')
+      ? '<button class="pay-badge due clickable" title="다시 누르면 예정 취소(요청 상태로)" onclick="setPayDue(\''+r.id+'\',\'\',\''+s+'\')">📅 예정 <span class="undo-x">✕</span></button> '+dateIn()+' '+doneBtn('✓ 지급완료')
       : '<span class="pay-badge due">📅 '+esc(r.due||'')+' 지급예정</span>');
-    if(r.st==='req') return '<span class="pay-badge req">🙋 요청됨</span>'+
+    if(r.st==='req') return '<button class="pay-badge req clickable" title="다시 누르면 지급요청이 취소돼요" onclick="undoPay(\''+r.id+'\',\''+s+'\')">🙋 요청됨 <span class="undo-x">✕</span></button>'+
       (acc?' '+dateIn()+' '+doneBtn('✓ 지급완료'):'');
     return '<button class="pay-btn req" onclick="reqPay(\''+r.id+'\',\''+s+'\')">🙋 지급요청</button>'+
       (acc?' '+doneBtn('✓ 지급완료'):'');
@@ -1380,8 +1393,20 @@ function exportVendorLedger(){
 var V_TYPES=['세금계산서','프리랜서','현금영수증'];
 var VOPEN={}; // 등록부 카드 토글
 function toggleVend(id){ VOPEN[id]=!VOPEN[id]; render(); }
-var VG_OPEN={}; // 등록부 유형별 그룹 토글 (기본 접힘)
+var VG_OPEN={}; // 등록부 그룹 토글 (기본 접힘)
 function toggleVGroup(k){ VG_OPEN[k]=!VG_OPEN[k]; render(); }
+// 뭐가 빠졌는지 — 계좌·번호·서류 (유형별로 필요 서류가 다름)
+function vendorMissing(v){
+  var free=(v.vtype==='프리랜서'), m=[];
+  if(!String(v.account||'').trim()) m.push('계좌번호');
+  if(!String(v.holder||'').trim()) m.push('예금주');
+  if(!String((free?v.resident_no:v.biz_no)||'').trim()) m.push(free?'주민번호':'사업자번호');
+  if(!free && !v.doc_bizreg) m.push('사업자등록증');
+  if(!v.doc_bankbook) m.push('통장사본');
+  if(free && !v.doc_id) m.push('신분증');
+  return m;
+}
+function vendorDone(v){ return !!v.vtype && vendorMissing(v).length===0; }
 function renderVendorView(){
   var vs=(DB.vendors||[]).slice().sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
   var vf=function(v, field, ph, w){ return '<input value="'+esc(v[field]||'')+'" placeholder="'+ph+'" onchange="setVendorField(\''+v.ID+'\',\''+field+'\',this.value)" style="width:'+(w||120)+'px">'; };
@@ -1401,7 +1426,9 @@ function renderVendorView(){
         '<span class="vh-name">'+esc(v.name||'(이름 없음)')+'</span>'+
         '<span class="vh-ty'+(free?' free':'')+(v.vtype?'':' wait')+'">'+esc(v.vtype||'⏳ 입력 대기')+'</span>'+
         '<span class="vh-acct">'+(v.account?esc(v.bank||'')+' '+esc(v.account):'<span class="warn">계좌 미등록</span>')+'</span>'+
-        '<span class="vh-doc'+(dt>0&&dn===dt?' ok':'')+'">서류 '+dn+'/'+dt+'</span></div>'+
+        (function(){ var ms=vendorMissing(v);
+          return v.vtype && ms.length ? '<span class="vh-miss" title="이것들을 채워달라고 요청하세요">⚠ '+esc(ms.join(', '))+' 없음</span>'
+               : '<span class="vh-doc'+(dt>0&&dn===dt?' ok':'')+'">서류 '+dn+'/'+dt+'</span>'; })()+'</div>'+
       (open ? '<div class="vend-body">'+
         '<div class="vend-top">'+
           '<input class="vend-name" value="'+esc(v.name||'')+'" placeholder="이름/닉네임" onchange="setVendorField(\''+v.ID+'\',\'name\',this.value)">'+
@@ -1424,14 +1451,15 @@ function renderVendorView(){
       '</div>' : '')+
     '</div>';
   };
-  // 그룹 토글: 본인이 아직 입력 안 한 사람은 '⏳ 입력 전'에 모임 → 입력하면 유형별로 자동 이동
-  var gr={}; vs.forEach(function(v){ var k=v.vtype||'입력 전'; (gr[k]=gr[k]||[]).push(v); });
-  var order=['입력 전','세금계산서','프리랜서','현금영수증'].filter(function(k){ return gr[k]; });
-  var META={'입력 전':{e:'⏳',s:'링크 보내고 기다리는 중'},'세금계산서':{e:'🧾',s:'입력 완료'},'프리랜서':{e:'🪪',s:'입력 완료'},'현금영수증':{e:'🧾',s:'입력 완료'}};
+  // 그룹: ⏳입력 전(시작 안 함) → ⚠미작성(유형만 고르고 계좌·서류 빠짐) → 유형별(완비)
+  var gr={}; vs.forEach(function(v){ var k = !v.vtype ? '입력 전' : (vendorDone(v) ? v.vtype : '미작성'); (gr[k]=gr[k]||[]).push(v); });
+  var order=['입력 전','미작성','세금계산서','프리랜서','현금영수증'].filter(function(k){ return gr[k]; });
+  var META={'입력 전':{e:'⏳',s:'링크 보내고 기다리는 중'},'미작성':{e:'⚠️',s:'계좌·서류가 빠졌어요 — 채워달라고 하세요'},
+            '세금계산서':{e:'🧾',s:'입력 완료'},'프리랜서':{e:'🪪',s:'입력 완료'},'현금영수증':{e:'🧾',s:'입력 완료'}};
   var cards = vs.length ? order.map(function(k){
     var open=!!VG_OPEN[k], list=gr[k], m=META[k]||{e:'',s:''};
     var noAcct=list.filter(function(v){return !v.account;}).length;
-    return '<div class="vgrp'+(k==='입력 전'?' waiting':'')+'">'+
+    return '<div class="vgrp'+(k==='입력 전'?' waiting':(k==='미작성'?' todo':''))+'">'+
       '<div class="vgrp-head" onclick="toggleVGroup(\''+k+'\')">'+
         '<span class="vg-arw">'+(open?'▾':'▸')+'</span>'+
         '<span class="vgrp-ti">'+m.e+' '+esc(k)+'</span>'+
