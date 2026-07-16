@@ -22,6 +22,14 @@
   .crange-bar { display:flex; gap:8px; }
   .crange { flex:1 1 0; border:1.5px solid #e9e9ec; background:#fff; color:#777; border-radius:14px; padding:13px 0; font-size:15px; font-weight:700; cursor:pointer; text-align:center; transition:.15s; }
   .crange.on { background:#e8590c; color:#fff; border-color:#e8590c; box-shadow:0 3px 10px rgba(232,89,12,.25); }
+  /* 오늘 방문 이벤트 배너 */
+  .today-ev { margin:16px 0 8px; padding:16px 18px; background:linear-gradient(135deg,#fff4e6,#ffe1bf); border:1.5px solid #ffc999; border-radius:16px; box-shadow:0 5px 16px rgba(232,89,12,.14); }
+  .tev-h { color:#d9480f; font-size:19px; font-weight:800; margin-bottom:10px; }
+  .tev-item { display:flex; align-items:center; gap:9px; font-size:17px; color:#7a3708; padding:8px 0; }
+  .tev-item + .tev-item { border-top:1px dashed #ffcfa0; }
+  .tev-nm { font-weight:800; color:#4d2405; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tev-tm { font-weight:800; color:#e8590c; font-size:18px; }
+  .tev-k { margin-left:auto; font-size:12px; font-weight:700; color:#b06a3a; background:#fff; border:1px solid #ffd8a8; border-radius:9px; padding:3px 9px; flex:0 0 auto; }
   /* 파이프라인 3단 토글 — 크게 */
   .pl-sec { border-radius:16px; margin-bottom:12px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.05); }
   .pl-head { display:flex; align-items:center; gap:12px; padding:16px 16px; cursor:pointer; user-select:none; border-left:5px solid #ccc; }
@@ -344,7 +352,6 @@ function todayTabHTML(){
   var schD=function(s){ var d=String((isB(s)?s.방문일정:s.촬영일정)||'').slice(0,10); return /^\d{4}-\d{2}-\d{2}/.test(d)?d:''; };
   var reviewed=function(s){ var p=s.진행여부; return p==='게시완료'||p==='완료'||!!(s.URL||s.인스타URL||s.완료); };
   var dateOK=function(d){ if(!from) return true; return d && d>=from && d<=to; };
-  var chips=CRANGE_OPTS.map(function(x){ return '<button class="crange'+(CRANGE===x[0]?' on':'')+'" onclick="setCRange(\''+x[0]+'\')">'+x[1]+'</button>'; }).join('');
   // 3단 분류: 후기완료 / 방문예정(날짜O) / 방문미확정(날짜X). 미확정은 기간과 무관하게 항상 표시(백로그)
   var sched=[], pend=[], done=[];
   (data.콘텐츠||[]).forEach(function(s){
@@ -383,7 +390,7 @@ function todayTabHTML(){
     section('sched','🚶','방문 예정','날짜·시간이 잡혔어요', sched)+
     section('pend','⏳','방문 조율 중','방문일 정하는 중이에요', pend)+
     section('done','✅','후기 완료','후기까지 올라왔어요', done);
-  return '<div class="today-head"><div class="crange-bar">'+chips+'</div></div>'+body;
+  return body;
 }
 function togglePL(k){ var open=!(PLOPEN[k]!==false); PLOPEN[k]=open; var b=document.getElementById('plbody_'+k); if(!b) return; b.style.display=open?'block':'none'; var hd=b.parentNode.querySelector('.pl-head'); if(hd){ hd.classList.toggle('open',open); var a=hd.querySelector('.pl-arw'); if(a) a.textContent=open?'▾':'▸'; } }
 function saveMemo(val){
@@ -441,9 +448,11 @@ function renderApp() {
   var _ct=(function(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);})();
   var _todayList=(data.콘텐츠||[]).filter(function(s){ var blog=(s.종류==='블로그'||s.종류==='체험단'); var d=String((blog?s.방문일정:s.촬영일정)||'').slice(0,10); return d===_ct; });
   var todayBanner=_todayList.length
-    ? '<div style="margin:14px 0 4px;padding:13px 16px;background:linear-gradient(135deg,#fff4e6,#ffe8cc);border:1px solid #ffd8a8;border-radius:12px;color:#d9480f;font-size:14px;line-height:1.7">'+
-      '📅 <b>오늘 방문·촬영 예정!</b><br>'+
-      _todayList.map(function(s){ var blog=(s.종류==='블로그'||s.종류==='체험단'); var tm=blog?s.방문시간:s.촬영시간; return '· <b>'+esc(s.계정명||'담당자')+'</b>'+(tm?' '+esc(tm):'')+(blog?' 방문':' 촬영'); }).join('<br>')+'</div>'
+    ? '<div class="today-ev"><div class="tev-h">🔥 오늘 방문·촬영 예정!</div>'+
+      _todayList.map(function(s){ var blog=(s.종류==='블로그'||s.종류==='체험단'); var tm=blog?s.방문시간:s.촬영시간;
+        return '<div class="tev-item"><span class="td-role '+(blog?'r-blog':'r-insta')+'">'+(blog?'블로거':'인스타')+'</span>'+
+          '<b class="tev-nm">'+esc(s.계정명||'담당자')+'</b>'+(tm?'<span class="tev-tm">'+esc(tm)+'</span>':'')+
+          '<span class="tev-k">'+(blog?'방문':'촬영')+'</span></div>'; }).join('')+'</div>'
     : '';
   app.innerHTML =
     '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>'+esc(data.매장명)+'</h1>' +
