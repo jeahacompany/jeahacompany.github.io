@@ -18,37 +18,40 @@
             border-top:1px solid #eee; display:flex; z-index:20; box-shadow:0 -2px 10px rgba(0,0,0,.04); }
   .tabbar button { flex:1; border:none; background:none; padding:9px 0 11px; font-size:11px; color:#999; cursor:pointer; }
   .tabbar button.on { color:#e8590c; font-weight:700; }
-  .crange-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
-  .crange { flex:0 0 auto; border:1px solid #e5e5e5; background:#fff; color:#666; border-radius:16px; padding:6px 15px; font-size:13px; font-weight:600; cursor:pointer; }
-  .crange.on { background:#e8590c; color:#fff; border-color:#e8590c; }
-  .td-date { font-size:13px; font-weight:800; color:#555; margin:14px 0 6px; }
-  .td-date.today { color:#e8590c; }
-  .td-item { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #f0f0f0; border-radius:10px; padding:10px 12px; margin-bottom:6px; font-size:14px; cursor:pointer; }
+  .today-head { margin-bottom:14px; }
+  .crange-bar { display:flex; gap:8px; }
+  .crange { flex:1 1 0; border:1.5px solid #e9e9ec; background:#fff; color:#777; border-radius:14px; padding:13px 0; font-size:15px; font-weight:700; cursor:pointer; text-align:center; transition:.15s; }
+  .crange.on { background:#e8590c; color:#fff; border-color:#e8590c; box-shadow:0 3px 10px rgba(232,89,12,.25); }
+  /* 파이프라인 3단 토글 — 크게 */
+  .pl-sec { border-radius:16px; margin-bottom:12px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.05); }
+  .pl-head { display:flex; align-items:center; gap:12px; padding:16px 16px; cursor:pointer; user-select:none; border-left:5px solid #ccc; }
+  .pl-head:active { filter:brightness(.97); }
+  .pl-emo { font-size:24px; width:44px; height:44px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#f3f3f5; }
+  .pl-txt { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 auto; }
+  .pl-ti { font-weight:800; font-size:17px; color:#2b2b2b; line-height:1.2; }
+  .pl-sub { color:#a3a3a8; font-size:12px; }
+  .pl-cnt { flex:0 0 auto; color:#fff; border-radius:20px; font-size:15px; font-weight:800; padding:4px 12px; min-width:30px; text-align:center; }
+  .pl-arw { flex:0 0 auto; color:#c2c2c8; font-size:18px; width:16px; text-align:center; }
+  .pl-body { padding:6px 12px 12px; }
+  /* 섹션별 색 */
+  .pl-sched .pl-head { border-left-color:#f59f00; } .pl-sched .pl-emo { background:#fff4e0; } .pl-sched .pl-cnt { background:#f59f00; }
+  .pl-pend .pl-head  { border-left-color:#adb5bd; } .pl-pend .pl-emo  { background:#f1f3f5; } .pl-pend .pl-cnt  { background:#868e96; }
+  .pl-done .pl-head  { border-left-color:#37b24d; } .pl-done .pl-emo  { background:#e6fcf0; } .pl-done .pl-cnt  { background:#37b24d; }
+  /* 사람 항목 */
+  .td-item { display:flex; align-items:center; gap:9px; background:#fff; border:1px solid #eeeef0; border-radius:12px; padding:13px 12px; margin-bottom:8px; font-size:15px; cursor:pointer; }
   .td-item:active { background:#fafafa; }
-  .vm-dot { margin-left:2px; }
-  .vm-arw { margin-left:auto; color:#bbb; font-size:20px; line-height:1; }
-  .vm-box { margin:-2px 0 8px; padding:0 2px; }
-  .vm-box textarea { width:100%; box-sizing:border-box; min-height:60px; border:1px solid #ffd8a8; background:#fff9f2; border-radius:10px; padding:10px; font-size:14px; font-family:inherit; resize:vertical; }
-  .vm-box textarea:focus { outline:none; border-color:#e8590c; }
-  .td-ic { font-size:16px; }
-  .td-tm { color:#e8590c; font-weight:700; margin-left:2px; }
-  .td-kind { margin-left:auto; font-size:11px; color:#999; background:#f5f5f7; border-radius:8px; padding:3px 8px; }
-  /* 파이프라인 3단 토글 */
-  .pl-sec { border:1px solid #eee; border-radius:12px; margin-bottom:10px; overflow:hidden; background:#fff; }
-  .pl-head { display:flex; align-items:center; gap:8px; padding:12px 14px; cursor:pointer; background:#fafafa; user-select:none; }
-  .pl-head.open { background:#fff; border-bottom:1px solid #f2f2f2; }
-  .pl-head:active { background:#f3f3f3; }
-  .pl-arw { color:#e8590c; font-size:12px; width:12px; flex:0 0 auto; }
-  .pl-ti { font-weight:800; font-size:15px; }
-  .pl-cnt { background:#e8590c; color:#fff; border-radius:10px; font-size:12px; font-weight:700; padding:1px 8px; min-width:12px; text-align:center; }
-  .pl-sub { margin-left:auto; color:#b0b0b0; font-size:11px; }
-  .pl-body { padding:8px 10px; }
-  .td-role { flex:0 0 auto; font-size:11px; font-weight:700; border-radius:6px; padding:2px 7px; }
+  .td-ic { font-size:19px; flex:0 0 auto; }
+  .td-role { flex:0 0 auto; font-size:11px; font-weight:800; border-radius:7px; padding:3px 8px; }
   .r-blog { background:#e7f5ff; color:#1971c2; }
   .r-insta { background:#fff0f6; color:#c2255c; }
-  .td-nm { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .td-day { color:#888; font-size:12px; margin-left:2px; flex:0 0 auto; }
-  .td-link { font-size:12px; color:#1971c2; text-decoration:none; margin-left:4px; flex:0 0 auto; }
+  .td-nm { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  .td-day { color:#868e96; font-size:12.5px; margin-left:2px; flex:0 0 auto; }
+  .td-link { font-size:12.5px; color:#1971c2; text-decoration:none; margin-left:4px; flex:0 0 auto; font-weight:600; }
+  .vm-dot { margin-left:2px; flex:0 0 auto; }
+  .vm-arw { margin-left:auto; color:#ccc; font-size:22px; line-height:1; flex:0 0 auto; }
+  .vm-box { margin:-3px 0 9px; padding:0 2px; }
+  .vm-box textarea { width:100%; box-sizing:border-box; min-height:66px; border:1.5px solid #ffd8a8; background:#fff9f2; border-radius:12px; padding:11px; font-size:15px; font-family:inherit; resize:vertical; }
+  .vm-box textarea:focus { outline:none; border-color:#e8590c; }
   .memo-box { width:100%; min-height:140px; border:1px solid #ddd; border-radius:10px; padding:12px; font-size:14px; font-family:inherit; resize:vertical; box-sizing:border-box; }
   .memo-box:focus { outline:none; border-color:#e8590c; }
   .tabbar .ic { display:block; font-size:19px; margin-bottom:2px; }
@@ -328,7 +331,7 @@ function clientLogout(){ localStorage.removeItem('doban_client_login'); localSto
 
 // ─── 오늘 탭 (일정 기간선택 + 메모) ───
 var CRANGE='all';
-var CRANGE_OPTS=[['all','전체',0,0],['today','오늘',0,0],['yesterday','어제',-1,-1],['tomorrow','내일',1,1],['pweek','지난 일주일',-6,0],['p2week','지난 14일',-13,0],['pmonth','지난 한달',-29,0]];
+var CRANGE_OPTS=[['all','전체',0,0],['today','오늘',0,0]];
 var PLOPEN={sched:true,pend:true,done:false}; // 파이프라인 섹션 펼침상태
 function cIso(n){ var d=new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
 function cDow(iso){ var d=new Date(iso+'T00:00:00'); return isNaN(d)?'':['일','월','화','수','목','금','토'][d.getDay()]; }
@@ -366,24 +369,21 @@ function todayTabHTML(){
       '<div class="vm-box" id="vm_'+id+'" style="display:'+(vm?'block':'none')+'"><textarea placeholder="이 방문 메모 (관리자와 공유돼요)" oninput="saveVMemo(\''+id+'\',this.value)">'+esc(vm)+'</textarea></div>';
   };
   var section=function(key, emoji, title, sub, arr){
-    var open=PLOPEN[key]!==false;
+    var open=arr.length>0 && PLOPEN[key]!==false;
     var inner = arr.length ? arr.map(item).join('') : '<div class="none" style="padding:12px 8px">해당하는 분이 없어요</div>';
-    return '<div class="pl-sec">'+
+    return '<div class="pl-sec pl-'+key+'">'+
       '<div class="pl-head'+(open?' open':'')+'" onclick="togglePL(\''+key+'\')">'+
-        '<span class="pl-arw">'+(open?'▾':'▸')+'</span>'+
-        '<span class="pl-ti">'+emoji+' '+title+'</span>'+
+        '<span class="pl-emo">'+emoji+'</span>'+
+        '<span class="pl-txt"><span class="pl-ti">'+title+'</span><span class="pl-sub">'+sub+'</span></span>'+
         '<span class="pl-cnt">'+arr.length+'</span>'+
-        '<span class="pl-sub">'+sub+'</span></div>'+
+        '<span class="pl-arw">'+(open?'▾':'▸')+'</span></div>'+
       '<div class="pl-body" id="plbody_'+key+'" style="display:'+(open?'block':'none')+'">'+inner+'</div></div>';
   };
   var body =
     section('sched','🚶','방문 예정','날짜·시간이 잡혔어요', sched)+
-    section('pend','⏳','방문 조율 중','아직 방문일이 안 정해졌어요', pend)+
+    section('pend','⏳','방문 조율 중','방문일 정하는 중이에요', pend)+
     section('done','✅','후기 완료','후기까지 올라왔어요', done);
-  var memoVal = (data.메모!=null && data.메모!=='') ? data.메모 : (localStorage.getItem('doban_memo_'+(CODE||''))||'');
-  return '<div class="sec"><h3>📅 오늘 현황</h3><div class="crange-bar">'+chips+'</div>'+body+'</div>'+
-    '<div class="sec"><h3>📝 메모 <span style="font-size:11px;color:#aaa;font-weight:400">· 자동 저장</span></h3>'+
-    '<textarea class="memo-box" placeholder="메모를 자유롭게 적으세요. 자동으로 저장됩니다." oninput="saveMemo(this.value)">'+esc(memoVal)+'</textarea></div>';
+  return '<div class="today-head"><div class="crange-bar">'+chips+'</div></div>'+body;
 }
 function togglePL(k){ var open=!(PLOPEN[k]!==false); PLOPEN[k]=open; var b=document.getElementById('plbody_'+k); if(!b) return; b.style.display=open?'block':'none'; var hd=b.parentNode.querySelector('.pl-head'); if(hd){ hd.classList.toggle('open',open); var a=hd.querySelector('.pl-arw'); if(a) a.textContent=open?'▾':'▸'; } }
 function saveMemo(val){
