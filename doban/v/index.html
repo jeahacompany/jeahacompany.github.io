@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>도반글로벌 · 대행비 지급 정보</title>
+<meta name="theme-color" content="#e8590c">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif; }
+  body { background:#f4f6f9; color:#222; padding-bottom:50px; }
+  .wrap { max-width:520px; margin:0 auto; padding:22px 16px 30px; }
+  .head { text-align:center; padding:14px 0 18px; }
+  .head .co { color:#e8590c; font-weight:800; font-size:12px; letter-spacing:2px; }
+  .head h1 { font-size:22px; margin-top:8px; letter-spacing:-.02em; }
+  .head .sub { color:#888; font-size:13.5px; margin-top:7px; line-height:1.6; }
+  .hi { background:linear-gradient(135deg,#fff4e6,#ffe1bf); border:1.5px solid #ffc999; border-radius:14px; padding:15px 16px; margin-bottom:16px; }
+  .hi b { color:#d9480f; font-size:16px; }
+  .hi p { color:#7a3708; font-size:13.5px; margin-top:5px; line-height:1.6; }
+  .sec { background:#fff; border-radius:14px; padding:16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .sec h3 { font-size:14px; color:#e8590c; margin-bottom:11px; }
+  label.fl { display:block; font-size:13px; font-weight:700; color:#555; margin:12px 0 5px; }
+  label.fl:first-of-type { margin-top:0; }
+  input.f { width:100%; border:1.5px solid #e5e5e5; border-radius:10px; padding:12px; font-size:15px; }
+  input.f:focus { outline:none; border-color:#e8590c; }
+  .row2 { display:flex; gap:8px; }
+  .row2 > div { flex:1; }
+  .types { display:flex; gap:7px; }
+  .ty { flex:1; text-align:center; border:1.5px solid #e9e9ec; background:#fff; color:#777; border-radius:11px; padding:11px 4px; font-size:13.5px; font-weight:700; cursor:pointer; }
+  .ty.on { background:#e8590c; color:#fff; border-color:#e8590c; }
+  .doc { border:1px solid #eee; border-radius:12px; padding:12px; margin-bottom:9px; }
+  .doc-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .doc-name { font-weight:800; font-size:14.5px; }
+  .badge { font-size:11px; font-weight:700; color:#999; background:#f1f3f5; border-radius:8px; padding:3px 8px; }
+  .badge.ok { color:#2f9e44; background:#e6fcf0; }
+  .up { display:block; text-align:center; border:1.5px dashed #ffc999; background:#fff7f0; color:#e8590c; border-radius:11px; padding:13px; font-size:14.5px; font-weight:800; cursor:pointer; }
+  .up:active { background:#ffeede; }
+  .fbtns { display:flex; gap:7px; }
+  .fbtn { flex:1; border:1.5px solid #e5e5e5; background:#fff; border-radius:10px; padding:10px; font-size:13.5px; font-weight:700; cursor:pointer; }
+  .fbtn.del { color:#c92a2a; border-color:#ffc9c9; }
+  .note { font-size:12px; color:#aaa; margin-top:10px; line-height:1.6; }
+  .chk { background:#fff; border-radius:14px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .chk h3 { font-size:14px; color:#e8590c; margin-bottom:10px; }
+  .ci { display:flex; align-items:center; gap:8px; font-size:14px; padding:5px 0; }
+  .ci .ic { width:20px; }
+  .ci.done { color:#2f9e44; font-weight:700; }
+  .ci.miss { color:#868e96; }
+  .done-msg { margin-top:12px; background:#e6fcf0; border:1px solid #b2f2bb; color:#2b8a3e; border-radius:11px; padding:12px; font-size:14px; font-weight:700; text-align:center; }
+  .saved { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; background:#2b8a3e; color:#fff; font-size:13.5px; font-weight:700; padding:9px 18px; border-radius:20px; opacity:0; transition:.25s; z-index:9; }
+  .saved.on { opacity:1; }
+  footer { text-align:center; color:#bbb; font-size:11.5px; margin-top:20px; line-height:1.7; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="saved" id="saved">✓ 저장됨</div>
+<script>
+var SB_URL='https://bgkdkfmdndhqgfdygmfm.supabase.co';
+var SB_KEY='sb_publishable_KxsYIOy5d4i7TR5PVBExLg_8UvNz6v9';
+var BUCKET='docs';
+var CODE=(new URLSearchParams(location.search)).get('c')||'';
+var D=null;
+function sbRpc(fn,args){
+  return fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify(args||{})}).then(function(r){ return r.json(); });
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function toast(){ var e=document.getElementById('saved'); e.classList.add('on'); clearTimeout(window._t); window._t=setTimeout(function(){e.classList.remove('on');},1200); }
+function ext(n){ var m=/\.([a-zA-Z0-9]+)$/.exec(n||''); return m?m[1].toLowerCase():'dat'; }
+
+function save(field, val){
+  if(D) D[field]=val;
+  sbRpc('vendor_save',{p_code:CODE,p_field:field,p_val:val}).then(function(d){ if(d&&d.ok!==false) toast(); });
+}
+function saveDebounced(field, val){
+  if(D) D[field]=val;
+  clearTimeout(window['_d_'+field]);
+  window['_d_'+field]=setTimeout(function(){ save(field,val); },600);
+}
+function setType(t){ save('vtype',t); render(); }
+function upload(field, inp){
+  var f=inp.files&&inp.files[0]; if(!f) return;
+  if(f.size>10*1024*1024){ alert('10MB 이하 파일만 올려주세요'); inp.value=''; return; }
+  var path='vendors/'+CODE+'/'+field+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext(f.name);
+  var lbl=inp.parentNode; if(lbl){ lbl.textContent='⏳ 올리는 중…'; lbl.style.pointerEvents='none'; }
+  fetch(SB_URL+'/storage/v1/object/'+BUCKET+'/'+encodeURI(path),{method:'POST',
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'x-upsert':'true'},body:f})
+   .then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); })
+   .then(function(){ D[field]=path; return sbRpc('vendor_save',{p_code:CODE,p_field:field,p_val:path}); })
+   .then(function(){ toast(); render(); })
+   .catch(function(e){ alert('업로드 실패: '+((e&&e.message)||e)); render(); });
+}
+function viewDoc(path){
+  fetch(SB_URL+'/storage/v1/object/sign/'+BUCKET+'/'+encodeURI(path),{method:'POST',
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({expiresIn:3600})})
+   .then(function(r){ return r.json(); })
+   .then(function(d){ if(d.signedURL) window.open(SB_URL+'/storage/v1'+d.signedURL,'_blank'); else alert('열기 실패'); })
+   .catch(function(){ alert('열기 실패'); });
+}
+function delDoc(field, path){
+  if(!confirm('이 파일을 지우고 다시 올릴까요?')) return;
+  fetch(SB_URL+'/storage/v1/object/'+BUCKET+'/'+encodeURI(path),{method:'DELETE',
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}})
+   .then(function(){ D[field]=''; return sbRpc('vendor_save',{p_code:CODE,p_field:field,p_val:''}); })
+   .then(function(){ render(); });
+}
+function docBox(field, name, hint){
+  var p=D[field]||'';
+  return '<div class="doc"><div class="doc-top"><span class="doc-name">'+esc(name)+'</span>'+
+    (p?'<span class="badge ok">✓ 완료</span>':'<span class="badge">필요</span>')+'</div>'+
+    (p ? '<div class="fbtns"><button class="fbtn" onclick="viewDoc(\''+esc(p)+'\')">👁 확인</button>'+
+         '<button class="fbtn del" onclick="delDoc(\''+field+'\',\''+esc(p)+'\')">🗑 다시 올리기</button></div>'
+       : '<label class="up">📎 사진·파일 올리기<input type="file" accept="image/*,application/pdf,.pdf" style="display:none" onchange="upload(\''+field+'\',this)"></label>'+
+         (hint?'<div class="note">'+esc(hint)+'</div>':''))+
+  '</div>';
+}
+function render(){
+  var free=(D.vtype==='프리랜서'), typed=!!D.vtype;
+  var numField = free ? 'resident_no' : 'biz_no';
+  var numLabel = free ? '주민등록번호' : '사업자등록번호';
+  var numPh    = free ? '앞 6자리-뒤 7자리' : '000-00-00000';
+  var docs = !typed ? '<div class="note">먼저 위에서 <b>유형</b>을 선택해주세요.</div>'
+    : (free
+      ? docBox('doc_bankbook','통장 사본','본인 명의 계좌 통장 사진')+docBox('doc_id','신분증','주민등록증·운전면허증 (앞면)')
+      : docBox('doc_bizreg','사업자등록증','')+docBox('doc_bankbook','통장 사본','사업자 계좌 통장 사진'));
+
+  // 체크리스트
+  var need=[['유형 선택', typed],[numLabel, !!(D[numField]||'').trim()],
+            ['은행·계좌번호', !!((D.bank||'').trim() && (D.account||'').trim())],['예금주', !!(D.holder||'').trim()]];
+  if(typed) need.push(free?['통장 사본',!!D.doc_bankbook]:['사업자등록증',!!D.doc_bizreg]);
+  if(typed) need.push(free?['신분증',!!D.doc_id]:['통장 사본',!!D.doc_bankbook]);
+  var allDone=need.every(function(n){return n[1];});
+
+  document.getElementById('app').innerHTML =
+    '<div class="head"><div class="co">DOBAN GLOBAL</div><h1>대행비 지급 정보</h1>'+
+      '<div class="sub">도반글로벌에서 <b>대행비를 입금</b>해 드리기 위해<br>아래 정보가 필요해요. 3분이면 끝나요 🙂</div></div>'+
+    '<div class="hi"><b>'+esc(D.name||'담당자')+'님, 안녕하세요!</b>'+
+      '<p>적어주신 계좌로 입금해 드립니다. 입력하시면 <b>자동 저장</b>되니 저장 버튼을 찾지 않으셔도 돼요.</p></div>'+
+
+    '<div class="sec"><h3>1. 어떤 형태로 받으시나요?</h3>'+
+      '<div class="types">'+['세금계산서','프리랜서','현금영수증'].map(function(t){
+        return '<div class="ty'+(D.vtype===t?' on':'')+'" onclick="setType(\''+t+'\')">'+t+'</div>'; }).join('')+'</div>'+
+      '<div class="note">사업자가 있으면 <b>세금계산서</b>, 없으면 <b>프리랜서</b>(3.3% 원천징수)를 골라주세요.</div></div>'+
+
+    (typed ? '<div class="sec"><h3>2. 기본 정보</h3>'+
+      '<label class="fl">'+numLabel+'</label>'+
+      '<input class="f" value="'+esc(D[numField]||'')+'" placeholder="'+numPh+'" oninput="saveDebounced(\''+numField+'\',this.value)">'+
+      '<div class="row2"><div><label class="fl">은행</label>'+
+        '<input class="f" value="'+esc(D.bank||'')+'" placeholder="예: 국민" oninput="saveDebounced(\'bank\',this.value)"></div>'+
+        '<div><label class="fl">예금주</label>'+
+        '<input class="f" value="'+esc(D.holder||'')+'" placeholder="실명" oninput="saveDebounced(\'holder\',this.value)"></div></div>'+
+      '<label class="fl">계좌번호</label>'+
+      '<input class="f" value="'+esc(D.account||'')+'" placeholder="- 없이 숫자만 넣어도 돼요" oninput="saveDebounced(\'account\',this.value)">'+
+    '</div>' : '')+
+
+    '<div class="sec"><h3>3. 서류 올리기</h3>'+docs+
+      '<div class="note">📎 휴대폰으로 찍은 사진도 괜찮아요. 안전하게 <b>비공개</b>로 보관되며 도반글로벌 담당자만 확인합니다.</div></div>'+
+
+    '<div class="chk"><h3>✅ 진행 상황</h3>'+
+      need.map(function(n){ return '<div class="ci '+(n[1]?'done':'miss')+'"><span class="ic">'+(n[1]?'✔':'○')+'</span>'+esc(n[0])+'</div>'; }).join('')+
+      (allDone?'<div class="done-msg">🎉 다 되었어요! 확인 후 입금해 드릴게요.</div>'
+             :'<div class="note">남은 항목만 채워주시면 됩니다.</div>')+
+    '</div>'+
+    '<footer>도반글로벌 유한회사 · 010-2944-1236<br>문의사항은 담당자에게 연락 주세요.</footer>';
+}
+function boot(){
+  if(!CODE){ document.getElementById('app').innerHTML='<div class="head"><h1>잘못된 링크</h1><div class="sub">담당자에게 링크를 다시 요청해 주세요.</div></div>'; return; }
+  document.getElementById('app').innerHTML='<div class="head"><div class="co">DOBAN GLOBAL</div><div class="sub" style="margin-top:24px">불러오는 중…</div></div>';
+  sbRpc('vendor_get',{p_code:CODE}).then(function(d){
+    if(!d || d.ok===false || !d.result){ document.getElementById('app').innerHTML='<div class="head"><h1>잘못된 링크</h1><div class="sub">담당자에게 링크를 다시 요청해 주세요.</div></div>'; return; }
+    D=d.result; render();
+  }).catch(function(){ document.getElementById('app').innerHTML='<div class="head"><h1>연결 실패</h1><div class="sub">잠시 후 다시 열어주세요.</div></div>'; });
+}
+boot();
+</script>
+</body>
+</html>
