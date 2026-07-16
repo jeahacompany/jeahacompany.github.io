@@ -38,6 +38,9 @@
   .fbtn { flex:1; border:1.5px solid #e5e5e5; background:#fff; border-radius:10px; padding:10px; font-size:13.5px; font-weight:700; cursor:pointer; }
   .fbtn.del { color:#c92a2a; border-color:#ffc9c9; }
   .note { font-size:12px; color:#aaa; margin-top:10px; line-height:1.6; }
+  .guide { background:#fff9db; border:1px solid #ffe066; border-radius:11px; padding:11px 13px; font-size:13.5px; color:#7a5c00; line-height:1.65; margin-bottom:12px; }
+  .guide b { color:#e8590c; }
+  .guide .g-sub { font-size:12.5px; color:#a08a3c; }
   .chk { background:#fff; border-radius:14px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
   .chk h3 { font-size:14px; color:#e8590c; margin-bottom:10px; }
   .ci { display:flex; align-items:center; gap:8px; font-size:14px; padding:5px 0; }
@@ -154,7 +157,10 @@ function render(){
       '<input class="f" value="'+esc(D.account||'')+'" placeholder="- 없이 숫자만 넣어도 돼요" oninput="saveDebounced(\'account\',this.value)">'+
     '</div>' : '')+
 
-    '<div class="sec"><h3>3. 서류 올리기</h3>'+docs+
+    '<div class="sec"><h3>3. 서류 올리기</h3>'+
+      '<div class="guide">🪪 <b>세금계산서 발행이 불가능한 프리랜서분만</b> 신분증 올려주시면 됩니다.<br>'+
+      '<span class="g-sub">사업자가 있으신 분은 사업자등록증 + 통장사본만 올려주세요.</span></div>'+
+      docs+
       '<div class="note">📎 휴대폰으로 찍은 사진도 괜찮아요. 안전하게 <b>비공개</b>로 보관되며 도반글로벌 담당자만 확인합니다.</div></div>'+
 
     '<div class="chk"><h3>✅ 진행 상황</h3>'+
