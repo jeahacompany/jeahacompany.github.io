@@ -1,0 +1,396 @@
+﻿<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#e8590c">
+<title>도반글로벌 · 직원 사용 설명서</title>
+<style>
+  :root{
+    --bg:#faf8f5; --surface:#ffffff; --surface2:#fbf7f2; --ink:#2a2320; --ink-soft:#6f635b;
+    --line:#ece5dd; --accent:#e8590c; --accent-ink:#c2410c; --accent-soft:#fff1e6; --accent-line:#ffd8a8;
+    --blog:#1971c2; --blog-bg:#e7f5ff; --insta:#c2255c; --insta-bg:#fff0f6;
+    --amber:#e8850a; --amber-bg:#fff4e0; --blue:#4263eb; --blue-bg:#edf2ff;
+    --gray:#7a828a; --gray-bg:#f1f3f5; --green:#2f9e44; --green-bg:#e6fcf0;
+    --shadow:0 1px 2px rgba(40,30,20,.04), 0 10px 30px rgba(40,30,20,.06);
+    --radius:16px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#17140f; --surface:#221d17; --surface2:#1c1813; --ink:#f3ece2; --ink-soft:#b0a498;
+      --line:#352d24; --accent:#ff7a3d; --accent-ink:#ff9059; --accent-soft:#2d1c11; --accent-line:#4c2d18;
+      --blog:#74c0fc; --blog-bg:#132539; --insta:#f783ac; --insta-bg:#341526;
+      --amber:#ffc078; --amber-bg:#33260f; --blue:#91a7ff; --blue-bg:#191f3c;
+      --gray:#adb5bd; --gray-bg:#262019; --green:#69db7c; --green-bg:#123020;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 34px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#faf8f5; --surface:#ffffff; --surface2:#fbf7f2; --ink:#2a2320; --ink-soft:#6f635b;
+    --line:#ece5dd; --accent:#e8590c; --accent-ink:#c2410c; --accent-soft:#fff1e6; --accent-line:#ffd8a8;
+    --blog:#1971c2; --blog-bg:#e7f5ff; --insta:#c2255c; --insta-bg:#fff0f6;
+    --amber:#e8850a; --amber-bg:#fff4e0; --blue:#4263eb; --blue-bg:#edf2ff;
+    --gray:#7a828a; --gray-bg:#f1f3f5; --green:#2f9e44; --green-bg:#e6fcf0;
+    --shadow:0 1px 2px rgba(40,30,20,.04), 0 10px 30px rgba(40,30,20,.06);
+  }
+  :root[data-theme="dark"]{
+    --bg:#17140f; --surface:#221d17; --surface2:#1c1813; --ink:#f3ece2; --ink-soft:#b0a498;
+    --line:#352d24; --accent:#ff7a3d; --accent-ink:#ff9059; --accent-soft:#2d1c11; --accent-line:#4c2d18;
+    --blog:#74c0fc; --blog-bg:#132539; --insta:#f783ac; --insta-bg:#341526;
+    --amber:#ffc078; --amber-bg:#33260f; --blue:#91a7ff; --blue-bg:#191f3c;
+    --gray:#adb5bd; --gray-bg:#262019; --green:#69db7c; --green-bg:#123020;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 34px rgba(0,0,0,.4);
+  }
+
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Segoe UI',system-ui,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased; }
+  .page{ max-width:780px; margin:0 auto; padding:0 20px 90px; }
+
+  /* ── 표지 ── */
+  header.cover{ padding:56px 0 30px; border-bottom:1px solid var(--line); }
+  .eyebrow{ font-size:12.5px; font-weight:800; letter-spacing:.18em; text-transform:uppercase; color:var(--accent); }
+  h1.title{ font-size:clamp(30px,6vw,44px); line-height:1.12; margin:14px 0 12px; font-weight:850; letter-spacing:-.02em; text-wrap:balance; }
+  .lead{ font-size:18px; color:var(--ink-soft); max-width:60ch; margin:0; }
+  .cover-meta{ display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
+  .tag{ font-size:12.5px; font-weight:700; color:var(--ink-soft); background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:5px 12px; }
+
+  /* ── 목차 (스티키) ── */
+  nav.toc{ position:sticky; top:0; z-index:10; margin:0 -20px; padding:11px 20px;
+    background:color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line); display:flex; gap:7px; overflow-x:auto; scrollbar-width:none; }
+  nav.toc::-webkit-scrollbar{ display:none; }
+  nav.toc a{ flex:0 0 auto; font-size:13px; font-weight:700; color:var(--ink-soft); text-decoration:none;
+    padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:var(--surface); white-space:nowrap; transition:.15s; }
+  nav.toc a:hover{ color:var(--accent); border-color:var(--accent-line); }
+
+  section{ padding-top:44px; scroll-margin-top:60px; }
+  .kicker{ display:flex; align-items:center; gap:11px; margin-bottom:10px; }
+  .num{ flex:0 0 auto; width:34px; height:34px; border-radius:10px; background:var(--accent); color:#fff;
+    font-weight:850; font-size:16px; display:grid; place-items:center; box-shadow:0 4px 12px rgba(232,89,12,.28); }
+  h2{ font-size:24px; font-weight:820; margin:0; letter-spacing:-.015em; text-wrap:balance; }
+  .sec-sub{ color:var(--ink-soft); margin:2px 0 0; font-size:15px; }
+
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:22px; margin-top:16px; box-shadow:var(--shadow); }
+  .card h3{ font-size:17px; font-weight:800; margin:0 0 6px; }
+  .card h3 .badge{ font-size:12px; font-weight:800; vertical-align:middle; margin-left:8px; padding:3px 9px; border-radius:999px; background:var(--accent-soft); color:var(--accent-ink); border:1px solid var(--accent-line); }
+  .card p{ margin:0 0 4px; color:var(--ink); }
+  .muted{ color:var(--ink-soft); }
+  .card + .card{ margin-top:12px; }
+
+  ol.steps{ counter-reset:s; list-style:none; margin:14px 0 2px; padding:0; }
+  ol.steps>li{ counter-increment:s; position:relative; padding:4px 0 14px 40px; }
+  ol.steps>li::before{ content:counter(s); position:absolute; left:0; top:2px; width:26px; height:26px;
+    background:var(--accent-soft); color:var(--accent-ink); border:1px solid var(--accent-line);
+    border-radius:50%; font-weight:800; font-size:13px; display:grid; place-items:center; }
+  ol.steps>li:not(:last-child)::after{ content:""; position:absolute; left:13px; top:30px; bottom:2px; width:2px; background:var(--line); }
+  ol.steps b{ font-weight:800; }
+
+  .tip{ display:flex; gap:11px; margin-top:14px; padding:14px 16px; border-radius:12px;
+    background:var(--accent-soft); border:1px solid var(--accent-line); }
+  .tip .ic{ flex:0 0 auto; font-size:18px; }
+  .tip b{ color:var(--accent-ink); }
+  .tip.warn{ background:var(--amber-bg); border-color:color-mix(in srgb,var(--amber) 45%, transparent); }
+  .tip.warn b{ color:var(--amber); }
+  .tip p{ margin:0; font-size:14.5px; }
+
+  /* ── 화면 미리보기(목업) ── */
+  .mock{ margin:16px 0 4px; border:1px solid var(--line); border-radius:14px; overflow:hidden; background:var(--surface2); }
+  .mock-bar{ display:flex; align-items:center; gap:6px; padding:9px 13px; background:var(--surface); border-bottom:1px solid var(--line); font-size:12px; font-weight:700; color:var(--ink-soft); }
+  .dot{ width:9px; height:9px; border-radius:50%; background:var(--line); }
+  .mock-body{ padding:15px; }
+  .mock-label{ font-size:12px; font-weight:700; color:var(--ink-soft); margin:0 0 9px; }
+
+  .chiprow{ display:flex; gap:7px; flex-wrap:wrap; margin-bottom:8px; }
+  .chip{ font-size:13px; font-weight:700; padding:7px 14px; border-radius:11px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink-soft); }
+  .chip.on{ background:var(--accent); color:#fff; border-color:var(--accent); }
+
+  .role{ display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:800; border-radius:7px; padding:3px 8px; white-space:nowrap; }
+  .role.blog{ background:var(--blog-bg); color:var(--blog); }
+  .role.insta{ background:var(--insta-bg); color:var(--insta); }
+
+  table.tbl{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.tbl th{ text-align:left; font-size:11.5px; letter-spacing:.02em; color:var(--ink-soft); font-weight:800; padding:7px 9px; border-bottom:1.5px solid var(--line); }
+  table.tbl td{ padding:9px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  table.tbl tr:last-child td{ border-bottom:none; }
+  .memoin{ font-size:12.5px; color:var(--ink-soft); border:1px dashed var(--accent-line); border-radius:7px; padding:4px 9px; background:var(--accent-soft); display:inline-block; }
+
+  /* 점주 배너 목업 */
+  .evban{ border-radius:14px; padding:15px 17px; background:linear-gradient(135deg,var(--accent-soft),color-mix(in srgb,var(--accent-line) 55%, var(--surface)));
+    border:1.5px solid var(--accent-line); }
+  .evban .evh{ color:var(--accent-ink); font-weight:850; font-size:17px; margin-bottom:9px; }
+  .evrow{ display:flex; align-items:center; gap:9px; padding:6px 0; font-size:15px; }
+  .evrow+.evrow{ border-top:1px dashed var(--accent-line); }
+  .evrow .nm{ font-weight:800; }
+  .evrow .tm{ font-weight:800; color:var(--accent); }
+  .evrow .k{ margin-left:auto; font-size:11.5px; font-weight:700; color:var(--ink-soft); background:var(--surface); border:1px solid var(--accent-line); border-radius:8px; padding:2px 9px; }
+
+  /* 파이프라인 목업 */
+  .pl{ display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:13px; background:var(--surface); border:1px solid var(--line); border-left-width:5px; margin-bottom:9px; box-shadow:var(--shadow); }
+  .pl .emo{ width:40px; height:40px; border-radius:50%; display:grid; place-items:center; font-size:21px; flex:0 0 auto; }
+  .pl .txt{ display:flex; flex-direction:column; min-width:0; }
+  .pl .t{ font-weight:800; font-size:16px; }
+  .pl .s{ font-size:12px; color:var(--ink-soft); }
+  .pl .cnt{ margin-left:auto; color:#fff; font-weight:850; font-size:14px; border-radius:999px; padding:3px 11px; }
+  .pl .arw{ color:var(--ink-soft); font-size:16px; }
+  .pl.sched{ border-left-color:var(--amber); } .pl.sched .emo{ background:var(--amber-bg); } .pl.sched .cnt{ background:var(--amber); }
+  .pl.writing{ border-left-color:var(--blue); } .pl.writing .emo{ background:var(--blue-bg); } .pl.writing .cnt{ background:var(--blue); }
+  .pl.pend{ border-left-color:var(--gray); } .pl.pend .emo{ background:var(--gray-bg); } .pl.pend .cnt{ background:var(--gray); }
+  .pl.done{ border-left-color:var(--green); } .pl.done .emo{ background:var(--green-bg); } .pl.done .cnt{ background:var(--green); }
+
+  /* 주소 카드 */
+  .doors{ display:grid; gap:12px; margin-top:16px; }
+  @media(min-width:620px){ .doors{ grid-template-columns:repeat(3,1fr); } }
+  .door{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:var(--shadow); }
+  .door .who{ font-size:13px; font-weight:800; color:var(--accent-ink); }
+  .door .url{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; word-break:break-all; margin-top:6px; color:var(--ink); }
+  .door .desc{ font-size:13px; color:var(--ink-soft); margin-top:6px; }
+
+  /* FAQ */
+  .faq{ border:1px solid var(--line); border-radius:12px; background:var(--surface); padding:14px 18px; margin-top:10px; }
+  .faq .q{ font-weight:800; }
+  .faq .a{ color:var(--ink-soft); font-size:14.5px; margin-top:3px; }
+
+  kbd{ font-family:inherit; font-weight:800; font-size:12px; background:var(--gray-bg); border:1px solid var(--line); border-bottom-width:2px; border-radius:6px; padding:1px 7px; color:var(--ink); }
+
+  footer{ margin-top:56px; padding-top:22px; border-top:1px solid var(--line); color:var(--ink-soft); font-size:13px; text-align:center; }
+  a.inline{ color:var(--accent-ink); font-weight:700; text-underline-offset:3px; }
+</style>
+
+</head>
+<body>
+<div class="page">
+
+  <header class="cover">
+    <div class="eyebrow">도반글로벌 · 내부 직원용</div>
+    <h1 class="title">마케팅 관리 시스템 사용 설명서</h1>
+    <p class="lead">처음 입사하신 분도, 컴퓨터가 낯선 분도 괜찮아요. 이 문서 하나만 순서대로 따라오시면 오늘부터 바로 쓸 수 있습니다.</p>
+    <div class="cover-meta">
+      <span class="tag">📱 휴대폰·PC 둘 다 가능</span>
+      <span class="tag">🔑 아이디·비밀번호로 로그인</span>
+      <span class="tag">🕐 5분이면 감 잡습니다</span>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <a href="#start">시작하기</a>
+    <a href="#today">오늘 탭</a>
+    <a href="#store">매장 관리</a>
+    <a href="#task">작업 현황</a>
+    <a href="#owner">점주 화면</a>
+    <a href="#blogger">블로거</a>
+    <a href="#faq">자주 묻는 질문</a>
+  </nav>
+
+  <!-- 0. 이게 뭐예요 -->
+  <section id="start">
+    <div class="kicker"><span class="num">0</span><h2>이 시스템이 뭐예요?</h2></div>
+    <p class="sec-sub">우리 회사가 관리하는 <b>광고주(매장)</b>의 마케팅 진행 상황을 한곳에서 보고 기록하는 웹사이트입니다. 예전에 엑셀·시트로 하던 걸 전부 여기로 옮겼어요.</p>
+
+    <div class="card">
+      <h3>세 개의 문(주소)이 있어요</h3>
+      <p class="muted">누가 보느냐에 따라 들어가는 주소가 다릅니다. <b>직원인 나</b>는 맨 왼쪽으로 들어갑니다.</p>
+      <div class="doors">
+        <div class="door">
+          <div class="who">👩‍💼 직원(나)</div>
+          <div class="url">dobanglobal.vercel.app</div>
+          <div class="desc">모든 매장·일정·작업·정산을 관리하는 메인 화면.</div>
+        </div>
+        <div class="door">
+          <div class="who">🏪 점주(광고주)</div>
+          <div class="url">dobanglobal.vercel.app/client/</div>
+          <div class="desc">매장 사장님이 자기 진행 상황만 보는 화면. 우리가 아이디·비번을 만들어 드려요.</div>
+        </div>
+        <div class="door">
+          <div class="who">✍️ 블로거·체험단</div>
+          <div class="url">…/b/?s=코드&amp;n=매장명</div>
+          <div class="desc">블로거가 방문 날짜와 후기 링크를 직접 넣는 화면. 링크를 만들어 보내줍니다.</div>
+        </div>
+      </div>
+      <div class="tip"><span class="ic">💡</span><p><b>즐겨찾기 해두세요.</b> 휴대폰이라면 브라우저 메뉴에서 <b>“홈 화면에 추가”</b>를 누르면 앱처럼 아이콘이 생겨서 매번 주소 칠 필요가 없어요.</p></div>
+    </div>
+  </section>
+
+  <!-- 1. 로그인 -->
+  <section id="login">
+    <div class="kicker"><span class="num">1</span><h2>로그인하기</h2></div>
+    <p class="sec-sub">제일 처음 딱 한 번만 하면, 다음부터는 자동으로 열립니다.</p>
+    <div class="card">
+      <ol class="steps">
+        <li><b>dobanglobal.vercel.app</b> 접속</li>
+        <li>본인 <b>아이디(이름)</b>와 <b>비밀번호</b> 입력 — 예: 아이디 <kbd>박지호</kbd></li>
+        <li><b>로그인</b> 버튼 클릭 — 끝!</li>
+      </ol>
+      <div class="tip"><span class="ic">🔐</span><p>아이디·비밀번호를 모르면 <b>관리자(대표님)</b>에게 문의하세요. 각자 계정이 따로 있고, 사람에 따라 보이는 메뉴(정산 등)가 다릅니다.</p></div>
+    </div>
+  </section>
+
+  <!-- 2. 오늘 탭 -->
+  <section id="today">
+    <div class="kicker"><span class="num">2</span><h2>📅 오늘 탭 — 여기만 알면 절반은 끝</h2></div>
+    <p class="sec-sub">로그인하면 제일 먼저 뜨는 화면. “오늘 누가 어디를 방문·촬영하는지”가 한눈에 보입니다. 하루에 제일 많이 보는 화면이에요.</p>
+
+    <div class="card">
+      <h3>① 📢 공지 <span class="badge">직원 전체 공유</span></h3>
+      <p>맨 위 <b>노란 상자</b>에 글을 적으면 <b>모든 직원</b>이 봅니다. 자동 저장이라 저장 버튼 누를 필요 없어요.</p>
+      <p class="muted">예) “오늘 오후 3시 전체 회의”, “○○매장 촬영 우천 시 연기” 같은 팀 공지에 쓰세요.</p>
+    </div>
+
+    <div class="card">
+      <h3>② 기간 고르기 <span class="badge">3줄</span></h3>
+      <p>보고 싶은 기간의 버튼을 누르면, 그 기간에 방문·촬영하는 사람만 아래에 뜹니다.</p>
+      <div class="mock">
+        <div class="mock-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp; 기간 버튼</div>
+        <div class="mock-body">
+          <div class="chiprow"><span class="chip on">전체</span><span class="chip">오늘</span></div>
+          <div class="chiprow"><span class="chip">어제</span><span class="chip">지난 일주일</span><span class="chip">지난 14일</span><span class="chip">지난 한달</span></div>
+          <div class="chiprow" style="margin-bottom:0"><span class="chip">내일</span><span class="chip">일주일</span><span class="chip">14일</span><span class="chip">한달</span></div>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:10px;font-size:14px">· <b>1줄</b> — 전체(다 보기) / 오늘 &nbsp; · <b>2줄</b> — 지나간 날들 &nbsp; · <b>3줄</b> — 앞으로 올 날들</p>
+    </div>
+
+    <div class="card">
+      <h3>③ 일정표 읽는 법 — 블로그? 인스타?</h3>
+      <p>버튼을 고르면 날짜별로 표가 뜹니다. 맨 앞 <b>종류</b> 칸의 색깔 딱지로 누가 누군지 바로 구분하세요.</p>
+      <div class="mock">
+        <div class="mock-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp; 2026-07-16 (목)</div>
+        <div class="mock-body" style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr><th>종류</th><th>매장</th><th>이름</th><th>시간</th><th>상태</th><th>메모(점주 공유)</th></tr></thead>
+            <tbody>
+              <tr><td><span class="role blog">🏠 블로그</span></td><td><b>양산동 샤브한상</b></td><td>랑뽀</td><td><b>11:30</b></td><td>방문예정</td><td><span class="memoin">주차는 뒷골목</span></td></tr>
+              <tr><td><span class="role insta">📷 인스타</span></td><td><b>광주맛집</b></td><td>yeonnie_food</td><td><b>15:00</b></td><td>촬영예정</td><td><span class="memoin">메모 입력…</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p style="margin-top:12px"><span class="role blog">🏠 블로그</span> = 블로그·체험단 방문 &nbsp;&nbsp; <span class="role insta">📷 인스타</span> = 인플루언서·인스타 촬영</p>
+      <div class="tip"><span class="ic">👆</span><p><b>줄을 누르면</b> 그 매장 상세 화면으로 넘어갑니다. 자세한 내용을 볼 때 활용하세요.</p></div>
+    </div>
+
+    <div class="card">
+      <h3>④ 메모로 점주와 소통하기 <span class="badge">양방향</span></h3>
+      <p>맨 오른쪽 <b>메모</b> 칸에 적으면 <b>그 매장 사장님(점주)에게도 똑같이 보입니다.</b> 반대로 사장님이 적은 메모도 우리가 여기서 봐요.</p>
+      <p class="muted">예) “가게 앞 공사 중이라 옆문으로”, “대표님 성함 미리 알려주세요” 같은 방문 관련 소통에 쓰세요. 적으면 초록불이 깜빡이며 자동 저장됩니다.</p>
+    </div>
+  </section>
+
+  <!-- 3. 매장 관리 -->
+  <section id="store">
+    <div class="kicker"><span class="num">3</span><h2>매장(광고주) 관리하기</h2></div>
+    <p class="sec-sub">위쪽 <b>광고주별</b> 탭에서 매장 하나를 열면, 그 매장의 모든 것이 나옵니다.</p>
+    <div class="card">
+      <p style="margin-bottom:10px">매장 상세 안에는 이런 것들이 탭으로 정리돼 있어요:</p>
+      <ul style="margin:0;padding-left:20px;color:var(--ink)">
+        <li><b>업체 정보 / 계정 정보</b> — 주소·연락처, 네이버·인스타 아이디/비번 등 (아이디·비번은 각각 칸이 나뉘어 있음)</li>
+        <li><b>견적서</b> — “블로그 20명, 인스타 5명” 식으로 견적을 짜면, 그만큼 <b>명단(할 일)이 자동으로 생깁니다.</b></li>
+        <li><b>인스타 / 블로그 명단</b> — 섭외한 사람들의 계정명·방문일·시간·상태·URL을 칸에 바로 입력 (엑셀처럼)</li>
+      </ul>
+      <div class="tip"><span class="ic">🧾</span><p><b>모든 일은 견적서에서 시작해요.</b> 견적에 없는 일은 명단에도 안 생깁니다(= 돈 받은 만큼만 일). 새 발주가 오면 견적 항목부터 추가하세요.</p></div>
+    </div>
+  </section>
+
+  <!-- 4. 작업 현황 -->
+  <section id="task">
+    <div class="kicker"><span class="num">4</span><h2>작업 현황 — 상태를 눌러서 바꾸기</h2></div>
+    <p class="sec-sub"><b>작업 현황</b> 탭에서는 우리가 해야 할 업무들이 <b>대기 → 진행중 → 완료</b>로 나뉘어 있습니다.</p>
+    <div class="card">
+      <h3>상태 딱지를 그냥 누르면 바뀝니다</h3>
+      <p>드롭다운을 고를 필요 없이, 상태 딱지를 <b>클릭할 때마다</b> 다음 단계로 넘어가요.</p>
+      <div class="mock"><div class="mock-body" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="chip" style="background:var(--gray-bg);color:var(--gray);border-color:var(--line)">대기</span>
+        <span style="color:var(--ink-soft)">→ 누르면 →</span>
+        <span class="chip" style="background:var(--blue-bg);color:var(--blue);border-color:transparent">진행중</span>
+        <span style="color:var(--ink-soft)">→ 누르면 →</span>
+        <span class="chip" style="background:var(--green-bg);color:var(--green);border-color:transparent">완료</span>
+      </div></div>
+      <div class="tip"><span class="ic">✅</span><p><b>점주를 제외한 직원은 누구나</b> 상태를 바꿀 수 있어요. 담당자 필터로 “내 것만” 골라 볼 수도 있습니다.</p></div>
+    </div>
+  </section>
+
+  <!-- 5. 점주 화면 -->
+  <section id="owner">
+    <div class="kicker"><span class="num">5</span><h2>점주(사장님)에게 보이는 화면</h2></div>
+    <p class="sec-sub">사장님들이 뭘 보는지 알아야 전화로 안내할 수 있어요. 사장님 화면은 <b>훨씬 단순하게</b> 만들어져 있습니다.</p>
+
+    <div class="card">
+      <h3>① 오늘 방문 배너 — 제일 위에 크게</h3>
+      <p>사장님이 화면을 열면 <b>오늘 우리 가게에 누가 오는지</b>가 큼직하게 뜹니다.</p>
+      <div class="mock"><div class="mock-body">
+        <div class="evban">
+          <div class="evh">🔥 오늘 방문·촬영 예정!</div>
+          <div class="evrow"><span class="role blog">블로거</span><span class="nm">랑뽀</span><span class="tm">11:30</span><span class="k">방문</span></div>
+          <div class="evrow"><span class="role insta">인스타</span><span class="nm">yeonnie_food</span><span class="tm">15:00</span><span class="k">촬영</span></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="card">
+      <h3>② 4단계로 자동 정리 — 지금 어디까지 됐나</h3>
+      <p>섭외한 사람들이 진행 단계에 따라 <b>4개의 접이식 상자</b>로 자동 분류됩니다. 우리가 명단에 날짜·상태를 넣는 대로 사장님 화면이 알아서 움직여요.</p>
+      <div class="mock"><div class="mock-body">
+        <div class="pl sched"><span class="emo">🚶</span><span class="txt"><span class="t">방문 예정</span><span class="s">날짜·시간이 잡혔어요</span></span><span class="cnt">4</span><span class="arw">▾</span></div>
+        <div class="pl writing"><span class="emo">✍️</span><span class="txt"><span class="t">후기 작성 중</span><span class="s">방문 끝, 후기 준비 중이에요</span></span><span class="cnt">2</span><span class="arw">▾</span></div>
+        <div class="pl pend"><span class="emo">⏳</span><span class="txt"><span class="t">방문 조율 중</span><span class="s">방문일 정하는 중이에요</span></span><span class="cnt">3</span><span class="arw">▸</span></div>
+        <div class="pl done" style="margin-bottom:0"><span class="emo">✅</span><span class="txt"><span class="t">후기 완료</span><span class="s">후기까지 올라왔어요</span></span><span class="cnt">5</span><span class="arw">▸</span></div>
+      </div></div>
+      <p class="muted" style="margin-top:12px;font-size:14px">우리가 명단에서 이렇게만 해주면 자동으로 이동해요:</p>
+      <ul style="margin:4px 0 0;padding-left:20px;color:var(--ink);font-size:14.5px">
+        <li>날짜를 아직 안 넣음 → <b>방문 조율 중</b></li>
+        <li>앞으로의 날짜를 넣음 → <b>방문 예정</b></li>
+        <li>날짜가 지나감(=방문 끝) 또는 ‘편집중/작성중’ → <b>후기 작성 중</b></li>
+        <li>후기 URL을 넣거나 ‘게시완료’ → <b>후기 완료</b></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>③ 사장님도 메모를 달 수 있어요</h3>
+      <p>사장님이 방문 항목을 <b>누르면</b> 메모칸이 펼쳐집니다. 여기 적은 건 <b>우리 관리자 화면의 메모칸과 똑같이 연결</b>돼요. (2번 오늘 탭 ④ 메모와 같은 내용)</p>
+    </div>
+  </section>
+
+  <!-- 6. 블로거 -->
+  <section id="blogger">
+    <div class="kicker"><span class="num">6</span><h2>블로거·체험단 링크 보내기</h2></div>
+    <p class="sec-sub">블로거가 <b>직접</b> 방문 날짜와 후기 링크를 넣게 하는 방법입니다. 우리가 일일이 안 받아 적어도 돼요.</p>
+    <div class="card">
+      <ol class="steps">
+        <li>먼저 관리자 <b>블로그 명단</b>에 그 블로거의 <b>닉네임(계정명)</b>을 적어 둡니다.</li>
+        <li>그 옆의 <b>블로그 링크</b>를 복사해 블로거에게 보냅니다. (링크에 매장명이 들어가 있어요)</li>
+        <li>블로거는 링크를 열고 <b>닉네임</b>을 넣으면 → 본인 줄만 보이고, <b>방문 날짜·시간</b>을 저장 (1차).</li>
+        <li>방문 후 다시 들어와 <b>후기 URL</b>을 추가하면 완료 (2차).</li>
+      </ol>
+      <div class="tip warn"><span class="ic">⚠️</span><p><b>닉네임을 먼저 채워둬야</b> 블로거가 입장할 수 있어요. 또 방문 시간은 반드시 <b>점주와 협의한 시간</b>을 넣도록 안내하세요.</p></div>
+    </div>
+  </section>
+
+  <!-- 7. FAQ -->
+  <section id="faq">
+    <div class="kicker"><span class="num">7</span><h2>자주 묻는 질문 &amp; 팁</h2></div>
+
+    <div class="faq"><div class="q">Q. 화면이 안 바뀌어요 / 예전 그대로예요.</div>
+      <div class="a">브라우저에 옛 화면이 저장돼서 그래요. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> (휴대폰은 앱을 완전히 닫았다 다시 열기)로 새로고침하세요.</div></div>
+
+    <div class="faq"><div class="q">Q. 오늘 방문 배너가 안 떠요.</div>
+      <div class="a">그 매장에 <b>오늘 날짜</b>로 잡힌 방문·촬영이 있어야 떠요. 오늘 일정이 없으면 안 뜨는 게 정상입니다.</div></div>
+
+    <div class="faq"><div class="q">Q. 입력했는데 저장 버튼이 없어요.</div>
+      <div class="a">이 시스템은 <b>자동 저장</b>이에요. 칸을 벗어나거나 글을 멈추면 알아서 저장됩니다(초록불 깜빡임). 저장 버튼을 찾지 마세요.</div></div>
+
+    <div class="faq"><div class="q">Q. 명단에 사람이 안 보여요.</div>
+      <div class="a">그 종류의 <b>견적</b>이 있어야 명단이 생깁니다. 견적서에 항목이 있는지 먼저 확인하세요.</div></div>
+
+    <div class="faq"><div class="q">Q. 정산·직원 메뉴가 저는 안 보여요.</div>
+      <div class="a">권한 설정이에요. 돈(정산)·직원 관리는 관리자 권한이 있는 직원에게만 보입니다. 정상입니다.</div></div>
+
+    <div class="faq"><div class="q">Q. 비밀번호는 안전한가요?</div>
+      <div class="a">계정 비밀번호는 <b>본인·관리자만</b> 관리하세요. 이 설명서나 메신저에 비번을 적어 공유하지 마세요.</div></div>
+
+    <div class="tip" style="margin-top:18px"><span class="ic">🧭</span><p><b>딱 3가지만 기억하세요.</b> ①오늘 탭에서 하루를 시작한다 ②상태 딱지·메모는 누르거나 적으면 바로 저장·공유된다 ③모든 일은 견적서에서 나온다.</p></div>
+  </section>
+
+  <footer>
+    도반글로벌 유한회사 · 마케팅 관리 시스템 직원용 설명서<br>
+    광주광역시 광산구 왕버들로 101, 2층 · 010-2944-1236
+  </footer>
+
+</div>
+
+</body></html>
