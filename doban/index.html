@@ -20,6 +20,9 @@
   .chip { background:#fff; border:1px solid #ddd; border-radius:20px; padding:5px 14px; font-size:13px; cursor:pointer; }
   .chip.on { background:#e8590c; color:#fff; border-color:#e8590c; }
   .vmemo { width:100%; min-width:120px; border:1px solid #e3e3e3; border-radius:6px; padding:5px 8px; font-size:13px; transition:background .3s; }
+  .trole { display:inline-block; font-size:11px; font-weight:700; border-radius:6px; padding:2px 7px; white-space:nowrap; }
+  .trole.tb { background:#e7f5ff; color:#1971c2; }
+  .trole.ti { background:#fff0f6; color:#c2255c; }
   .memo-box { width:100%; box-sizing:border-box; min-height:56px; border:1px solid #e3e3e3; border-radius:8px; padding:8px 10px; font-size:14px; resize:vertical; font-family:inherit; transition:background .3s; }
   /* 뷰 전환 탭 */
   .viewtabs { display:flex; gap:4px; margin-bottom:14px; background:#eceff3; border-radius:10px; padding:4px; width:fit-content; }
@@ -1226,14 +1229,14 @@ function renderTodayView(){
         var isToday=(d===t);
         var rows=arr.map(function(s){ var tm=isB(s)?s.방문시간:s.촬영시간; var vm=s.visit_memo||'';
           return '<tr onclick="openClient(\''+s.광고주ID+'\')" style="cursor:pointer">'+
-            '<td style="text-align:center">'+(isB(s)?'🏠':'📸')+'</td>'+
+            '<td style="text-align:center"><span class="trole '+(isB(s)?'tb':'ti')+'">'+(isB(s)?'🏠 블로그':'📷 인스타')+'</span></td>'+
             '<td><b>'+esc(storeName(s.광고주ID))+'</b></td>'+
             '<td>'+esc(s.계정명||'-')+'</td>'+
             '<td><b>'+esc(tm||'-')+'</b></td>'+
             '<td>'+esc(s.진행여부||'-')+'</td>'+
             '<td onclick="event.stopPropagation()"><input class="vmemo" value="'+esc(vm)+'" placeholder="메모…" onchange="saveVisitMemo(this,\''+s.ID+'\')"></td></tr>'; }).join('');
         return '<h3 style="margin-top:16px'+(isToday?';color:#e8590c':'')+'">'+esc(d)+' ('+dowKo(d)+')'+(isToday?' · 오늘':'')+' <span style="font-size:12px;color:#888;font-weight:400">'+arr.length+'건</span></h3>'+
-          '<div class="ss-wrap"><table class="ss"><thead><tr><th></th><th>매장</th><th>이름</th><th>시간</th><th>상태</th><th>메모(점주 공유)</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+          '<div class="ss-wrap"><table class="ss"><thead><tr><th>종류</th><th>매장</th><th>이름</th><th>시간</th><th>상태</th><th>메모(점주 공유)</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
       }).join('');
   var notice=(DB.공지||'');
   document.getElementById('todayBody').innerHTML =
