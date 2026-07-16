@@ -334,8 +334,17 @@
   .pay-badge.req { background:#fff4e0; color:#e8850a; }
   .pay-badge.due { background:#edf2ff; color:#4263eb; }
   .pay-badge.done { background:#e6fcf0; color:#237a3b; }
-  .due-in { border:1px solid #dbe4ff; border-radius:6px; padding:3px 5px; font-size:11.5px; }
-  .pay-act { white-space:nowrap; }
+  .due-in { border:1px solid #dbe4ff; border-radius:7px; padding:4px 6px; font-size:11.5px; width:118px; flex:0 0 auto; }
+  /* 지급 처리 칸: 줄바꿈 허용해서 안 깨지게 */
+  .pay-act { display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
+  table.vg-tbl { min-width:0; width:100%; table-layout:fixed; }
+  table.vg-tbl .c-store { width:22%; }
+  table.vg-tbl .c-item { width:30%; overflow:hidden; text-overflow:ellipsis; }
+  table.vg-tbl .c-amt { width:100px; white-space:nowrap; }
+  table.vg-tbl .c-act { width:auto; }
+  table.vg-tbl th.c-act { text-align:right; }
+  table.vg-tbl td { vertical-align:middle; word-break:break-word; }
+  @media(max-width:760px){ table.vg-tbl { table-layout:auto; min-width:560px; } }
   /* 외주사 이름 hover 정보 */
   .vname { position:relative; font-weight:700; border-bottom:1px dashed #c9c9cf; cursor:help; }
   .vname.miss { color:#e8590c; border-bottom-color:#ffc999; }
@@ -394,6 +403,13 @@
   .mini-up { color:#e8590c; font-weight:700; cursor:pointer; font-size:11px; }
   .vend-link { display:flex; flex-wrap:wrap; align-items:center; gap:7px; border-top:1px dashed #f0f0f0; padding-top:9px; margin-top:9px; }
   .vl-url { font-size:11.5px; color:#1971c2; background:#e7f5ff; border-radius:6px; padding:3px 8px; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vl-hint { flex-basis:100%; font-size:11.5px; color:#e8850a; background:#fff9db; border:1px solid #ffe066; border-radius:7px; padding:5px 9px; margin-top:5px; }
+  .vl-hint b { color:#e8590c; }
+  /* 외주사 빠른 등록 */
+  .vadd { display:flex; gap:7px; flex-wrap:wrap; background:#fff7f0; border:1.5px dashed #ffc999; border-radius:11px; padding:10px; margin-bottom:12px; }
+  .vadd input { flex:1 1 220px; min-width:180px; border:1px solid #e3e3e3; border-radius:8px; padding:9px 11px; font-size:14px; }
+  .vadd input:focus { outline:none; border-color:#e8590c; }
+  .vadd select { border:1px solid #e3e3e3; border-radius:8px; padding:9px; font-size:13px; }
   .sum-line { display:flex; justify-content:space-between; font-size:14px; padding:5px 0; }
   .sum-line.big { font-weight:700; font-size:16px; border-top:2px solid #eee; margin-top:6px; padding-top:10px; }
   .plus { color:#e8590c; background:none; font-weight:700; font-size:13px; padding:4px; }
@@ -1187,9 +1203,9 @@ function renderVendorLedger(cs){
           '<span class="vg-arw">'+(vo?'▾':'▸')+'</span>'+vendorTip(v)+
           '<span class="vg-cnt">'+g[v].length+'건</span>'+
           '<span class="vg-amt">'+won(sum(g[v]))+'원</span></div>'+
-        (vo ? '<div class="ss-wrap"><table class="qsheet-tbl"><thead><tr><th>매장</th><th>내역</th><th class="money">대행비</th><th>지급</th></tr></thead><tbody>'+
-          g[v].map(function(r){ return '<tr><td>'+esc(r.store)+'</td><td>'+esc(r.item)+'</td>'+
-            '<td class="money"><b>'+won(r.cost)+'</b></td><td class="pay-act">'+actions(r)+'</td></tr>'; }).join('')+
+        (vo ? '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr><th class="c-store">매장</th><th class="c-item">내역</th><th class="c-amt money">대행비</th><th class="c-act">지급 처리</th></tr></thead><tbody>'+
+          g[v].map(function(r){ return '<tr><td class="c-store">'+esc(r.store)+'</td><td class="c-item">'+esc(r.item)+'</td>'+
+            '<td class="c-amt money"><b>'+won(r.cost)+'</b></td><td class="c-act"><div class="pay-act">'+actions(r)+'</div></td></tr>'; }).join('')+
           '</tbody></table></div>' : '')+
       '</div>';
     }).join('') : '<div style="color:#bbb;padding:12px;text-align:center;font-size:13px">없어요</div>';
@@ -1271,7 +1287,8 @@ function renderVendorView(){
           ? '<div class="vend-link"><span class="vd-label">📤 본인 입력 링크</span>'+
             '<span class="vl-url">'+esc(vendorURL(v.share_code))+'</span>'+
             '<button class="mini-btn" onclick="copyVendorLink(\''+v.share_code+'\',\''+esc(v.name||'')+'\')">📋 복사</button>'+
-            '<button class="mini-btn" onclick="window.open(\''+vendorURL(v.share_code)+'\',\'_blank\')">🔗 열기</button></div>'
+            '<button class="mini-btn" onclick="window.open(\''+vendorURL(v.share_code)+'\',\'_blank\')">🔗 열기</button>'+
+            '<div class="vl-hint">닉네임을 입력하시고 <b>복사</b>를 눌러주시면 멘트가 완성됩니다 (카톡에 붙여넣기만 하세요)</div></div>'
           : '')+
       '</div>' : '')+
     '</div>';
@@ -1293,9 +1310,13 @@ function renderVendorView(){
     '</div>';
   }).join('') : '<div style="color:#aaa;padding:14px">등록된 외주사가 없어요. <b>+ 외주사 추가</b>를 눌러 시작하세요.</div>';
   document.getElementById('vendorView').innerHTML =
-    '<div class="sec"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">'+
-      '<h2 style="margin:0">🏭 외주사·프리랜서 등록부 <span style="font-size:12px;color:#888;font-weight:400">· 한 번 등록 = 계좌·서류 자동 재사용</span></h2>'+
-      '<button class="btn-primary" onclick="addVendor()">+ 외주사 추가</button></div>'+
+    '<div class="sec">'+
+      '<h2 style="margin:0 0 10px">🏭 외주사·프리랜서 등록부 <span style="font-size:12px;color:#888;font-weight:400">· 한 번 등록 = 계좌·서류 자동 재사용</span></h2>'+
+      '<div class="vadd">'+
+        '<input id="nvName" placeholder="닉네임/이름 입력 후 Enter (예: 광주맛집)" onkeydown="if(event.key===\'Enter\')addVendorQuick()">'+
+        '<select id="nvType"><option value="">유형 선택</option>'+V_TYPES.map(function(t){return '<option>'+t+'</option>';}).join('')+'</select>'+
+        '<button class="btn-primary" onclick="addVendorQuick()">+ 추가</button>'+
+      '</div>'+
       '<div class="vend-list">'+cards+'</div></div>'+
     '<div id="vendorLedger"></div>';
   renderVendorLedger(DB.광고주.filter(function(c){return c.상태!=='삭제됨';}));
@@ -1305,19 +1326,29 @@ function copyVendorLink(code, name){
   var msg=
     '안녕하세요 '+(name||'')+'님, 도반글로벌입니다 😊\n'+
     '협업해주셔서 진심으로 감사합니다!\n\n'+
-    '대행비 입금을 위해 아래 링크에서\n'+
-    '계좌·서류를 입력해 주시면 확인 후 바로 입금해 드릴게요.\n\n'+
+    '대행비 지급을 위해 아래 링크에서\n'+
+    '계좌·서류 입력을 부탁드립니다.\n\n'+
     '👉 '+vendorURL(code)+'\n\n'+
     '· 사업자 있으신 분 : 사업자등록증 + 통장사본\n'+
     '· 프리랜서 : 통장사본 + 신분증\n'+
     '(휴대폰 사진도 괜찮아요, 3분이면 끝나요!)\n\n'+
+    '앞으로도 잘 부탁드립니다 🙏\n\n'+
     '궁금한 점은 개인톡 주세요 😊\n'+
     '👉 카카오톡 : doban2944';
   var done=function(){ toast('📋 안내 멘트 복사됨 — 카톡에 붙여넣기'); };
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(msg).then(done).catch(function(){ prompt('복사하세요', msg); });
   else prompt('복사하세요', msg);
 }
-function addVendor(){ gs('addVendor',{name:''}).then(function(v){ if(v&&v.ID){ DB.vendors=DB.vendors||[]; DB.vendors.push(v); } render(); }).catch(function(e){ toast('오류: '+((e&&e.message)||e)); }); }
+function addVendorQuick(){
+  var n=(document.getElementById('nvName')||{}).value||''; n=n.trim();
+  var t=(document.getElementById('nvType')||{}).value||'';
+  if(!n){ toast('이름을 먼저 입력하세요'); return; }
+  if((DB.vendors||[]).some(function(v){return String(v.name||'').trim()===n;})){ toast('이미 등록된 이름이에요'); return; }
+  gs('addVendor',{name:n, vtype:t}).then(function(v){
+    if(v&&v.ID){ DB.vendors=DB.vendors||[]; DB.vendors.push(v); VG_OPEN[t||'미분류']=true; VOPEN[v.ID]=true; } // 방금 넣은 건 바로 펼쳐줌
+    toast('✅ '+n+' 등록됨 — 링크 복사해서 보내세요'); render();
+  }).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
+}
 function setVendorField(id, field, val){ var o={ID:id}; o[field]=val; DB.vendors=DB.vendors||[]; patchLocal('vendors',id,o); bg(gs('updateVendor',o)); }
 function delVendor(id){ if(!confirm('이 외주사를 삭제할까요?')) return; DB.vendors=(DB.vendors||[]).filter(function(x){return x.ID!==id;}); render(); bg(gs('delete',{탭:'vendors',ID:id})); }
 function uploadVendorDoc(id, field, inp){
@@ -1825,9 +1856,11 @@ function openClient(id) {
             '<td class="q-act"><button class="pill t-'+esc(t.상태)+'" onclick="cycleTask(\''+t.ID+'\',\''+esc(t.상태)+'\')">'+esc(t.상태)+'</button>' +
               '<button class="del" onclick="del(\'작업\',\''+t.ID+'\')">삭제</button></td>' +
           '</tr>' +
-          (SHOWMARGIN ? '<tr class="qr-exec"><td></td><td colspan="5"><span class="exl">실행</span> <input class="ex-co" list="dl-vendors" value="'+esc(t.실행회사||'')+'" placeholder="실행회사(등록부에서 자동완성)" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">' +
-            '<input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="실행비" onchange="setExec(\''+t.ID+'\',\'실행비용\',this.value)">' +
-            '<span class="ex-mg">마진 <b style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+'</b> ('+rate+'%)</span></td></tr>' : '');
+          // 실행(외주사·대행비) 입력은 누구나 — 마진 숫자만 권한자에게
+          '<tr class="qr-exec"><td></td><td colspan="5"><span class="exl">실행</span> <input class="ex-co" list="dl-vendors" value="'+esc(t.실행회사||'')+'" placeholder="실행회사(등록부 자동완성)" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">' +
+            '<input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="대행비" onchange="setExec(\''+t.ID+'\',\'실행비용\',this.value)">' +
+            (SHOWMARGIN ? '<span class="ex-mg">마진 <b style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+'</b> ('+rate+'%)</span>' : '') +
+            '</td></tr>';
       }).join('') : '<tr><td colspan="6" style="color:#aaa;font-size:13px;padding:14px 8px">이 견적에 항목을 추가하세요 (아래에서 품목·식·단가 입력)</td></tr>';
       var rvat=Math.round(rsub*0.1), rtot=rsub+rvat;
       return '<div class="quote-wrap"><table class="quote qtbl"><thead><tr>' +
