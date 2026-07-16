@@ -435,6 +435,9 @@
   .vg-cnt { font-size:11.5px; color:#888; background:#f3f3f5; border-radius:6px; padding:2px 7px; }
   .vg-amt { margin-left:auto; font-weight:800; font-size:13px; font-variant-numeric:tabular-nums; }
   .vg.pay-now { border-color:#ffd8a8; }
+  .vg.open > .vg-head { border-bottom:1px solid #f2f2f4; }
+  .vg-head .vg-arw { transition:transform .12s; }
+  .vg:not(.open) .vg-head:hover { background:#fff9f2; }
   /* 줄 돈 — 계좌 바 */
   .acct-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fff9f2; border-top:1px solid #ffe8d6; padding:8px 12px; font-size:12.5px; }
   .acct-bar.none { background:#fff5f5; color:#c92a2a; font-weight:700; }
@@ -1203,8 +1206,10 @@ function exportQuoteSheet(){
 // ─── 대행비 원장 (외주 실행비 + 지급 관리) ───
 var VLEDGER=[];
 var PAY_OPEN={req:true, due:true, unpaid:true, done:false}; // 지급상태별 토글
-var PAY_VOPEN={}; // 상태 안 · 외주사별 서브토글 (기본 접힘)
-function togglePayV(k){ PAY_VOPEN[k]=!PAY_VOPEN[k]; render(); }
+var PAY_VOPEN={}; // 상태 안 · 외주사별 서브토글 (vk = 'req|외주사명')
+// 기본값: 줄 돈(요청·예정·미지급)은 펼침 / 지급완료는 접힘 — 안 눌렀으면 undefined라 기본값 적용
+function payVOpen(vk){ var key=String(vk).split('|')[0]; return PAY_VOPEN[vk]===undefined ? (key!=='done') : !!PAY_VOPEN[vk]; }
+function togglePayV(vk){ PAY_VOPEN[vk] = !payVOpen(vk); render(); }
 // 명단이 생기는 품목(인플루언서/블로그/체험단)은 명단 대행비 합이 실행비. 그 외는 품목에 직접 입력한 값.
 function hasSeedList(t){ return !!seedTypeOf(t.품목); }
 function execOfTask(t){
@@ -1339,15 +1344,15 @@ function renderVendorLedger(cs){
     // 외주사별 서브토글 (줄이 길어서 접어둠)
     var g={}; arr.forEach(function(r){ (g[r.vendor]=g[r.vendor]||[]).push(r); });
     var vnames=Object.keys(g).sort(function(a,b){ return sum(g[b])-sum(g[a]) || a.localeCompare(b); });
-    var pend=(key!=='done'); // 줄 돈 = 계좌 펼쳐서 / 끝난 건 = 접어서 히스토리
+    var pend=(key!=='done'); // 줄 돈 = 기본 펼침 / 끝난 건 = 기본 접힘 (둘 다 눌러서 토글 가능)
     var body = arr.length ? vnames.map(function(v){
-      var vk=key+'|'+v, vo = pend ? (PAY_VOPEN[vk]!==false) : !!PAY_VOPEN[vk];
-      return '<div class="vg'+(pend?' pay-now':'')+'">'+
-        '<div class="vg-head" onclick="togglePayV(\''+esc(vk).replace(/'/g,'')+'\')">'+
+      var vk=key+'|'+v, vo = payVOpen(vk);
+      return '<div class="vg'+(pend?' pay-now':'')+(vo?' open':'')+'">'+
+        '<div class="vg-head" onclick="togglePayV(\''+esc(vk).replace(/'/g,'')+'\')" title="눌러서 접기/펼치기">'+
           '<span class="vg-arw">'+(vo?'▾':'▸')+'</span>'+vendorTip(v)+
           '<span class="vg-cnt">'+g[v].length+'건</span>'+
           '<span class="vg-amt">'+won(sum(g[v]))+'원</span></div>'+
-        (pend ? acctBar(v, sum(g[v])) : '')+
+        (vo && pend ? acctBar(v, sum(g[v])) : '')+
         (vo ? '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr><th class="c-store">매장</th><th class="c-item">내역</th><th class="c-amt money">대행비</th><th class="c-act">지급 처리</th></tr></thead><tbody>'+
           g[v].map(function(r){ return '<tr><td class="c-store">'+esc(r.store)+'</td><td class="c-item">'+esc(r.item)+'</td>'+
             '<td class="c-amt money"><b>'+won(r.cost)+'</b></td><td class="c-act"><div class="pay-act">'+actions(r)+'</div>'+
