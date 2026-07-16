@@ -1101,11 +1101,13 @@ var PAY_OPEN={req:true, due:true, unpaid:true, done:false}; // 지급상태별 �
 function isOutsource(t){ var v=String(t.실행회사||'').trim(); return v!=='' && v.indexOf('자체')!==0 && v!=='직접' && (Number(t.실행비용)||0)>0; }
 function payStateOf(t){ var p=t.pay_status||''; return p==='지급완료'?'done':p==='지급예정'?'due':p==='지급요청'?'req':'unpaid'; }
 function togglePay(k){ PAY_OPEN[k]=(PAY_OPEN[k]===false); render(); }
-function setPay(id,o){ o.ID=id; patchLocal('작업',id,o); render(); bg(gs('updateTask',o)); }
-function reqPay(id){ setPay(id,{pay_status:'지급요청'}); toast('🙋 지급요청 보냈어요'); }
-function setPayDue(id,d){ setPay(id,{pay_status:d?'지급예정':'지급요청', pay_due:d||''}); }
-function donePay(id){ setPay(id,{pay_status:'지급완료', pay_date:todayISO()}); toast('✓ 지급완료 처리'); }
-function undoPay(id){ setPay(id,{pay_status:'', pay_due:'', pay_date:''}); }
+function setPay(id,o,src){ o.ID=id; var tab=(src==='cost')?'실행비':'작업'; patchLocal(tab,id,o); render();
+  if(src==='cost'){ var p={}; for(var k in o) p[k]=o[k]; p['탭']='실행비'; bg(gs('update',p)); }
+  else bg(gs('updateTask',o)); }
+function reqPay(id,src){ setPay(id,{pay_status:'지급요청'},src); toast('🙋 지급요청 보냈어요'); }
+function setPayDue(id,d,src){ setPay(id,{pay_status:d?'지급예정':'지급요청', pay_due:d||''},src); }
+function donePay(id,src){ setPay(id,{pay_status:'지급완료', pay_date:todayISO()},src); toast('✓ 지급완료 처리'); }
+function undoPay(id,src){ setPay(id,{pay_status:'', pay_due:'', pay_date:''},src); }
 // 마우스 올리면 뜨는 외주사 정보
 function vendorTip(name){
   var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===name;})[0];
@@ -1123,26 +1125,38 @@ function vendorTip(name){
 }
 function renderVendorLedger(cs){
   var idset={}; cs.forEach(function(c){ idset[c.ID]=1; });
+  // ① 견적 항목(작업)의 외주 실행비
   var rows=(DB.작업||[]).filter(function(t){ return idset[t.광고주ID] && isOutsource(t); }).map(function(t){
-    return { id:t.ID, store:storeName(t.광고주ID), round:roundLabel(t.광고주ID, Number(t.차수)||1),
+    return { id:t.ID, src:'task', store:storeName(t.광고주ID), round:roundLabel(t.광고주ID, Number(t.차수)||1),
              item:t.품목, vendor:String(t.실행회사).trim(), cost:Number(t.실행비용)||0,
              st:payStateOf(t), due:t.pay_due||'', date:t.pay_date||'' };
   });
+  // ② 실행비(견적 밖 대행비·시트에서 이관한 과거 지출)
+  rows = rows.concat((DB.실행비||[]).filter(function(e){
+    var v=String(e.실행회사||'').trim();
+    return idset[e.광고주ID] && v!=='' && v.indexOf('자체')!==0 && (Number(e.금액)||0)>0;
+  }).map(function(e){
+    return { id:e.ID, src:'cost', store:storeName(e.광고주ID), round:e.내역||'',
+             item:e.내역||'', vendor:String(e.실행회사).trim(), cost:Number(e.금액)||0,
+             st:payStateOf(e), due:e.pay_due||'', date:e.pay_date||e.날짜||'' };
+  }));
+  rows.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); }); // 최근 먼저
   VLEDGER=rows;
   var acc=isAccountant();
   var sum=function(a){ return a.reduce(function(s,r){return s+r.cost;},0); };
   var G={req:[],due:[],unpaid:[],done:[]}; rows.forEach(function(r){ G[r.st].push(r); });
   var total=sum(rows), doneSum=sum(G.done);
   var actions=function(r){
+    var s=r.src;
     if(r.st==='done') return '<span class="pay-badge done">✓ 지급완료 '+esc(r.date||'')+'</span>'+
-      (acc?' <button class="mini-btn" onclick="undoPay(\''+r.id+'\')">취소</button>':'');
+      (acc?' <button class="mini-btn" onclick="undoPay(\''+r.id+'\',\''+s+'\')">취소</button>':'');
     if(r.st==='due') return '<span class="pay-badge due">📅 '+esc(r.due||'')+' 예정</span>'+
-      (acc?' <button class="pay-btn paid" onclick="donePay(\''+r.id+'\')">✓ 지급완료</button>':'');
+      (acc?' <button class="pay-btn paid" onclick="donePay(\''+r.id+'\',\''+s+'\')">✓ 지급완료</button>':'');
     if(r.st==='req') return '<span class="pay-badge req">🙋 요청됨</span>'+
-      (acc?' <input type="date" class="due-in" value="'+esc(r.due||'')+'" title="지급예정일" onchange="setPayDue(\''+r.id+'\',this.value)">'+
-           ' <button class="pay-btn paid" onclick="donePay(\''+r.id+'\')">✓ 완료</button>':'');
-    return '<button class="pay-btn req" onclick="reqPay(\''+r.id+'\')">🙋 지급요청</button>'+
-      (acc?' <button class="pay-btn paid" onclick="donePay(\''+r.id+'\')">✓ 완료</button>':'');
+      (acc?' <input type="date" class="due-in" value="'+esc(r.due||'')+'" title="지급예정일" onchange="setPayDue(\''+r.id+'\',this.value,\''+s+'\')">'+
+           ' <button class="pay-btn paid" onclick="donePay(\''+r.id+'\',\''+s+'\')">✓ 완료</button>':'');
+    return '<button class="pay-btn req" onclick="reqPay(\''+r.id+'\',\''+s+'\')">🙋 지급요청</button>'+
+      (acc?' <button class="pay-btn paid" onclick="donePay(\''+r.id+'\',\''+s+'\')">✓ 완료</button>':'');
   };
   var section=function(key,emoji,title,sub,arr){
     var open=arr.length>0 && PAY_OPEN[key]!==false;
