@@ -417,6 +417,17 @@
   .vg-arw { color:#bbb; font-size:12px; width:11px; flex:0 0 auto; }
   .vg-cnt { font-size:11.5px; color:#888; background:#f3f3f5; border-radius:6px; padding:2px 7px; }
   .vg-amt { margin-left:auto; font-weight:800; font-size:13px; font-variant-numeric:tabular-nums; }
+  .vg.pay-now { border-color:#ffd8a8; }
+  /* 줄 돈 — 계좌 바 */
+  .acct-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fff9f2; border-top:1px solid #ffe8d6; padding:8px 12px; font-size:12.5px; }
+  .acct-bar.none { background:#fff5f5; color:#c92a2a; font-weight:700; }
+  .ab-ty { font-size:11px; font-weight:800; background:#e7f5ff; color:#1971c2; border-radius:6px; padding:2px 7px; }
+  .ab-ty.free { background:#fff0f6; color:#c2255c; }
+  .ab-acct b { font-size:14px; color:#2b2b31; font-variant-numeric:tabular-nums; letter-spacing:.02em; }
+  .ab-h { color:#888; }
+  .ab-amt { margin-left:auto; color:#888; }
+  .ab-amt b { color:#e8590c; font-size:14px; font-variant-numeric:tabular-nums; }
+  .sc-vat, .vat-i { font-size:10px; font-weight:800; background:#e7f5ff; color:#1971c2; border-radius:5px; padding:1px 5px; }
   .vend-card { border:1px solid #eee; border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.04); overflow:hidden; }
   .vend-head { display:flex; align-items:center; gap:9px; padding:12px 14px; cursor:pointer; user-select:none; flex-wrap:wrap; }
   .vend-head:hover { background:#fcfcfd; }
@@ -1233,6 +1244,24 @@ function vendorTip(name){
     '<div class="vt-docs">'+(free?'':doc('사업자등록증',v.doc_bizreg))+doc('통장사본',v.doc_bankbook)+(free?doc('신분증',v.doc_id):'')+'</div>'+
     (v.memo?'<div class="vt-r muted">'+esc(v.memo)+'</div>':'')+'</div></span>';
 }
+// 줄 돈 섹션용 — 계좌를 크게 보여줘서 바로 송금하게
+function acctBar(name, total){
+  var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===name;})[0];
+  if(!v || !v.account) return '<div class="acct-bar none">⚠ <b>'+esc(name)+'</b> 계좌가 등록부에 없어요 — 송금 불가'+
+    '<button class="mini-btn" onclick="event.stopPropagation();VIEW=\'vendor\';render()">등록하러 가기</button></div>';
+  var line=(v.bank||'')+' '+(v.account||'')+(v.holder?' ('+v.holder+')':'');
+  return '<div class="acct-bar" onclick="event.stopPropagation()">'+
+    '<span class="ab-ty'+(v.vtype==='프리랜서'?' free':'')+'">'+esc(v.vtype||'유형미정')+'</span>'+
+    '<span class="ab-acct">🏦 <b>'+esc(v.bank||'')+' '+esc(v.account)+'</b>'+(v.holder?' <span class="ab-h">'+esc(v.holder)+'</span>':'')+'</span>'+
+    '<span class="ab-amt">보낼 금액 <b>'+won(total)+'</b>원</span>'+
+    '<button class="mini-btn" onclick="copyAcct(\''+esc(line).replace(/'/g,'')+'\')">📋 계좌 복사</button>'+
+  '</div>';
+}
+function copyAcct(t){
+  var done=function(){ toast('📋 계좌 복사됨'); };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done).catch(function(){ prompt('복사하세요',t); });
+  else prompt('복사하세요',t);
+}
 function renderVendorLedger(cs){
   var idset={}; cs.forEach(function(c){ idset[c.ID]=1; });
   // ① 견적 항목(작업)의 외주 실행비
@@ -1289,13 +1318,15 @@ function renderVendorLedger(cs){
     // 외주사별 서브토글 (줄이 길어서 접어둠)
     var g={}; arr.forEach(function(r){ (g[r.vendor]=g[r.vendor]||[]).push(r); });
     var vnames=Object.keys(g).sort(function(a,b){ return sum(g[b])-sum(g[a]) || a.localeCompare(b); });
+    var pend=(key!=='done'); // 줄 돈 = 계좌 펼쳐서 / 끝난 건 = 접어서 히스토리
     var body = arr.length ? vnames.map(function(v){
-      var vk=key+'|'+v, vo=!!PAY_VOPEN[vk];
-      return '<div class="vg">'+
+      var vk=key+'|'+v, vo = pend ? (PAY_VOPEN[vk]!==false) : !!PAY_VOPEN[vk];
+      return '<div class="vg'+(pend?' pay-now':'')+'">'+
         '<div class="vg-head" onclick="togglePayV(\''+esc(vk).replace(/'/g,'')+'\')">'+
           '<span class="vg-arw">'+(vo?'▾':'▸')+'</span>'+vendorTip(v)+
           '<span class="vg-cnt">'+g[v].length+'건</span>'+
           '<span class="vg-amt">'+won(sum(g[v]))+'원</span></div>'+
+        (pend ? acctBar(v, sum(g[v])) : '')+
         (vo ? '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr><th class="c-store">매장</th><th class="c-item">내역</th><th class="c-amt money">대행비</th><th class="c-act">지급 처리</th></tr></thead><tbody>'+
           g[v].map(function(r){ return '<tr><td class="c-store">'+esc(r.store)+'</td><td class="c-item">'+esc(r.item)+'</td>'+
             '<td class="c-amt money"><b>'+won(r.cost)+'</b></td><td class="c-act"><div class="pay-act">'+actions(r)+'</div>'+
@@ -1945,7 +1976,8 @@ function openClient(id) {
         var amtIncl = Number(t.금액)||0, qty = Number(t.수량)||0, unit = Number(t.단가)||0;
         var line = (qty>0 && unit>0) ? qty*unit : Math.round(amtIncl/1.1); // 부가세 전 금액
         rsub += line;
-        var exec = execOfTask(t), mg = line-exec, rate = line>0?Math.round(mg/line*100):0;
+        // 마진은 부가세 포함끼리 비교 (청구액 amtIncl vs 대행비) — 대행비가 부가세 포함가라서
+        var exec = execOfTask(t), mg = amtIncl-exec, rate = amtIncl>0?Math.round(mg/amtIncl*100):0;
         return '<tr class="qr">' +
             '<td class="q-no">'+(ri+1)+'</td>' +
             '<td class="q-item"><input class="qe-item" value="'+esc(t.품목)+'" onchange="editQuoteLine(\''+t.ID+'\',\'품목\',this.value)">' +
@@ -2306,10 +2338,9 @@ function seedDropOn(e,targetSid){
 }
 // ── 명단 = 사람별 대행비. 견적가(예산) 대비 얼마 썼는지 계산기 ──
 function seedTypeNorm(t){ return t==='체험단' ? '블로그' : (t||'인플루언서'); }
-function budgetOf(id, ty, r){ // 그 종류·차수의 견적가 합 (부가세 전)
+function budgetOf(id, ty, r){ // 그 종류·차수의 견적가 합 — 부가세 포함(대행비도 부가세 포함이라 기준 통일)
   return tasksOf(id).filter(function(t){ return roundOf(t)===r && seedTypeOf(t.품목)===ty; })
-    .reduce(function(s,t){ var q=Number(t.수량)||0, u=Number(t.단가)||0;
-      return s + ((q>0&&u>0) ? q*u : Math.round((Number(t.금액)||0)/1.1)); },0);
+    .reduce(function(s,t){ return s + (Number(t.금액)||0); },0);
 }
 function feeSumOf(id, ty, r){ // 그 종류·차수 명단의 대행비 합 = 실제 실행비
   return seedsOf(id).filter(function(s){ return (Number(s.차수)||1)===r && seedTypeNorm(s.종류)===ty; })
@@ -2355,6 +2386,7 @@ function seedTableHTML(id, groups){
       var key=g[0]+'_'+r, open=!!SEEDOPEN[key], date=roundDateShow(id,r);
       var _bud=budgetOf(id,g[0],r), _used=feeSumOf(id,g[0],r), _left=_bud-_used;
       var calc='<div class="seed-calc'+(_left<0?' over':'')+'">'+
+        '<span class="sc-vat" title="예산·대행비 모두 부가세 포함 기준입니다">VAT 포함</span>'+
         '<span class="sc-i">예산 <b>'+won(_bud)+'</b></span>'+
         '<span class="sc-op">−</span>'+
         '<span class="sc-i">진행 실행비 <b>'+won(_used)+'</b></span>'+
@@ -2398,8 +2430,7 @@ function settleDetail(id, r){
   var pays=(DB.입금||[]).filter(function(p){return p.광고주ID===id;});
   var ts=tasksOf(id).filter(function(t){return roundOf(t)===r;});
   var itemRows = ts.length ? ts.map(function(t){
-    var qty=Number(t.수량)||0, unit=Number(t.단가)||0;
-    var 견적가=(qty>0&&unit>0)?qty*unit:Math.round((Number(t.금액)||0)/1.1);
+    var 견적가=Number(t.금액)||0;   // 부가세 포함 (대행비와 기준 통일)
     var exec=execOfTask(t), mg=견적가-exec, rate=견적가>0?Math.round(mg/견적가*100):0;
     var seedTy=seedTypeOf(t.품목);
     return '<tr>' +
@@ -2429,7 +2460,7 @@ function settleDetail(id, r){
   }).join('');
   return '<div class="settle-detail" onclick="event.stopPropagation()">' +
     '<div class="sd-title">📋 '+esc(roundLabel(id,r))+' · 품목별 실행비</div>' +
-    '<div class="ss-wrap"><table class="quote qtbl"><thead><tr><th>품목</th><th class="col-amt">견적가</th><th>실행회사</th><th class="col-amt">실행비</th><th class="col-amt">마진</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>' +
+    '<div class="ss-wrap"><table class="quote qtbl"><thead><tr><th>품목</th><th class="col-amt" title="부가세 포함 청구액">견적가 <span class="vat-i">VAT+</span></th><th>실행회사</th><th class="col-amt" title="부가세 포함 대행비">실행비 <span class="vat-i">VAT+</span></th><th class="col-amt">마진</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>' +
     '<div class="sd-sub">진행 중 추가비용 (이 견적)</div>'+extraRows +
     '<div class="form-grid" style="grid-template-columns:1fr 140px"><input id="ec내역" placeholder="추가 실행비 내역"><input id="ec금액" inputmode="numeric" placeholder="금액" oninput="fmtNum(this)"></div>' +
     '<button class="btn-ghost" onclick="addCostRound('+r+')">+ 이 견적에 실행비 추가</button>' +
