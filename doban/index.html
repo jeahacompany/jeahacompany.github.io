@@ -23,6 +23,11 @@
   .trole { display:inline-block; font-size:11px; font-weight:700; border-radius:6px; padding:2px 7px; white-space:nowrap; }
   .trole.tb { background:#e7f5ff; color:#1971c2; }
   .trole.ti { background:#fff0f6; color:#c2255c; }
+  .docrow { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #f3f3f3; flex-wrap:wrap; }
+  .doclabel { min-width:110px; font-weight:600; font-size:14px; }
+  .docfile { font-size:13px; color:#555; background:#f6f6f8; border-radius:7px; padding:4px 10px; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .upbtn { font-size:13px; font-weight:700; color:#e8590c; background:#fff1e6; border:1px solid #ffd8a8; border-radius:8px; padding:7px 13px; cursor:pointer; display:inline-block; }
+  .upbtn:hover { background:#ffe8cc; }
   .memo-box { width:100%; box-sizing:border-box; min-height:56px; border:1px solid #e3e3e3; border-radius:8px; padding:8px 10px; font-size:14px; resize:vertical; font-family:inherit; transition:background .3s; }
   /* 뷰 전환 탭 */
   .viewtabs { display:flex; gap:4px; margin-bottom:14px; background:#eceff3; border-radius:10px; padding:4px; width:fit-content; }
@@ -1314,6 +1319,47 @@ function renderTodayView(){
     '<div style="color:#666;font-size:13px;margin-bottom:6px">기간을 골라서 누가 방문·촬영하는지 보세요. 줄 누르면 매장 상세로. (📸촬영 · 🏠방문)</div>'+
     body+'</div>';
 }
+// ── 서류 업로드 (Supabase Storage, 비공개 버킷) ──
+var DOC_BUCKET='docs';
+function docExt(name){ var m=/\.([a-zA-Z0-9]+)$/.exec(name||''); return m?m[1].toLowerCase():'dat'; }
+function docRow(label, field, c, id){
+  var path=c[field]||'', fname=path?path.split('/').pop():'';
+  return '<div class="docrow"><span class="doclabel">'+label+'</span>'+
+    (path
+      ? '<span class="docfile">📎 '+esc(fname)+'</span>'+
+        '<button class="btn-ghost" onclick="viewDoc(\''+esc(path)+'\')">👁 보기</button>'+
+        '<button class="btn-ghost" onclick="delDoc(\''+id+'\',\''+field+'\',\''+esc(path)+'\')">🗑</button>'
+      : '<label class="upbtn">📎 파일 올리기<input type="file" accept="image/*,application/pdf,.pdf" style="display:none" onchange="uploadDoc(\''+id+'\',\''+field+'\',this)"></label>')+
+    '</div>';
+}
+function uploadDoc(clientId, field, inp){
+  var f=inp.files&&inp.files[0]; if(!f) return;
+  if(f.size>10*1024*1024){ toast('10MB 이하 파일만 올려주세요'); inp.value=''; return; }
+  var path=clientId+'/'+field+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+docExt(f.name);
+  toast('업로드 중…');
+  fetch(SB_URL+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path), {
+    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'x-upsert':'true'}, body:f
+  }).then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); })
+   .then(function(){ var o={ID:clientId}; o[field]=path; var c=DB.광고주.filter(function(x){return x.ID===clientId;})[0]; if(c) c[field]=path; return gs('updateClient',o); })
+   .then(function(){ toast('📎 서류 올렸어요'); if(CUR===clientId) openClient(clientId); })
+   .catch(function(e){ toast('업로드 실패: '+((e&&e.message)||e)); });
+}
+function viewDoc(path){
+  toast('여는 중…');
+  fetch(SB_URL+'/storage/v1/object/sign/'+DOC_BUCKET+'/'+encodeURI(path), {
+    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}, body:JSON.stringify({expiresIn:3600})
+  }).then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); return r.json(); })
+   .then(function(d){ window.open(SB_URL+'/storage/v1'+d.signedURL,'_blank'); })
+   .catch(function(e){ toast('열기 실패: '+((e&&e.message)||e)); });
+}
+function delDoc(clientId, field, path){
+  if(!confirm('이 서류를 삭제할까요?')) return;
+  fetch(SB_URL+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path), {
+    method:'DELETE', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+  }).then(function(){ var o={ID:clientId}; o[field]=''; var c=DB.광고주.filter(function(x){return x.ID===clientId;})[0]; if(c) c[field]=''; return gs('updateClient',o); })
+   .then(function(){ toast('🗑 삭제됨'); if(CUR===clientId) openClient(clientId); })
+   .catch(function(e){ toast('삭제 실패: '+((e&&e.message)||e)); });
+}
 function saveVisitMemo(el, sid){ var v=el.value; patchLocal('섭외',sid,{visit_memo:v}); el.style.background='#d3f9d8'; bg(gs('updateSeed',{ID:sid,visit_memo:v})); setTimeout(function(){el.style.background='';},600); }
 function saveNotice(v){ if(!DB) DB={}; DB.공지=v; bg(gs('setNotice',{내용:v})); var b=document.getElementById('noticeBox'); if(b){b.style.background='#d3f9d8'; setTimeout(function(){b.style.background='';},600);} }
 function renderTaskView() {
@@ -1374,7 +1420,7 @@ function openClient(id) {
   var costs = DB.실행비.filter(function(r){return r.광고주ID===id;});
   var 입금 = paySum(id), 실행 = totalExecOf(id), 마진 = 입금-실행;
   var clientURL = location.origin + location.pathname.replace(/[^/]*$/,'') + 'client/';
-  var DTABLIST = [['info','🏪 업체정보'],['acct','📋 계정정보'],['quote','📄 견적서'],['insta','📷 인스타'],['blog','✍️ 블로그']];
+  var DTABLIST = [['info','🏪 업체정보'],['acct','📋 계정정보'],['docs','📄 서류'],['quote','📄 견적서'],['insta','📷 인스타'],['blog','✍️ 블로그']];
   if(canSeeMargin()) DTABLIST.push(['settle','💰 정산']);
   if(!DTABLIST.some(function(t){return t[0]===DTAB;})) DTAB='info';
   var dtabBar = '<div class="dtabs">'+DTABLIST.map(function(t){return '<button class="dtab'+(DTAB===t[0]?' on':'')+'" data-dt="'+t[0]+'" onclick="showDTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
@@ -1414,6 +1460,14 @@ function openClient(id) {
   '<div class="sec"><h3>📋 계정 정보 <span style="font-size:11px;color:#999;font-weight:400">· 플랫폼별 아이디·비번, 복사해서 바로 붙여넣기</span></h3>' +
     (infosOf(id).length ? infoGroupHTML(id) : '<div style="color:#bbb;padding:8px">정보 항목이 없어요</div>') +
     '<button class="add-row" onclick="addInfoRow()">+ 항목 추가 (옥외광고 등)</button></div>' +
+  '</div>' + dp('docs') +
+  '<div class="sec"><h3>📄 서류 <span style="font-size:11px;color:#999;font-weight:400">· 세금계산서·인허가 서류</span></h3>' +
+    '<div class="row"><span>세금계산서 이메일</span><input style="width:240px" type="email" value="'+esc(c.tax_email||'')+'" placeholder="tax@store.com" onchange="setClientField(\'tax_email\',this.value)"></div>' +
+    docRow('사업자등록증','doc_bizreg',c,id) +
+    docRow('영업신고증','doc_bizpermit',c,id) +
+    docRow('통장 사본','doc_bankbook',c,id) +
+    '<small style="color:#999;display:block;margin-top:8px">파일을 올리면 [보기]로 언제든 열 수 있어요 (이미지·PDF, 10MB 이하). 보안상 비공개 저장돼요.</small>' +
+  '</div>' +
   '</div>' + dp('quote') +
   '<div class="sec"><h3>견적·작업 · 계약 총액 '+won(contractOf(id))+'원 ' +
       (canSeeMargin()?'<button class="mg-toggle" onclick="SHOWMARGIN=!SHOWMARGIN;openClient(\''+id+'\')">'+(SHOWMARGIN?'원가·마진 숨기기':'원가·마진 보기')+'</button>':'')+'</h3>' +
