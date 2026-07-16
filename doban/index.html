@@ -2,10 +2,14 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI','Malgun Gothic',sans-serif; }
-  body { background:#f4f6f9; color:#222; }
-  .wrap { max-width:1100px; margin:0 auto; padding:16px; }
+  * { margin:0; padding:0; box-sizing:border-box;
+      font-family:'Pretendard Variable',Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Segoe UI',system-ui,sans-serif; }
+  body { background:#f4f6f9; color:#222; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; letter-spacing:-0.01em; }
+  /* PC에서 표 안 찢어지게 넓게 (예전 1100px 고정 → 화면 폭에 맞춤) */
+  .wrap { max-width:1560px; width:97vw; margin:0 auto; padding:16px; }
   header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
   header h1 { font-size:20px; }
   header h1 span { color:#e8590c; }
@@ -349,7 +353,24 @@
   .pay-badge.req { background:#fff4e0; color:#e8850a; }
   .pay-badge.due { background:#edf2ff; color:#4263eb; }
   .pay-badge.done { background:#e6fcf0; color:#237a3b; }
-  .due-in { border:1px solid #dbe4ff; border-radius:7px; padding:4px 6px; font-size:11.5px; width:118px; flex:0 0 auto; }
+  .due-wrap { display:inline-flex; align-items:center; gap:5px; background:#edf2ff; border:1px solid #dbe4ff; border-radius:8px; padding:2px 3px 2px 8px; flex:0 0 auto; }
+  .due-lb { font-size:11px; font-weight:800; color:#4263eb; white-space:nowrap; }
+  .due-in { border:1px solid #dbe4ff; border-radius:6px; padding:4px 6px; font-size:11.5px; width:120px; flex:0 0 auto; cursor:pointer; background:#fff; }
+  /* 세금계산서 단계 */
+  .tax-act { display:flex; justify-content:flex-end; gap:5px; margin-top:5px; }
+  .tax-btn { border:1px solid #d0bfff; background:#f3f0ff; color:#6741d9; border-radius:7px; padding:4px 9px; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .tax-btn.ok { border-color:#b2f2bb; background:#e6fcf0; color:#237a3b; }
+  .tax-badge { font-size:11px; font-weight:800; border-radius:6px; padding:3px 8px; white-space:nowrap; background:#f3f0ff; color:#6741d9; }
+  .tax-badge.ok { background:#e6fcf0; color:#237a3b; }
+  /* 진행 순서 안내 */
+  .pay-guide { margin-top:12px; background:#fff; border:1px solid #eee; border-radius:11px; padding:12px 14px; font-size:12.5px; color:#666; line-height:1.9; }
+  .pay-guide > b { color:#e8590c; font-size:13px; }
+  .pg-row { display:flex; align-items:flex-start; gap:7px; }
+  .pg-n { flex:0 0 auto; width:17px; height:17px; margin-top:3px; border-radius:50%; background:#e8590c; color:#fff; font-size:10.5px; font-weight:800; display:grid; place-items:center; }
+  .pg-m { color:#aaa; font-size:11.5px; }
+  /* 표 헤더 툴팁 */
+  th.has-tip { cursor:help; }
+  .tip-i { display:inline-block; width:13px; height:13px; line-height:13px; text-align:center; border-radius:50%; background:#ffd8a8; color:#e8590c; font-size:9px; font-weight:800; }
   /* 지급 처리 칸: 줄바꿈 허용해서 안 깨지게 */
   .pay-act { display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
   table.vg-tbl { min-width:0; width:100%; table-layout:fixed; }
@@ -939,7 +960,7 @@ var STATUS_OPTS = ['-','예정','진행중','완료'];
 var SEED_COLS = {
   '인플루언서': [
     {k:'계정명', label:'채널명', type:'text'},
-    {k:'fee', label:'💰대행비', type:'money'},
+    {k:'fee', label:'💰대행비', type:'money', tip:'무조건 부가세 포함가로 입력해주세요'},
     {k:'진행여부', label:'진행 상태', type:'status', opts:['-','촬영예정','편집중','게시완료']},
     {k:'촬영일정', label:'촬영 일정', type:'date'},
     {k:'촬영시간', label:'촬영 시간', type:'time'},
@@ -952,7 +973,7 @@ var SEED_COLS = {
   ],
   '블로그': [
     {k:'계정명', label:'닉네임', type:'text'},
-    {k:'fee', label:'💰대행비', type:'money'},
+    {k:'fee', label:'💰대행비', type:'money', tip:'무조건 부가세 포함가로 입력해주세요'},
     {k:'진행여부', label:'진행 상태', type:'status', opts:['-','방문예정','예약완료','작성중','게시완료']},
     {k:'방문일정', label:'방문 일정', type:'date'},
     {k:'방문시간', label:'방문 시간', type:'time'},
@@ -964,7 +985,7 @@ var SEED_COLS = {
   ],
   '체험단': [
     {k:'계정명', label:'닉네임', type:'text'},
-    {k:'fee', label:'💰대행비', type:'money'},
+    {k:'fee', label:'💰대행비', type:'money', tip:'무조건 부가세 포함가로 입력해주세요'},
     {k:'방문일정', label:'방문 일정', type:'date'},
     {k:'방문시간', label:'방문 시간', type:'time'},
     {k:'방문여부', label:'방문 여부', type:'status'},
@@ -1176,6 +1197,23 @@ function setPay(id,o,src){ o.ID=id;
   if(src==='cost'){ var p={}; for(var k in o) p[k]=o[k]; p['탭']='실행비'; bg(gs('update',p)); }
   else if(src==='seed') bg(gs('updateSeed',o));
   else bg(gs('updateTask',o)); }
+// 세금계산서 단계: 미요청 → 발행요청(실무자/회계) → 확인완료(회계) · 프리랜서는 해당 없음
+function taxNeeded(vendorName){
+  var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===vendorName;})[0];
+  return !!v && (v.vtype==='세금계산서' || v.vtype==='현금영수증');
+}
+function reqTax(id,src){ setPay(id,{tax_status:'발행요청'},src); toast('🧾 계산서 발행 요청했어요'); }
+function okTax(id,src){ setPay(id,{tax_status:'확인완료'},src); toast('🧾 계산서 확인 완료'); }
+function undoTax(id,src){ setPay(id,{tax_status:''},src); }
+function taxBtns(r,acc){
+  if(!taxNeeded(r.vendor)) return '';
+  var t=r.tax||'';
+  if(t==='확인완료') return '<span class="tax-badge ok" title="회계과장이 계산서 확인 완료">🧾 계산서 확인됨</span>'+
+    (acc?' <button class="mini-btn" onclick="undoTax(\''+r.id+'\',\''+r.src+'\')">취소</button>':'');
+  if(t==='발행요청') return '<span class="tax-badge req">🧾 발행 요청함</span>'+
+    (acc?' <button class="tax-btn ok" title="계산서 받으셨으면 눌러주세요" onclick="okTax(\''+r.id+'\',\''+r.src+'\')">✓ 계산서 확인</button>':'');
+  return '<button class="tax-btn" title="외주사에게 세금계산서 끊어달라고 요청" onclick="reqTax(\''+r.id+'\',\''+r.src+'\')">🧾 계산서 요청</button>';
+}
 function reqPay(id,src){ setPay(id,{pay_status:'지급요청'},src); toast('🙋 지급요청 보냈어요'); }
 function setPayDue(id,d,src){ setPay(id,{pay_status:d?'지급예정':'지급요청', pay_due:d||''},src); }
 function donePay(id,src){ setPay(id,{pay_status:'지급완료', pay_date:todayISO()},src); toast('✓ 지급완료 처리'); }
@@ -1201,7 +1239,7 @@ function renderVendorLedger(cs){
   var rows=(DB.작업||[]).filter(function(t){ return idset[t.광고주ID] && isOutsource(t); }).map(function(t){
     return { id:t.ID, src:'task', store:storeName(t.광고주ID), round:roundLabel(t.광고주ID, Number(t.차수)||1),
              item:t.품목, vendor:String(t.실행회사).trim(), cost:Number(t.실행비용)||0,
-             st:payStateOf(t), due:t.pay_due||'', date:t.pay_date||'' };
+             st:payStateOf(t), due:t.pay_due||'', date:t.pay_date||'', tax:t.tax_status||'' };
   });
   // ②-0 명단(섭외) = 사람별 대행비 — 인스타/블로그는 여기가 지급 대상
   rows = rows.concat((DB.섭외||[]).filter(function(s){
@@ -1210,7 +1248,7 @@ function renderVendorLedger(cs){
     var ty=seedTypeNorm(s.종류);
     return { id:s.ID, src:'seed', store:storeName(s.광고주ID), round:roundLabel(s.광고주ID, Number(s.차수)||1),
              item:ty+' '+(s.종류==='블로그'||s.종류==='체험단' ? '방문' : '촬영'), vendor:String(s.계정명).trim(),
-             cost:Number(s.fee)||0, st:payStateOf(s), due:s.pay_due||'',
+             cost:Number(s.fee)||0, st:payStateOf(s), due:s.pay_due||'', tax:s.tax_status||'',
              date:s.pay_date|| (s.종류==='블로그'||s.종류==='체험단' ? s.방문일정 : s.촬영일정) || '' };
   }));
   // ② 실행비(견적 밖 대행비·시트에서 이관한 과거 지출)
@@ -1220,7 +1258,7 @@ function renderVendorLedger(cs){
   }).map(function(e){
     return { id:e.ID, src:'cost', store:storeName(e.광고주ID), round:e.내역||'',
              item:e.내역||'', vendor:String(e.실행회사).trim(), cost:Number(e.금액)||0,
-             st:payStateOf(e), due:e.pay_due||'', date:e.pay_date||e.날짜||'' };
+             st:payStateOf(e), due:e.pay_due||'', date:e.pay_date||e.날짜||'', tax:e.tax_status||'' };
   }));
   rows.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); }); // 최근 먼저
   VLEDGER=rows;
@@ -1230,19 +1268,21 @@ function renderVendorLedger(cs){
   var total=sum(rows), doneSum=sum(G.done);
   var actions=function(r){
     var s=r.src;
-    // 날짜칸: 아무 데나 눌러도 달력 열림
-    var dateIn=function(){ return '<input type="date" class="due-in" value="'+esc(r.due||'')+'" title="지급예정일 (눌러서 달력)"'+
+    // 날짜칸: 라벨 붙이고, 아무 데나 눌러도 달력 열림
+    var dateIn=function(){ return '<span class="due-wrap"><span class="due-lb">지급예정일</span>'+
+      '<input type="date" class="due-in" value="'+esc(r.due||'')+'" title="지급예정일 — 눌러서 달력에서 고르세요"'+
       ' onclick="try{this.showPicker()}catch(e){}" onfocus="try{this.showPicker()}catch(e){}"'+
-      ' onchange="setPayDue(\''+r.id+'\',this.value,\''+s+'\')">'; };
+      ' onchange="setPayDue(\''+r.id+'\',this.value,\''+s+'\')"></span>'; };
+    var doneBtn=function(lb){ return '<button class="pay-btn paid" title="실제로 송금하신 뒤 눌러주세요" onclick="donePay(\''+r.id+'\',\''+s+'\')">'+lb+'</button>'; };
     if(r.st==='done') return '<span class="pay-badge done">✓ 지급완료 '+esc(r.date||'')+'</span>'+
       (acc?' <button class="mini-btn" onclick="undoPay(\''+r.id+'\',\''+s+'\')">취소</button>':'');
     if(r.st==='due') return (acc
-      ? dateIn()+' <button class="pay-btn paid" onclick="donePay(\''+r.id+'\',\''+s+'\')">✓ 지급완료</button>'
-      : '<span class="pay-badge due">📅 '+esc(r.due||'')+' 예정</span>');
+      ? dateIn()+' '+doneBtn('✓ 지급완료')
+      : '<span class="pay-badge due">📅 '+esc(r.due||'')+' 지급예정</span>');
     if(r.st==='req') return '<span class="pay-badge req">🙋 요청됨</span>'+
-      (acc?' '+dateIn()+' <button class="pay-btn paid" onclick="donePay(\''+r.id+'\',\''+s+'\')">✓ 완료</button>':'');
+      (acc?' '+dateIn()+' '+doneBtn('✓ 지급완료'):'');
     return '<button class="pay-btn req" onclick="reqPay(\''+r.id+'\',\''+s+'\')">🙋 지급요청</button>'+
-      (acc?' <button class="pay-btn paid" onclick="donePay(\''+r.id+'\',\''+s+'\')">✓ 완료</button>':'');
+      (acc?' '+doneBtn('✓ 지급완료'):'');
   };
   var section=function(key,emoji,title,sub,arr){
     var open=arr.length>0 && PAY_OPEN[key]!==false;
@@ -1258,7 +1298,8 @@ function renderVendorLedger(cs){
           '<span class="vg-amt">'+won(sum(g[v]))+'원</span></div>'+
         (vo ? '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr><th class="c-store">매장</th><th class="c-item">내역</th><th class="c-amt money">대행비</th><th class="c-act">지급 처리</th></tr></thead><tbody>'+
           g[v].map(function(r){ return '<tr><td class="c-store">'+esc(r.store)+'</td><td class="c-item">'+esc(r.item)+'</td>'+
-            '<td class="c-amt money"><b>'+won(r.cost)+'</b></td><td class="c-act"><div class="pay-act">'+actions(r)+'</div></td></tr>'; }).join('')+
+            '<td class="c-amt money"><b>'+won(r.cost)+'</b></td><td class="c-act"><div class="pay-act">'+actions(r)+'</div>'+
+            (function(){ var tb=taxBtns(r,acc); return tb?'<div class="tax-act">'+tb+'</div>':''; })()+'</td></tr>'; }).join('')+
           '</tbody></table></div>' : '')+
       '</div>';
     }).join('') : '<div style="color:#bbb;padding:12px;text-align:center;font-size:13px">없어요</div>';
@@ -1282,7 +1323,13 @@ function renderVendorLedger(cs){
       section('unpaid','⏳','미지급', '아직 요청 전', G.unpaid)+
       section('done','✅','지급완료', '끝났어요', G.done)
       : '<div style="color:#aaa;padding:16px 4px;font-size:13px">외주(대행) 실행비가 아직 없어요. 견적 항목의 <b>실행회사·실행비용</b>을 입력하면 여기 자동으로 모여요.</div>')+
-    '<p style="font-size:12px;color:#aaa;margin:10px 0 0">* 실무자가 <b>🙋지급요청</b> → 회계과장이 <b>📅예정일</b> 잡고 <b>✓지급완료</b> 처리해요.'+(acc?'':' (예정일·완료는 회계과장·관리자만)')+'</p>';
+    '<div class="pay-guide"><b>진행 순서</b>'+
+      '<div class="pg-row"><span class="pg-n">1</span> <b>실무자</b>가 일 끝나면 <b>🙋 지급요청</b>을 누릅니다.</div>'+
+      '<div class="pg-row"><span class="pg-n">2</span> <b>회계과장</b>이 <b>지급예정일</b>을 달력에서 고릅니다.</div>'+
+      '<div class="pg-row"><span class="pg-n">3</span> 세금계산서 대상이면 <b>🧾 계산서 요청</b> → 받으면 <b>✓ 계산서 확인</b>. <span class="pg-m">(프리랜서는 계산서 없이 진행)</span></div>'+
+      '<div class="pg-row"><span class="pg-n">4</span> <b>실제로 송금하신 뒤</b> <b>✓ 지급완료</b>를 눌러주세요.</div>'+
+      (acc?'':'<div class="pg-m" style="margin-top:6px">※ 예정일·계산서·지급완료는 회계과장·관리자만 처리할 수 있어요.</div>')+
+    '</div>';
 }
 function exportVendorLedger(){
   if(!VLEDGER.length){ toast('대행비 내역이 없어요'); return; }
@@ -2225,7 +2272,7 @@ function seedCellHTML(s,col){
       ' onchange="seedTimeCommit(this,\''+s.ID+'\',\''+col.k+'\')">';
   }
   if(col.type==='money'){ var mv=Number(v)||0;
-    return '<input class="ss-fee" inputmode="numeric" placeholder="0" value="'+(mv?mv.toLocaleString('ko-KR'):'')+'" onchange="fmtNum(this);setSeedFee(\''+s.ID+'\',this.value)">'; }
+    return '<input class="ss-fee" inputmode="numeric" placeholder="0" title="무조건 부가세 포함가로 입력해주세요" value="'+(mv?mv.toLocaleString('ko-KR'):'')+'" onchange="fmtNum(this);setSeedFee(\''+s.ID+'\',this.value)">'; }
   return '<input type="text"'+(col.k==='계정명'?' list="dl-accounts"':'')+(col.ph?' placeholder="'+esc(col.ph)+'"':'')+' value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
 }
 // ─── 명단 순서(드래그 재정렬) ───
@@ -2318,7 +2365,7 @@ function seedTableHTML(id, groups){
       return '<div class="seed-group">' +
         '<div class="seed-gh clickable" onclick="toggleSeed(\''+key+'\')">'+(open?'▼':'▶')+' 📄 '+esc(roundLabel(id,r))+(date?' <b class="sd-date">'+esc(date)+'</b>':'')+' <span>등록 '+list.length+(target?' / 견적 '+target+'명':'')+' · 완료 '+list.filter(seedDone).length+'</span></div>' +
         calc +
-        (open ? '<div class="ss-wrap"><table class="ss"><thead><tr><th class="ss-drag"></th>'+cols.map(function(c){return '<th>'+esc(c.label)+'</th>';}).join('')+'<th></th></tr></thead>' +
+        (open ? '<div class="ss-wrap"><table class="ss"><thead><tr><th class="ss-drag"></th>'+cols.map(function(c){return '<th'+(c.tip?' class="has-tip" title="'+esc(c.tip)+'"':'')+'>'+esc(c.label)+(c.tip?' <span class="tip-i">?</span>':'')+'</th>';}).join('')+'<th></th></tr></thead>' +
         '<tbody>'+(list.length?list.map(function(s){
           return '<tr ondragover="event.preventDefault()" ondrop="seedDropOn(event,\''+s.ID+'\')">' +
             '<td class="ss-drag" draggable="true" ondragstart="seedDrag(event,\''+s.ID+'\')" title="드래그해서 순서 변경">⠿</td>' +
