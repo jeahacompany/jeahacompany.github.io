@@ -1020,7 +1020,7 @@ function exportQuoteSheet(){
 
 // ─── 대행비 원장 (외주 실행비 + 지급 관리) ───
 var VLEDGER=[]; var VPAID_ONLY=false;
-function isOutsource(t){ var v=String(t.실행회사||'').trim(); return v!=='' && v!=='자체집행' && v!=='직접' && v!=='자체' && (Number(t.실행비용)||0)>0; }
+function isOutsource(t){ var v=String(t.실행회사||'').trim(); return v!=='' && v.indexOf('자체')!==0 && v!=='직접' && (Number(t.실행비용)||0)>0; }
 function renderVendorLedger(cs){
   var idset={}; cs.forEach(function(c){ idset[c.ID]=1; });
   var rows=(DB.작업||[]).filter(function(t){ return idset[t.광고주ID] && isOutsource(t); }).map(function(t){
