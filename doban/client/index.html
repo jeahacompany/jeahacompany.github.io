@@ -43,6 +43,7 @@
   .pl-body { padding:6px 12px 12px; }
   /* 섹션별 색 */
   .pl-sched .pl-head { border-left-color:#f59f00; } .pl-sched .pl-emo { background:#fff4e0; } .pl-sched .pl-cnt { background:#f59f00; }
+  .pl-writing .pl-head { border-left-color:#4263eb; } .pl-writing .pl-emo { background:#edf2ff; } .pl-writing .pl-cnt { background:#4263eb; }
   .pl-pend .pl-head  { border-left-color:#adb5bd; } .pl-pend .pl-emo  { background:#f1f3f5; } .pl-pend .pl-cnt  { background:#868e96; }
   .pl-done .pl-head  { border-left-color:#37b24d; } .pl-done .pl-emo  { background:#e6fcf0; } .pl-done .pl-cnt  { background:#37b24d; }
   /* 사람 항목 */
@@ -340,7 +341,7 @@ function clientLogout(){ localStorage.removeItem('doban_client_login'); localSto
 // ─── 오늘 탭 (일정 기간선택 + 메모) ───
 var CRANGE='all';
 var CRANGE_OPTS=[['all','전체',0,0],['today','오늘',0,0]];
-var PLOPEN={sched:true,pend:true,done:false}; // 파이프라인 섹션 펼침상태
+var PLOPEN={sched:true,writing:true,pend:true,done:false}; // 파이프라인 섹션 펼침상태
 function cIso(n){ var d=new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
 function cDow(iso){ var d=new Date(iso+'T00:00:00'); return isNaN(d)?'':['일','월','화','수','목','금','토'][d.getDay()]; }
 function setCRange(r){ CRANGE=r; var e=document.getElementById('tab-today'); if(e) e.innerHTML=todayTabHTML(); }
@@ -351,15 +352,22 @@ function todayTabHTML(){
   var isB=function(s){return s.종류==='블로그'||s.종류==='체험단';};
   var schD=function(s){ var d=String((isB(s)?s.방문일정:s.촬영일정)||'').slice(0,10); return /^\d{4}-\d{2}-\d{2}/.test(d)?d:''; };
   var reviewed=function(s){ var p=s.진행여부; return p==='게시완료'||p==='완료'||!!(s.URL||s.인스타URL||s.완료); };
+  var writingSt=function(s){ var p=s.진행여부; return p==='편집중'||p==='작성중'||p==='진행중'||(isB(s)?s.방문여부==='완료':s.촬영여부==='완료'); };
+  var today=cIso(0);
   var dateOK=function(d){ if(!from) return true; return d && d>=from && d<=to; };
-  // 3단 분류: 후기완료 / 방문예정(날짜O) / 방문미확정(날짜X). 미확정은 기간과 무관하게 항상 표시(백로그)
-  var sched=[], pend=[], done=[];
+  // 4단 퍼널: 방문예정(미래날짜) / 후기작성중(방문끝=날짜지남·편집중) / 방문조율중(날짜X,백로그) / 후기완료
+  var sched=[], writing=[], pend=[], done=[];
   (data.콘텐츠||[]).forEach(function(s){
-    if(reviewed(s)){ if(dateOK(schD(s))) done.push(s); }
-    else { var d=schD(s); if(!d) pend.push(s); else if(dateOK(d)) sched.push(s); }
+    if(reviewed(s)){ if(dateOK(schD(s))) done.push(s); return; }
+    var d=schD(s);
+    if(writingSt(s) || (d && d<today)){ if(dateOK(d)) writing.push(s); }   // 방문 완료 → 후기 작성 중
+    else if(d){ if(dateOK(d)) sched.push(s); }                              // 날짜 잡힘(오늘~미래)
+    else pend.push(s);                                                      // 날짜 없음(조율 중)
   });
-  sched.sort(function(a,b){ return String(schD(a)+(isB(a)?a.방문시간:a.촬영시간||'')).localeCompare(schD(b)+(isB(b)?b.방문시간:b.촬영시간||'')); });
-  done.sort(function(a,b){ return schD(b).localeCompare(schD(a)); }); // 최근 후기 먼저
+  var byDateTime=function(a,b){ return String(schD(a)+(isB(a)?a.방문시간:a.촬영시간||'')).localeCompare(schD(b)+(isB(b)?b.방문시간:b.촬영시간||'')); };
+  sched.sort(byDateTime);
+  writing.sort(function(a,b){ return schD(b).localeCompare(schD(a)); }); // 최근 방문 먼저
+  done.sort(function(a,b){ return schD(b).localeCompare(schD(a)); });    // 최근 후기 먼저
   pend.sort(function(a,b){ return String(a.계정명||'').localeCompare(String(b.계정명||'')); });
   var item=function(s){
     var blog=isB(s), id=String(s.ID||''), vm=s.visit_memo||'';
@@ -388,6 +396,7 @@ function todayTabHTML(){
   };
   var body =
     section('sched','🚶','방문 예정','날짜·시간이 잡혔어요', sched)+
+    section('writing','✍️','후기 작성 중','방문 끝, 후기 준비 중이에요', writing)+
     section('pend','⏳','방문 조율 중','방문일 정하는 중이에요', pend)+
     section('done','✅','후기 완료','후기까지 올라왔어요', done);
   return body;
