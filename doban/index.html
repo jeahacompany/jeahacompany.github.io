@@ -308,6 +308,11 @@
   table.qsheet-tbl th { background:#fafafa; color:#888; font-size:11.5px; padding:8px 10px; border-bottom:1.5px solid #eee; white-space:nowrap; text-align:left; }
   table.qsheet-tbl td { padding:9px 10px; border-bottom:1px solid #f0f0f0; }
   table.qsheet-tbl tbody tr:hover { background:#fff8f2; }
+  table.qsheet-tbl tr.vl-grp td { background:#f6f4f1; font-size:12.5px; padding:8px 10px; border-top:2px solid #eee; }
+  table.qsheet-tbl tr.vl-grp:hover td { background:#f6f4f1; }
+  .pay-btn { border:none; border-radius:7px; padding:5px 11px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .pay-btn.unpaid { background:#ffe3e3; color:#c92a2a; }
+  .pay-btn.paid { background:#e6fcf0; color:#237a3b; }
   .sum-line { display:flex; justify-content:space-between; font-size:14px; padding:5px 0; }
   .sum-line.big { font-weight:700; font-size:16px; border-top:2px solid #eee; margin-top:6px; padding-top:10px; }
   .plus { color:#e8590c; background:none; font-weight:700; font-size:13px; padding:4px; }
@@ -399,6 +404,7 @@
   <div id="settleView" style="display:none">
     <div class="cards" id="settlecards"></div>
     <div id="quoteSheet"></div>
+    <div id="vendorLedger"></div>
     <h3 style="margin:26px 0 8px">🏪 매장별 합계</h3>
     <table>
       <thead><tr>
@@ -940,6 +946,7 @@ function renderSettleView() {
     card('평균 마진율', (t입금>0?Math.round(t마진/t입금*100):0)+'%');
 
   renderQuoteSheet(cs);
+  renderVendorLedger(cs);
 
   document.getElementById('settlebody').innerHTML = cs.map(function (c) {
     var pay = paySum(c.ID), cost = totalExecOf(c.ID), m = pay - cost;
@@ -1009,6 +1016,67 @@ function exportQuoteSheet(){
   var csv='﻿'+cols.join(',')+'\n'+lines.join('\n');
   downloadFile('도반_견적시트_'+todayStr()+'.csv', csv, 'text/csv;charset=utf-8');
   toast('📥 견적 시트 CSV 저장됨');
+}
+
+// ─── 대행비 원장 (외주 실행비 + 지급 관리) ───
+var VLEDGER=[]; var VPAID_ONLY=false;
+function isOutsource(t){ var v=String(t.실행회사||'').trim(); return v!=='' && v!=='자체집행' && v!=='직접' && v!=='자체' && (Number(t.실행비용)||0)>0; }
+function renderVendorLedger(cs){
+  var idset={}; cs.forEach(function(c){ idset[c.ID]=1; });
+  var rows=(DB.작업||[]).filter(function(t){ return idset[t.광고주ID] && isOutsource(t); }).map(function(t){
+    return { id:t.ID, store:storeName(t.광고주ID), round:roundLabel(t.광고주ID, Number(t.차수)||1),
+             item:t.품목, vendor:String(t.실행회사).trim(), cost:Number(t.실행비용)||0,
+             paid:(t.pay_status==='지급완료'), date:t.pay_date||'' };
+  });
+  VLEDGER=rows;
+  var total=rows.reduce(function(s,r){return s+r.cost;},0);
+  var unpaid=rows.filter(function(r){return !r.paid;}).reduce(function(s,r){return s+r.cost;},0);
+  var groups={}; rows.forEach(function(r){ (groups[r.vendor]=groups[r.vendor]||[]).push(r); });
+  var vendors=Object.keys(groups).sort(function(a,b){ // 미지급 많은 외주사 위로
+    var ua=groups[a].filter(function(r){return !r.paid;}).reduce(function(s,r){return s+r.cost;},0);
+    var ub=groups[b].filter(function(r){return !r.paid;}).reduce(function(s,r){return s+r.cost;},0);
+    return ub-ua || a.localeCompare(b); });
+  var bodyHTML = vendors.map(function(v){
+    var gr=groups[v].filter(function(r){ return !VPAID_ONLY || !r.paid; });
+    if(!gr.length) return '';
+    var vt=groups[v].reduce(function(s,r){return s+r.cost;},0);
+    var vu=groups[v].filter(function(r){return !r.paid;}).reduce(function(s,r){return s+r.cost;},0);
+    var head='<tr class="vl-grp"><td colspan="6"><b>🏭 '+esc(v)+'</b> · 대행비 '+won(vt)+'원'+(vu>0?' · <span style="color:#c92a2a;font-weight:700">미지급 '+won(vu)+'원</span>':' · <span style="color:#237a3b;font-weight:700">전액 지급완료</span>')+'</td></tr>';
+    return head+gr.map(function(r){
+      return '<tr>'+
+        '<td>'+esc(r.store)+'</td><td>'+esc(r.round)+'</td><td>'+esc(r.item)+'</td>'+
+        '<td class="money">'+won(r.cost)+'</td>'+
+        '<td style="text-align:center"><button class="pay-btn '+(r.paid?'paid':'unpaid')+'" onclick="cyclePay(\''+r.id+'\')">'+(r.paid?'✓ 지급완료':'미지급')+'</button></td>'+
+        '<td style="white-space:nowrap;color:#888">'+(r.paid?esc(r.date||'-'):'')+'</td></tr>';
+    }).join('');
+  }).join('');
+  document.getElementById('vendorLedger').innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:26px 0 8px">'+
+      '<h3 style="margin:0">🏭 대행비 원장 <span style="font-size:12px;color:#888;font-weight:400">· 외주사에 줄 돈</span></h3>'+
+      '<div style="display:flex;gap:8px;align-items:center"><span class="chip'+(VPAID_ONLY?' on':'')+'" onclick="VPAID_ONLY=!VPAID_ONLY;render()">미지급만</span>'+
+        '<button onclick="exportVendorLedger()" style="background:#e8590c;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">📥 엑셀</button></div>'+
+    '</div>'+
+    '<div class="cards" style="margin-bottom:10px">'+card('총 대행비', won(total)+'원')+card('미지급', won(unpaid)+'원')+card('지급완료', won(total-unpaid)+'원')+'</div>'+
+    (rows.length ?
+      '<div class="ss-wrap"><table class="qsheet-tbl"><thead><tr><th>매장</th><th>견적명</th><th>품목</th><th class="money">대행비</th><th style="text-align:center">지급</th><th>지급일</th></tr></thead><tbody>'+
+      (bodyHTML||'<tr><td colspan="6" style="color:#237a3b;padding:14px;text-align:center">미지급 건이 없어요 🎉</td></tr>')+'</tbody></table></div>'
+      : '<div style="color:#aaa;padding:16px 4px;font-size:13px">외주(대행) 실행비가 아직 없어요. 견적 항목의 <b>실행회사·실행비용</b>을 입력하면 여기 자동으로 모여요.</div>')+
+    '<p style="font-size:12px;color:#aaa;margin:8px 0 0">* 실행회사가 \'자체집행\'이 아닌 외주 항목만 모읍니다. 지급 버튼을 누르면 지급완료↔미지급이 바뀌고 오늘 날짜가 지급일로 기록돼요.</p>';
+}
+function cyclePay(taskID){
+  var t=(DB.작업||[]).filter(function(x){return x.ID===taskID;})[0]; if(!t) return;
+  var paid = !(t.pay_status==='지급완료');
+  var o={ID:taskID, pay_status: paid?'지급완료':'', pay_date: paid?todayISO():''};
+  patchLocal('작업',taskID,o); render(); bg(gs('updateTask',o));
+}
+function exportVendorLedger(){
+  if(!VLEDGER.length){ toast('대행비 내역이 없어요'); return; }
+  var cols=['매장','견적명','품목','외주사','대행비','지급상태','지급일'];
+  var cell=function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  var lines=VLEDGER.map(function(r){ return [r.store,r.round,r.item,r.vendor,r.cost,(r.paid?'지급완료':'미지급'),r.date].map(cell).join(','); });
+  var csv='﻿'+cols.join(',')+'\n'+lines.join('\n');
+  downloadFile('도반_대행비원장_'+todayStr()+'.csv', csv, 'text/csv;charset=utf-8');
+  toast('📥 대행비 원장 CSV 저장됨');
 }
 
 // ─── 광고주 등록 뷰 (미팅용 + 견적서 제작) ───
