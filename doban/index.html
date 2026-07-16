@@ -23,6 +23,21 @@
   .trole { display:inline-block; font-size:11px; font-weight:700; border-radius:6px; padding:2px 7px; white-space:nowrap; }
   .trole.tb { background:#e7f5ff; color:#1971c2; }
   .trole.ti { background:#fff0f6; color:#c2255c; }
+  /* 명단 계산기 (예산 − 진행 실행비 = 남은 예산) */
+  .seed-calc { display:flex; align-items:center; gap:9px; flex-wrap:wrap; background:#fff9f2; border:1px solid #ffe0bf;
+    border-radius:9px; padding:8px 12px; margin:6px 0 8px; font-size:13px; color:#7a5c3a; }
+  .seed-calc.over { background:#fff5f5; border-color:#ffc9c9; color:#a13d3d; }
+  .seed-calc b { color:#4d3320; font-variant-numeric:tabular-nums; }
+  .seed-calc .sc-op { color:#c9b49c; font-weight:800; }
+  .seed-calc .sc-i.left b { color:#237a3b; font-size:15px; }
+  .seed-calc.over .sc-i.left b { color:#c92a2a; }
+  .seed-calc .sc-warn { margin-left:auto; font-weight:800; color:#c92a2a; }
+  table.ss input.ss-fee { text-align:right; font-weight:700; color:#e8590c; min-width:88px; }
+  .ex-auto { font-size:12px; color:#555; background:#fff4e0; border:1px solid #ffd8a8; border-radius:7px; padding:4px 9px; display:inline-block; }
+  .ex-auto b { color:#e8590c; }
+  .ex-auto .ex-hint { color:#a08a6c; font-size:11px; }
+  .ex-auto-td { font-size:12px; color:#666; background:#fff9f2; }
+  .ex-auto-td b { color:#e8590c; }
   .docrow { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #f3f3f3; flex-wrap:wrap; }
   .doclabel { min-width:110px; font-weight:600; font-size:14px; }
   .docfile { font-size:13px; color:#555; background:#f6f6f8; border-radius:7px; padding:4px 10px; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -875,8 +890,8 @@ function roundSelectHTML(selId, id){
   var rs = roundsOf(id); if(rs.indexOf(CURROUND)<0) rs=rs.concat([CURROUND]).sort(function(a,b){return a-b;});
   return '<select id="'+selId+'" title="어느 견적에 기록할지">'+rs.map(function(r){ return '<option value="'+r+'"'+(r===CURROUND?' selected':'')+'>'+esc(roundLabel(id,r))+'</option>'; }).join('')+'</select>';
 }
-function execTaskOf(id){ return tasksOf(id).reduce(function(s,t){return s+(Number(t.실행비용)||0);},0); } // 작업(견적항목) 실행비 합
-function roundExec(id,r){ return tasksOf(id).filter(function(t){return roundOf(t)===r;}).reduce(function(s,t){return s+(Number(t.실행비용)||0);},0); }
+function execTaskOf(id){ return tasksOf(id).reduce(function(s,t){return s+execOfTask(t);},0); } // 명단 있는 품목=명단합, 없으면 직접입력값
+function roundExec(id,r){ return tasksOf(id).filter(function(t){return roundOf(t)===r;}).reduce(function(s,t){return s+execOfTask(t);},0); }
 function totalExecOf(id){ return execTaskOf(id) + costSum(id); } // 작업 실행비 + 기타 실행비
 function seedsOf(id){ return (DB.섭외||[]).filter(function(s){return s.광고주ID===id;}); }
 function infosOf(id){ return (DB.정보||[]).filter(function(s){return s.광고주ID===id;}).sort(function(a,b){return (Number(a.순서)||0)-(Number(b.순서)||0);}); }
@@ -924,6 +939,7 @@ var STATUS_OPTS = ['-','예정','진행중','완료'];
 var SEED_COLS = {
   '인플루언서': [
     {k:'계정명', label:'채널명', type:'text'},
+    {k:'fee', label:'💰대행비', type:'money'},
     {k:'진행여부', label:'진행 상태', type:'status', opts:['-','촬영예정','편집중','게시완료']},
     {k:'촬영일정', label:'촬영 일정', type:'date'},
     {k:'촬영시간', label:'촬영 시간', type:'time'},
@@ -936,6 +952,7 @@ var SEED_COLS = {
   ],
   '블로그': [
     {k:'계정명', label:'닉네임', type:'text'},
+    {k:'fee', label:'💰대행비', type:'money'},
     {k:'진행여부', label:'진행 상태', type:'status', opts:['-','방문예정','예약완료','작성중','게시완료']},
     {k:'방문일정', label:'방문 일정', type:'date'},
     {k:'방문시간', label:'방문 시간', type:'time'},
@@ -947,6 +964,7 @@ var SEED_COLS = {
   ],
   '체험단': [
     {k:'계정명', label:'닉네임', type:'text'},
+    {k:'fee', label:'💰대행비', type:'money'},
     {k:'방문일정', label:'방문 일정', type:'date'},
     {k:'방문시간', label:'방문 시간', type:'time'},
     {k:'방문여부', label:'방문 여부', type:'status'},
@@ -1138,11 +1156,25 @@ var VLEDGER=[];
 var PAY_OPEN={req:true, due:true, unpaid:true, done:false}; // 지급상태별 토글
 var PAY_VOPEN={}; // 상태 안 · 외주사별 서브토글 (기본 접힘)
 function togglePayV(k){ PAY_VOPEN[k]=!PAY_VOPEN[k]; render(); }
-function isOutsource(t){ var v=String(t.실행회사||'').trim(); return v!=='' && v.indexOf('자체')!==0 && v!=='직접' && (Number(t.실행비용)||0)>0; }
+// 명단이 생기는 품목(인플루언서/블로그/체험단)은 명단 대행비 합이 실행비. 그 외는 품목에 직접 입력한 값.
+function hasSeedList(t){ return !!seedTypeOf(t.품목); }
+function execOfTask(t){
+  var ty=seedTypeOf(t.품목); if(!ty) return Number(t.실행비용)||0;
+  var r=roundOf(t);
+  // 같은 차수·같은 종류 품목이 여러 개면 첫 품목에만 합계를 붙여 중복 방지
+  var same=tasksOf(t.광고주ID).filter(function(x){ return roundOf(x)===r && seedTypeOf(x.품목)===ty; });
+  if(same.length && same[0].ID!==t.ID) return 0;
+  return feeSumOf(t.광고주ID, ty, r);
+}
+// 원장: 명단 있는 품목은 사람별(섭외)로 잡히므로 품목 단위 외주에서 제외
+function isOutsource(t){ var v=String(t.실행회사||'').trim(); return !hasSeedList(t) && v!=='' && v.indexOf('자체')!==0 && v!=='직접' && (Number(t.실행비용)||0)>0; }
 function payStateOf(t){ var p=t.pay_status||''; return p==='지급완료'?'done':p==='지급예정'?'due':p==='지급요청'?'req':'unpaid'; }
 function togglePay(k){ PAY_OPEN[k]=(PAY_OPEN[k]===false); render(); }
-function setPay(id,o,src){ o.ID=id; var tab=(src==='cost')?'실행비':'작업'; patchLocal(tab,id,o); render();
+function setPay(id,o,src){ o.ID=id;
+  var tab = src==='cost' ? '실행비' : src==='seed' ? '섭외' : '작업';
+  patchLocal(tab,id,o); render();
   if(src==='cost'){ var p={}; for(var k in o) p[k]=o[k]; p['탭']='실행비'; bg(gs('update',p)); }
+  else if(src==='seed') bg(gs('updateSeed',o));
   else bg(gs('updateTask',o)); }
 function reqPay(id,src){ setPay(id,{pay_status:'지급요청'},src); toast('🙋 지급요청 보냈어요'); }
 function setPayDue(id,d,src){ setPay(id,{pay_status:d?'지급예정':'지급요청', pay_due:d||''},src); }
@@ -1171,6 +1203,16 @@ function renderVendorLedger(cs){
              item:t.품목, vendor:String(t.실행회사).trim(), cost:Number(t.실행비용)||0,
              st:payStateOf(t), due:t.pay_due||'', date:t.pay_date||'' };
   });
+  // ②-0 명단(섭외) = 사람별 대행비 — 인스타/블로그는 여기가 지급 대상
+  rows = rows.concat((DB.섭외||[]).filter(function(s){
+    return idset[s.광고주ID] && String(s.계정명||'').trim()!=='' && (Number(s.fee)||0)>0;
+  }).map(function(s){
+    var ty=seedTypeNorm(s.종류);
+    return { id:s.ID, src:'seed', store:storeName(s.광고주ID), round:roundLabel(s.광고주ID, Number(s.차수)||1),
+             item:ty+' '+(s.종류==='블로그'||s.종류==='체험단' ? '방문' : '촬영'), vendor:String(s.계정명).trim(),
+             cost:Number(s.fee)||0, st:payStateOf(s), due:s.pay_due||'',
+             date:s.pay_date|| (s.종류==='블로그'||s.종류==='체험단' ? s.방문일정 : s.촬영일정) || '' };
+  }));
   // ② 실행비(견적 밖 대행비·시트에서 이관한 과거 지출)
   rows = rows.concat((DB.실행비||[]).filter(function(e){
     var v=String(e.실행회사||'').trim();
@@ -1856,7 +1898,7 @@ function openClient(id) {
         var amtIncl = Number(t.금액)||0, qty = Number(t.수량)||0, unit = Number(t.단가)||0;
         var line = (qty>0 && unit>0) ? qty*unit : Math.round(amtIncl/1.1); // 부가세 전 금액
         rsub += line;
-        var exec = Number(t.실행비용)||0, mg = line-exec, rate = line>0?Math.round(mg/line*100):0;
+        var exec = execOfTask(t), mg = line-exec, rate = line>0?Math.round(mg/line*100):0;
         return '<tr class="qr">' +
             '<td class="q-no">'+(ri+1)+'</td>' +
             '<td class="q-item"><input class="qe-item" value="'+esc(t.품목)+'" onchange="editQuoteLine(\''+t.ID+'\',\'품목\',this.value)">' +
@@ -1868,9 +1910,13 @@ function openClient(id) {
             '<td class="q-act"><button class="pill t-'+esc(t.상태)+'" onclick="cycleTask(\''+t.ID+'\',\''+esc(t.상태)+'\')">'+esc(t.상태)+'</button>' +
               '<button class="del" onclick="del(\'작업\',\''+t.ID+'\')">삭제</button></td>' +
           '</tr>' +
-          // 실행(외주사·대행비) 입력은 누구나 — 마진 숫자만 권한자에게
-          '<tr class="qr-exec"><td></td><td colspan="5"><span class="exl">실행</span> <input class="ex-co" list="dl-vendors" value="'+esc(t.실행회사||'')+'" placeholder="실행회사(등록부 자동완성)" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">' +
-            '<input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="대행비" onchange="setExec(\''+t.ID+'\',\'실행비용\',this.value)">' +
+          // 명단 있는 품목 → 명단 대행비 합계 자동 / 없는 품목 → 실행회사·대행비 직접 입력
+          '<tr class="qr-exec"><td></td><td colspan="5">' +
+            (hasSeedList(t)
+              ? '<span class="exl">실행</span> <span class="ex-auto">📋 명단 합계 <b>'+won(exec)+'</b>원'+
+                ' <span class="ex-hint">('+seedTypeOf(t.품목)+' 명단에서 사람별 대행비를 적으면 자동 계산돼요)</span></span>'
+              : '<span class="exl">실행</span> <input class="ex-co" list="dl-vendors" value="'+esc(t.실행회사||'')+'" placeholder="실행회사(등록부 자동완성)" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">' +
+                '<input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="대행비" onchange="setExec(\''+t.ID+'\',\'실행비용\',this.value)">') +
             (SHOWMARGIN ? '<span class="ex-mg">마진 <b style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+'</b> ('+rate+'%)</span>' : '') +
             '</td></tr>';
       }).join('') : '<tr><td colspan="6" style="color:#aaa;font-size:13px;padding:14px 8px">이 견적에 항목을 추가하세요 (아래에서 품목·식·단가 입력)</td></tr>';
@@ -2178,6 +2224,8 @@ function seedCellHTML(s,col){
       ' oninput="seedTime(this,\''+s.ID+'\',\''+col.k+'\')"'+
       ' onchange="seedTimeCommit(this,\''+s.ID+'\',\''+col.k+'\')">';
   }
+  if(col.type==='money'){ var mv=Number(v)||0;
+    return '<input class="ss-fee" inputmode="numeric" placeholder="0" value="'+(mv?mv.toLocaleString('ko-KR'):'')+'" onchange="fmtNum(this);setSeedFee(\''+s.ID+'\',this.value)">'; }
   return '<input type="text"'+(col.k==='계정명'?' list="dl-accounts"':'')+(col.ph?' placeholder="'+esc(col.ph)+'"':'')+' value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
 }
 // ─── 명단 순서(드래그 재정렬) ───
@@ -2208,6 +2256,23 @@ function seedDropOn(e,targetSid){
   var rows=ids.map(function(id,i){ var no=String((i+1)*10); patchLocal('섭외',id,{sort_no:no}); return {ID:id, sort_no:no}; });
   rerender();
   bg(gs('updateBulk',{탭:'섭외',rows:rows}));
+}
+// ── 명단 = 사람별 대행비. 견적가(예산) 대비 얼마 썼는지 계산기 ──
+function seedTypeNorm(t){ return t==='체험단' ? '블로그' : (t||'인플루언서'); }
+function budgetOf(id, ty, r){ // 그 종류·차수의 견적가 합 (부가세 전)
+  return tasksOf(id).filter(function(t){ return roundOf(t)===r && seedTypeOf(t.품목)===ty; })
+    .reduce(function(s,t){ var q=Number(t.수량)||0, u=Number(t.단가)||0;
+      return s + ((q>0&&u>0) ? q*u : Math.round((Number(t.금액)||0)/1.1)); },0);
+}
+function feeSumOf(id, ty, r){ // 그 종류·차수 명단의 대행비 합 = 실제 실행비
+  return seedsOf(id).filter(function(s){ return (Number(s.차수)||1)===r && seedTypeNorm(s.종류)===ty; })
+    .reduce(function(a,s){ return a+(Number(s.fee)||0); },0);
+}
+function setSeedFee(sid, val){
+  var n=numVal(val)||0;
+  patchLocal('섭외', sid, {fee:String(n)});
+  rerender();                                  // 계산기 즉시 갱신
+  bg(gs('updateSeed',{ID:sid, fee:String(n)}));
 }
 function seedTableHTML(id, groups){
   var seeds=seedsOf(id);
@@ -2241,8 +2306,18 @@ function seedTableHTML(id, groups){
       var list=(byR[r]||[]).slice().sort(seedOrderCmp);
       var target=tasksOf(id).filter(function(t){return roundOf(t)===r && seedTypeOf(t.품목)===g[0];}).reduce(function(s,t){return s+(Number(t.수량)||0);},0);
       var key=g[0]+'_'+r, open=!!SEEDOPEN[key], date=roundDateShow(id,r);
+      var _bud=budgetOf(id,g[0],r), _used=feeSumOf(id,g[0],r), _left=_bud-_used;
+      var calc='<div class="seed-calc'+(_left<0?' over':'')+'">'+
+        '<span class="sc-i">예산 <b>'+won(_bud)+'</b></span>'+
+        '<span class="sc-op">−</span>'+
+        '<span class="sc-i">진행 실행비 <b>'+won(_used)+'</b></span>'+
+        '<span class="sc-op">=</span>'+
+        '<span class="sc-i left">남은 예산 <b>'+won(_left)+'</b></span>'+
+        (_left<0?'<span class="sc-warn">⚠ 예산 초과</span>':'')+
+      '</div>';
       return '<div class="seed-group">' +
         '<div class="seed-gh clickable" onclick="toggleSeed(\''+key+'\')">'+(open?'▼':'▶')+' 📄 '+esc(roundLabel(id,r))+(date?' <b class="sd-date">'+esc(date)+'</b>':'')+' <span>등록 '+list.length+(target?' / 견적 '+target+'명':'')+' · 완료 '+list.filter(seedDone).length+'</span></div>' +
+        calc +
         (open ? '<div class="ss-wrap"><table class="ss"><thead><tr><th class="ss-drag"></th>'+cols.map(function(c){return '<th>'+esc(c.label)+'</th>';}).join('')+'<th></th></tr></thead>' +
         '<tbody>'+(list.length?list.map(function(s){
           return '<tr ondragover="event.preventDefault()" ondrop="seedDropOn(event,\''+s.ID+'\')">' +
@@ -2278,12 +2353,15 @@ function settleDetail(id, r){
   var itemRows = ts.length ? ts.map(function(t){
     var qty=Number(t.수량)||0, unit=Number(t.단가)||0;
     var 견적가=(qty>0&&unit>0)?qty*unit:Math.round((Number(t.금액)||0)/1.1);
-    var exec=Number(t.실행비용)||0, mg=견적가-exec, rate=견적가>0?Math.round(mg/견적가*100):0;
+    var exec=execOfTask(t), mg=견적가-exec, rate=견적가>0?Math.round(mg/견적가*100):0;
+    var seedTy=seedTypeOf(t.품목);
     return '<tr>' +
       '<td class="q-item"><b>'+esc(t.품목)+'</b>'+(t.세부내용?'<small>'+esc(t.세부내용)+'</small>':'')+'</td>' +
       '<td class="q-amt">'+won(견적가)+'</td>' +
-      '<td><input class="ex-co" value="'+esc(t.실행회사||'')+'" placeholder="실행회사" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)"></td>' +
-      '<td><input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="실행비" onchange="fmtNum(this);setExec(\''+t.ID+'\',\'실행비용\',this.value)"></td>' +
+      (seedTy
+        ? '<td colspan="2" class="ex-auto-td">📋 <b>'+esc(seedTy)+' 명단</b>에서 자동 — 사람별 대행비 합계 <b>'+won(exec)+'</b>원</td>'
+        : '<td><input class="ex-co" list="dl-vendors" value="'+esc(t.실행회사||'')+'" placeholder="실행회사" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)"></td>' +
+          '<td><input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="실행비" onchange="fmtNum(this);setExec(\''+t.ID+'\',\'실행비용\',this.value)"></td>') +
       '<td class="q-amt" style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+' ('+rate+'%)</td></tr>';
   }).join('') : '<tr><td colspan="5" style="color:#bbb;padding:8px">이 견적에 항목이 없어요 (견적서 탭에서 추가)</td></tr>';
   var extraRows=costs.filter(function(c){return (Number(c.차수)||0)===r;}).map(function(x){
