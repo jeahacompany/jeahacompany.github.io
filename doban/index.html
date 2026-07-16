@@ -19,6 +19,8 @@
   .chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
   .chip { background:#fff; border:1px solid #ddd; border-radius:20px; padding:5px 14px; font-size:13px; cursor:pointer; }
   .chip.on { background:#e8590c; color:#fff; border-color:#e8590c; }
+  .vmemo { width:100%; min-width:120px; border:1px solid #e3e3e3; border-radius:6px; padding:5px 8px; font-size:13px; transition:background .3s; }
+  .memo-box { width:100%; box-sizing:border-box; min-height:56px; border:1px solid #e3e3e3; border-radius:8px; padding:8px 10px; font-size:14px; resize:vertical; font-family:inherit; transition:background .3s; }
   /* 뷰 전환 탭 */
   .viewtabs { display:flex; gap:4px; margin-bottom:14px; background:#eceff3; border-radius:10px; padding:4px; width:fit-content; }
   .viewtab { padding:7px 18px; border-radius:8px; font-size:14px; cursor:pointer; color:#666; font-weight:600; }
@@ -1199,7 +1201,7 @@ function todayVisits(){
   });
 }
 var TODAY_RANGE='today'; // 기본: 오늘(D-day)
-var RANGE_OPTS=[['yesterday','어제',-1,-1],['today','오늘',0,0],['week','일주일',0,6],['2week','2주',0,13],['month','한달',0,29]];
+var RANGE_OPTS=[['yesterday','어제',-1,-1],['today','오늘',0,0],['tomorrow','내일',1,1],['pweek','지난 일주일',-6,0],['p2week','지난 14일',-13,0],['pmonth','지난 한달',-29,0]];
 function isoOffset(n){ var d=new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
 function dowKo(iso){ var d=new Date(iso+'T00:00:00'); return isNaN(d)?'':['일','월','화','수','목','금','토'][d.getDay()]; }
 function scheduleInRange(){
@@ -1218,22 +1220,30 @@ function renderTodayView(){
     : dates.map(function(d){
         var arr=byD[d].slice().sort(function(a,b){ var ta=isB(a)?a.방문시간:a.촬영시간, tb=isB(b)?b.방문시간:b.촬영시간; return String(ta||'').localeCompare(String(tb||'')); });
         var isToday=(d===t);
-        var rows=arr.map(function(s){ var tm=isB(s)?s.방문시간:s.촬영시간;
+        var rows=arr.map(function(s){ var tm=isB(s)?s.방문시간:s.촬영시간; var vm=s.visit_memo||'';
           return '<tr onclick="openClient(\''+s.광고주ID+'\')" style="cursor:pointer">'+
             '<td style="text-align:center">'+(isB(s)?'🏠':'📸')+'</td>'+
             '<td><b>'+esc(storeName(s.광고주ID))+'</b></td>'+
             '<td>'+esc(s.계정명||'-')+'</td>'+
             '<td><b>'+esc(tm||'-')+'</b></td>'+
-            '<td>'+esc(s.진행여부||'-')+'</td></tr>'; }).join('');
+            '<td>'+esc(s.진행여부||'-')+'</td>'+
+            '<td onclick="event.stopPropagation()"><input class="vmemo" value="'+esc(vm)+'" placeholder="메모…" onchange="saveVisitMemo(this,\''+s.ID+'\')"></td></tr>'; }).join('');
         return '<h3 style="margin-top:16px'+(isToday?';color:#e8590c':'')+'">'+esc(d)+' ('+dowKo(d)+')'+(isToday?' · 오늘':'')+' <span style="font-size:12px;color:#888;font-weight:400">'+arr.length+'건</span></h3>'+
-          '<div class="ss-wrap"><table class="ss"><thead><tr><th></th><th>매장</th><th>이름</th><th>시간</th><th>상태</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+          '<div class="ss-wrap"><table class="ss"><thead><tr><th></th><th>매장</th><th>이름</th><th>시간</th><th>상태</th><th>메모(점주 공유)</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
       }).join('');
+  var notice=(DB.공지||'');
   document.getElementById('todayBody').innerHTML =
+    '<div class="sec" style="border-left:4px solid #f59f00;background:#fff9db">'+
+      '<h2 style="margin-bottom:8px">📢 공지 <span style="font-size:12px;color:#888;font-weight:400">(직원 전체 공유)</span></h2>'+
+      '<textarea id="noticeBox" class="memo-box" placeholder="팀 공지·메모를 적어두면 모든 직원이 봐요" onchange="saveNotice(this.value)">'+esc(notice)+'</textarea>'+
+    '</div>'+
     '<div class="sec"><h2 style="margin-bottom:8px">📅 방문·촬영 일정</h2>'+
     '<div class="chips" style="margin-bottom:12px">'+chips+'</div>'+
     '<div style="color:#666;font-size:13px;margin-bottom:6px">기간을 골라서 누가 방문·촬영하는지 보세요. 줄 누르면 매장 상세로. (📸촬영 · 🏠방문)</div>'+
     body+'</div>';
 }
+function saveVisitMemo(el, sid){ var v=el.value; patchLocal('섭외',sid,{visit_memo:v}); el.style.background='#d3f9d8'; bg(gs('updateSeed',{ID:sid,visit_memo:v})); setTimeout(function(){el.style.background='';},600); }
+function saveNotice(v){ if(!DB) DB={}; DB.공지=v; bg(gs('setNotice',{내용:v})); var b=document.getElementById('noticeBox'); if(b){b.style.background='#d3f9d8'; setTimeout(function(){b.style.background='';},600);} }
 function renderTaskView() {
   var all = DB.작업.filter(function(t){ return !isDeletedClient(t.광고주ID); });
   var 대기 = all.filter(function(t){return t.상태==='대기';}).length;
