@@ -1201,18 +1201,22 @@ function todayVisits(){
   });
 }
 var TODAY_RANGE='today'; // 기본: 오늘(D-day)
-var RANGE_OPTS=[['yesterday','어제',-1,-1],['today','오늘',0,0],['tomorrow','내일',1,1],['pweek','지난 일주일',-6,0],['p2week','지난 14일',-13,0],['pmonth','지난 한달',-29,0]];
+var RANGE_OPTS=[  // [키,라벨,from오프셋,to오프셋,줄]
+  ['all','전체',0,0,0],['today','오늘',0,0,0],
+  ['yesterday','어제',-1,-1,1],['pweek','지난 일주일',-6,0,1],['p2week','지난 14일',-13,0,1],['pmonth','지난 한달',-29,0,1],
+  ['tomorrow','내일',1,1,2],['fweek','일주일',0,6,2],['f2week','14일',0,13,2],['fmonth','한달',0,29,2]];
 function isoOffset(n){ var d=new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
 function dowKo(iso){ var d=new Date(iso+'T00:00:00'); return isNaN(d)?'':['일','월','화','수','목','금','토'][d.getDay()]; }
 function scheduleInRange(){
   var o=RANGE_OPTS.filter(function(x){return x[0]===TODAY_RANGE;})[0]||RANGE_OPTS[1];
-  var from=isoOffset(o[2]), to=isoOffset(o[3]);
-  return (DB.섭외||[]).filter(function(s){ if(isDeletedClient(s.광고주ID)||String(s.공개)==='N') return false; var d=seedSchedDate(s); return d && d>=from && d<=to; });
+  var all=(o[0]==='all'), from=isoOffset(o[2]), to=isoOffset(o[3]);
+  return (DB.섭외||[]).filter(function(s){ if(isDeletedClient(s.광고주ID)||String(s.공개)==='N') return false; var d=seedSchedDate(s); return d && (all || (d>=from && d<=to)); });
 }
 function renderTodayView(){
   var list=scheduleInRange(), t=todayISO();
   var isB=function(s){return s.종류==='블로그'||s.종류==='체험단';};
-  var chips=RANGE_OPTS.map(function(o){ return '<div class="chip'+(TODAY_RANGE===o[0]?' on':'')+'" onclick="TODAY_RANGE=\''+o[0]+'\';render()">'+o[1]+'</div>'; }).join('');
+  var chipRow=function(r){ return '<div class="chips" style="margin-bottom:6px">'+RANGE_OPTS.filter(function(o){return o[4]===r;}).map(function(o){ return '<div class="chip'+(TODAY_RANGE===o[0]?' on':'')+'" onclick="TODAY_RANGE=\''+o[0]+'\';render()">'+o[1]+'</div>'; }).join('')+'</div>'; };
+  var chips=chipRow(0)+chipRow(1)+chipRow(2);
   var byD={}; list.forEach(function(s){ (byD[seedSchedDate(s)]=byD[seedSchedDate(s)]||[]).push(s); });
   var dates=Object.keys(byD).sort();
   var body = dates.length===0
@@ -1238,7 +1242,7 @@ function renderTodayView(){
       '<textarea id="noticeBox" class="memo-box" placeholder="팀 공지·메모를 적어두면 모든 직원이 봐요" onchange="saveNotice(this.value)">'+esc(notice)+'</textarea>'+
     '</div>'+
     '<div class="sec"><h2 style="margin-bottom:8px">📅 방문·촬영 일정</h2>'+
-    '<div class="chips" style="margin-bottom:12px">'+chips+'</div>'+
+    '<div style="margin-bottom:10px">'+chips+'</div>'+
     '<div style="color:#666;font-size:13px;margin-bottom:6px">기간을 골라서 누가 방문·촬영하는지 보세요. 줄 누르면 매장 상세로. (📸촬영 · 🏠방문)</div>'+
     body+'</div>';
 }
