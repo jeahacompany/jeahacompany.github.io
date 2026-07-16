@@ -350,6 +350,21 @@
   .vt-d { font-size:10.5px; background:#5c3b3b; color:#ffb3b3; border-radius:5px; padding:2px 6px; }
   .vt-d.ok { background:#2f5b3a; color:#b2f2bb; }
   .vend-list { display:flex; flex-direction:column; gap:10px; }
+  /* 등록부 유형별 그룹 토글 */
+  .vgrp { border:1px solid #eee; border-radius:12px; overflow:hidden; background:#fff; }
+  .vgrp-head { display:flex; align-items:center; gap:9px; padding:13px 14px; cursor:pointer; user-select:none; background:#fafafa; }
+  .vgrp-head:hover { background:#f6f6f8; }
+  .vgrp-ti { font-weight:800; font-size:15px; }
+  .vgrp-cnt { background:#e8590c; color:#fff; border-radius:20px; font-size:12px; font-weight:800; padding:2px 9px; }
+  .vgrp-warn { margin-left:auto; font-size:11.5px; font-weight:700; color:#e8590c; background:#fff1e6; border-radius:6px; padding:2px 8px; }
+  .vgrp-body { padding:10px; display:flex; flex-direction:column; gap:8px; background:#fcfcfd; }
+  /* 원장 · 외주사별 서브토글 */
+  .vg { border:1px solid #f0f0f2; border-radius:10px; margin-bottom:7px; overflow:hidden; background:#fff; }
+  .vg-head { display:flex; align-items:center; gap:8px; padding:9px 11px; cursor:pointer; user-select:none; }
+  .vg-head:hover { background:#fcfcfd; }
+  .vg-arw { color:#bbb; font-size:12px; width:11px; flex:0 0 auto; }
+  .vg-cnt { font-size:11.5px; color:#888; background:#f3f3f5; border-radius:6px; padding:2px 7px; }
+  .vg-amt { margin-left:auto; font-weight:800; font-size:13px; font-variant-numeric:tabular-nums; }
   .vend-card { border:1px solid #eee; border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.04); overflow:hidden; }
   .vend-head { display:flex; align-items:center; gap:9px; padding:12px 14px; cursor:pointer; user-select:none; flex-wrap:wrap; }
   .vend-head:hover { background:#fcfcfd; }
@@ -1098,6 +1113,8 @@ function exportQuoteSheet(){
 // ─── 대행비 원장 (외주 실행비 + 지급 관리) ───
 var VLEDGER=[];
 var PAY_OPEN={req:true, due:true, unpaid:true, done:false}; // 지급상태별 토글
+var PAY_VOPEN={}; // 상태 안 · 외주사별 서브토글 (기본 접힘)
+function togglePayV(k){ PAY_VOPEN[k]=!PAY_VOPEN[k]; render(); }
 function isOutsource(t){ var v=String(t.실행회사||'').trim(); return v!=='' && v.indexOf('자체')!==0 && v!=='직접' && (Number(t.실행비용)||0)>0; }
 function payStateOf(t){ var p=t.pay_status||''; return p==='지급완료'?'done':p==='지급예정'?'due':p==='지급요청'?'req':'unpaid'; }
 function togglePay(k){ PAY_OPEN[k]=(PAY_OPEN[k]===false); render(); }
@@ -1160,19 +1177,29 @@ function renderVendorLedger(cs){
   };
   var section=function(key,emoji,title,sub,arr){
     var open=arr.length>0 && PAY_OPEN[key]!==false;
-    var body=arr.length? arr.map(function(r){
-      return '<tr><td>'+vendorTip(r.vendor)+'</td><td>'+esc(r.store)+'</td><td>'+esc(r.item)+'</td>'+
-        '<td class="money"><b>'+won(r.cost)+'</b></td><td class="pay-act">'+actions(r)+'</td></tr>';
-    }).join('') : '<tr><td colspan="5" style="color:#bbb;padding:12px;text-align:center">없어요</td></tr>';
+    // 외주사별 서브토글 (줄이 길어서 접어둠)
+    var g={}; arr.forEach(function(r){ (g[r.vendor]=g[r.vendor]||[]).push(r); });
+    var vnames=Object.keys(g).sort(function(a,b){ return sum(g[b])-sum(g[a]) || a.localeCompare(b); });
+    var body = arr.length ? vnames.map(function(v){
+      var vk=key+'|'+v, vo=!!PAY_VOPEN[vk];
+      return '<div class="vg">'+
+        '<div class="vg-head" onclick="togglePayV(\''+esc(vk).replace(/'/g,'')+'\')">'+
+          '<span class="vg-arw">'+(vo?'▾':'▸')+'</span>'+vendorTip(v)+
+          '<span class="vg-cnt">'+g[v].length+'건</span>'+
+          '<span class="vg-amt">'+won(sum(g[v]))+'원</span></div>'+
+        (vo ? '<div class="ss-wrap"><table class="qsheet-tbl"><thead><tr><th>매장</th><th>내역</th><th class="money">대행비</th><th>지급</th></tr></thead><tbody>'+
+          g[v].map(function(r){ return '<tr><td>'+esc(r.store)+'</td><td>'+esc(r.item)+'</td>'+
+            '<td class="money"><b>'+won(r.cost)+'</b></td><td class="pay-act">'+actions(r)+'</td></tr>'; }).join('')+
+          '</tbody></table></div>' : '')+
+      '</div>';
+    }).join('') : '<div style="color:#bbb;padding:12px;text-align:center;font-size:13px">없어요</div>';
     return '<div class="pl-sec pl-'+key+'">'+
       '<div class="pl-head'+(open?' open':'')+'" onclick="togglePay(\''+key+'\')">'+
         '<span class="pl-emo">'+emoji+'</span>'+
         '<span class="pl-txt"><span class="pl-ti">'+title+'</span><span class="pl-sub">'+sub+'</span></span>'+
         '<span class="pl-amt">'+won(sum(arr))+'원</span>'+
         '<span class="pl-cnt">'+arr.length+'</span><span class="pl-arw">'+(open?'▾':'▸')+'</span></div>'+
-      '<div class="pl-body" style="display:'+(open?'block':'none')+'">'+
-        '<div class="ss-wrap"><table class="qsheet-tbl"><thead><tr><th>외주사</th><th>매장</th><th>품목</th><th class="money">대행비</th><th>지급</th></tr></thead>'+
-        '<tbody>'+body+'</tbody></table></div></div></div>';
+      '<div class="pl-body" style="display:'+(open?'block':'none')+'">'+body+'</div></div>';
   };
   document.getElementById('vendorLedger').innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:26px 0 10px">'+
@@ -1206,6 +1233,8 @@ function exportVendorLedger(){
 var V_TYPES=['세금계산서','프리랜서','현금영수증'];
 var VOPEN={}; // 등록부 카드 토글
 function toggleVend(id){ VOPEN[id]=!VOPEN[id]; render(); }
+var VG_OPEN={}; // 등록부 유형별 그룹 토글 (기본 접힘)
+function toggleVGroup(k){ VG_OPEN[k]=!VG_OPEN[k]; render(); }
 function renderVendorView(){
   var vs=(DB.vendors||[]).slice().sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
   var vf=function(v, field, ph, w){ return '<input value="'+esc(v[field]||'')+'" placeholder="'+ph+'" onchange="setVendorField(\''+v.ID+'\',\''+field+'\',this.value)" style="width:'+(w||120)+'px">'; };
@@ -1215,7 +1244,7 @@ function renderVendorView(){
     return '<span class="vdoc'+(p?' has':'')+'">'+esc(label)+' '+(p
       ? '<button class="mini-btn" onclick="viewDoc(\''+esc(p)+'\')">👁 보기</button><button class="mini-btn del" onclick="delVendorDoc(\''+v.ID+'\',\''+field+'\',\''+esc(p)+'\')">🗑</button>'
       : '<label class="mini-up">＋ 올리기<input type="file" accept="image/*,application/pdf,.pdf" style="display:none" onchange="uploadVendorDoc(\''+v.ID+'\',\''+field+'\',this)"></label>')+'</span>'; };
-  var cards = vs.length ? vs.map(function(v){
+  var vcard = function(v){
     var free=(v.vtype==='프리랜서'), open=!!VOPEN[v.ID];
     var need=[free?null:v.doc_bizreg, v.doc_bankbook, free?v.doc_id:null].filter(function(x){return x!==null;});
     var dn=need.filter(Boolean).length, dt=need.length;
@@ -1246,6 +1275,22 @@ function renderVendorView(){
           : '')+
       '</div>' : '')+
     '</div>';
+  };
+  // 유형별 그룹 토글 (기본 접힘 — 줄이 길어서)
+  var gr={}; vs.forEach(function(v){ var k=v.vtype||'미분류'; (gr[k]=gr[k]||[]).push(v); });
+  var order=['세금계산서','프리랜서','현금영수증','미분류'].filter(function(k){ return gr[k]; });
+  var cards = vs.length ? order.map(function(k){
+    var open=!!VG_OPEN[k], list=gr[k];
+    var noAcct=list.filter(function(v){return !v.account;}).length;
+    return '<div class="vgrp">'+
+      '<div class="vgrp-head" onclick="toggleVGroup(\''+k+'\')">'+
+        '<span class="vg-arw">'+(open?'▾':'▸')+'</span>'+
+        '<span class="vgrp-ti">'+esc(k)+'</span>'+
+        '<span class="vgrp-cnt">'+list.length+'명</span>'+
+        (noAcct?'<span class="vgrp-warn">계좌 미등록 '+noAcct+'</span>':'')+
+      '</div>'+
+      (open? '<div class="vgrp-body">'+list.map(vcard).join('')+'</div>' : '')+
+    '</div>';
   }).join('') : '<div style="color:#aaa;padding:14px">등록된 외주사가 없어요. <b>+ 외주사 추가</b>를 눌러 시작하세요.</div>';
   document.getElementById('vendorView').innerHTML =
     '<div class="sec"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">'+
@@ -1257,8 +1302,18 @@ function renderVendorView(){
 }
 function vendorURL(code){ return location.origin + location.pathname.replace(/[^/]*$/,'') + 'v/?c=' + code; }
 function copyVendorLink(code, name){
-  var msg='[도반글로벌] '+(name?name+'님, ':'')+'대행비 입금을 위해 아래 링크에서 계좌·서류를 넣어주세요 🙂\n'+vendorURL(code);
-  var done=function(){ toast('📋 링크+안내문 복사됨 — 카톡에 붙여넣기'); };
+  var msg=
+    '안녕하세요 '+(name||'')+'님, 도반글로벌입니다 😊\n'+
+    '협업해주셔서 진심으로 감사합니다!\n\n'+
+    '대행비 입금을 위해 아래 링크에서\n'+
+    '계좌·서류를 입력해 주시면 확인 후 바로 입금해 드릴게요.\n\n'+
+    '👉 '+vendorURL(code)+'\n\n'+
+    '· 사업자 있으신 분 : 사업자등록증 + 통장사본\n'+
+    '· 프리랜서 : 통장사본 + 신분증\n'+
+    '(휴대폰 사진도 괜찮아요, 3분이면 끝나요!)\n\n'+
+    '궁금한 점은 개인톡 주세요 😊\n'+
+    '👉 카카오톡 : doban2944';
+  var done=function(){ toast('📋 안내 멘트 복사됨 — 카톡에 붙여넣기'); };
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(msg).then(done).catch(function(){ prompt('복사하세요', msg); });
   else prompt('복사하세요', msg);
 }

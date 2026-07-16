@@ -50,7 +50,8 @@
   .done-msg { margin-top:12px; background:#e6fcf0; border:1px solid #b2f2bb; color:#2b8a3e; border-radius:11px; padding:12px; font-size:14px; font-weight:700; text-align:center; }
   .saved { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; background:#2b8a3e; color:#fff; font-size:13.5px; font-weight:700; padding:9px 18px; border-radius:20px; opacity:0; transition:.25s; z-index:9; }
   .saved.on { opacity:1; }
-  footer { text-align:center; color:#bbb; font-size:11.5px; margin-top:20px; line-height:1.7; }
+  footer { text-align:center; color:#999; font-size:12.5px; margin-top:22px; line-height:1.9; background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  footer b { color:#555; }
 </style>
 </head>
 <body>
@@ -168,7 +169,7 @@ function render(){
       (allDone?'<div class="done-msg">🎉 다 되었어요! 확인 후 입금해 드릴게요.</div>'
              :'<div class="note">남은 항목만 채워주시면 됩니다.</div>')+
     '</div>'+
-    '<footer>도반글로벌 유한회사 · 010-2944-1236<br>문의사항은 담당자에게 연락 주세요.</footer>';
+    '<footer><b>도반글로벌 유한회사</b><br>궁금한 점은 개인톡 주세요. 😊<br>👉 카카오톡 : <b>doban2944</b></footer>';
 }
 function boot(){
   if(!CODE){ document.getElementById('app').innerHTML='<div class="head"><h1>잘못된 링크</h1><div class="sub">담당자에게 링크를 다시 요청해 주세요.</div></div>'; return; }
