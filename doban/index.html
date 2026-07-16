@@ -483,6 +483,44 @@
   .vadd { display:flex; gap:7px; flex-wrap:wrap; background:#fff7f0; border:1.5px dashed #ffc999; border-radius:11px; padding:10px; margin-bottom:12px; }
   .vadd input { flex:1 1 220px; min-width:180px; border:1px solid #e3e3e3; border-radius:8px; padding:9px 11px; font-size:14px; }
   .vadd input:focus { outline:none; border-color:#e8590c; }
+  /* 등록부 검색 */
+  .vsearch { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .vsearch input { flex:1; border:1.5px solid #e3e3e3; border-radius:9px; padding:10px 12px; font-size:14px; }
+  .vsearch input:focus { outline:none; border-color:#e8590c; box-shadow:0 0 0 3px #ffe8d6; }
+  .vs-cnt { font-size:12px; font-weight:700; color:#888; white-space:nowrap; }
+  .vs-clr { border:1px solid #e3e3e3; background:#fff; border-radius:8px; padding:8px 11px; cursor:pointer; font-size:12px; font-weight:700; color:#666; }
+  .vs-clr:hover { background:#f6f6f8; }
+  .vs-none { color:#aaa; padding:14px; text-align:center; font-size:13px; }
+  /* ⚠ 미등록 이름 → 클릭해서 바로 등록 */
+  .vname.miss { cursor:pointer; }
+  .vname.miss:hover { background:#fff1e6; border-radius:5px; }
+  .vt-cta { display:block; margin-top:7px; background:#e8590c; color:#fff; border-radius:6px; padding:5px 8px; text-align:center; font-weight:800; font-size:11.5px; }
+  /* 비용항목 = 외주사 아님 */
+  .vh-ty.item, .ab-ty.item { background:#f1f3f5; color:#666; }
+  .vgrp.item { border-color:#e3e3e3; }
+  .vgrp.item .vgrp-head { background:#f8f9fa; }
+  .vgrp.item .vgrp-cnt { background:#adb5bd; }
+  .acct-bar.item { background:#f8f9fa; color:#666; border-top-color:#e9ecef; font-weight:700; }
+  /* 빠른 등록 모달 */
+  .mod-bg { position:fixed; inset:0; background:rgba(20,20,25,.5); z-index:200; display:flex; align-items:center; justify-content:center; padding:16px; }
+  .mod { background:#fff; border-radius:16px; width:100%; max-width:440px; box-shadow:0 20px 60px rgba(0,0,0,.3); overflow:hidden; }
+  .mod-h { background:#fff7f0; border-bottom:1px solid #ffe8d6; padding:14px 16px; }
+  .mod-h b { font-size:16px; }
+  .mod-h .mod-sub { display:block; font-size:12px; color:#a06a2a; margin-top:3px; }
+  .mod-b { padding:16px; display:flex; flex-direction:column; gap:11px; }
+  .mod-row { display:flex; flex-direction:column; gap:5px; }
+  .mod-row label { font-size:12px; font-weight:800; color:#666; }
+  .mod-row input, .mod-row select, .mod-row textarea { border:1.5px solid #e3e3e3; border-radius:9px; padding:10px 11px; font-size:14px; font-family:inherit; }
+  .mod-row input:focus, .mod-row select:focus, .mod-row textarea:focus { outline:none; border-color:#e8590c; }
+  .mod-row textarea { resize:vertical; min-height:60px; }
+  .mod-hint { font-size:11.5px; color:#999; line-height:1.55; }
+  .mod-f { display:flex; gap:8px; padding:0 16px 16px; }
+  .mod-f button { flex:1; border-radius:10px; padding:12px; font-size:14px; font-weight:800; cursor:pointer; border:none; }
+  .mod-ok { background:#e8590c; color:#fff; }
+  .mod-ok:hover { background:#d94f04; }
+  .mod-alt { background:#f1f3f5; color:#555; }
+  .mod-alt:hover { background:#e9ecef; }
+  .mod-x { background:#fff; border:1.5px solid #e3e3e3; color:#888; flex:0 0 80px; }
   .vadd select { border:1px solid #e3e3e3; border-radius:8px; padding:9px; font-size:13px; }
   .sum-line { display:flex; justify-content:space-between; font-size:14px; padding:5px 0; }
   .sum-line.big { font-weight:700; font-size:16px; border-top:2px solid #eee; margin-top:6px; padding-top:10px; }
@@ -1078,9 +1116,11 @@ function card(l,n){ return '<div class="card"><div class="lbl">'+l+'</div><div c
 function buildDatalists(){
   var host=document.getElementById('dataLists'); if(!host){ host=document.createElement('div'); host.id='dataLists'; host.style.display='none'; document.body.appendChild(host); }
   var vend=(DB.vendors||[]).map(function(v){return v.name;}).filter(Boolean);
+  // 계정명 자동완성 = 이미 쓴 닉네임 + 등록부에 등록된 사람 (등록된 사람은 계좌가 바로 붙으니 이 이름을 쓰는 게 맞음)
   var acc={}; (DB.섭외||[]).forEach(function(s){ var n=(s.계정명||'').trim(); if(n) acc[n]=1; });
+  vend.forEach(function(n){ n=String(n).trim(); if(n) acc[n]=1; });
   var opt=function(arr){ return arr.map(function(x){return '<option value="'+esc(x)+'">';}).join(''); };
-  host.innerHTML='<datalist id="dl-vendors">'+opt(vend)+'</datalist><datalist id="dl-accounts">'+opt(Object.keys(acc).sort())+'</datalist>';
+  host.innerHTML='<datalist id="dl-vendors">'+opt(vend.slice().sort())+'</datalist><datalist id="dl-accounts">'+opt(Object.keys(acc).sort())+'</datalist>';
 }
 
 // ─── 광고주별 뷰 ───
@@ -1255,8 +1295,13 @@ function undoPay(id,src){ setPay(id,{pay_status:'', pay_due:'', pay_date:''},src
 // 마우스 올리면 뜨는 외주사 정보
 function vendorTip(name){
   var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===name;})[0];
-  if(!v) return '<span class="vname miss">'+esc(name)+' ⚠<div class="vtip"><b>등록부에 없어요</b>'+
-    '<div class="vt-r">계좌·서류가 없어서 지급이 어려워요.<br>위 등록부에서 추가해 주세요.</div></div></span>';
+  if(!v) return '<span class="vname miss" onclick="event.stopPropagation();openVReg(\''+esc(name).replace(/'/g,'')+'\')">'+esc(name)+' ⚠<div class="vtip"><b>등록부에 없어요</b>'+
+    '<div class="vt-r">계좌·서류가 없어서 지급이 어려워요.</div>'+
+    '<span class="vt-cta">👆 눌러서 바로 등록하기</span></div></span>';
+  if(v.vtype==='비용항목') return '<span class="vname">'+esc(name)+'<div class="vtip">'+
+    '<b>'+esc(v.name||'')+'</b> <span class="vt-ty">📌 비용항목</span>'+
+    '<div class="vt-r">외주사가 아니라 자체 비용이에요. 송금 대상이 아닙니다.</div>'+
+    (v.memo?'<div class="vt-r muted">'+esc(v.memo)+'</div>':'')+'</div></span>';
   var doc=function(l,p){ return '<span class="vt-d'+(p?' ok':'')+'">'+(p?'✔':'✗')+' '+l+'</span>'; };
   var free=(v.vtype==='프리랜서');
   return '<span class="vname">'+esc(name)+'<div class="vtip">'+
@@ -1270,8 +1315,16 @@ function vendorTip(name){
 // 줄 돈 섹션용 — 계좌를 크게 보여줘서 바로 송금하게
 function acctBar(name, total){
   var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===name;})[0];
-  if(!v || !v.account) return '<div class="acct-bar none">⚠ <b>'+esc(name)+'</b> 계좌가 등록부에 없어요 — 송금 불가'+
-    '<button class="mini-btn" onclick="event.stopPropagation();VIEW=\'vendor\';render()">등록하러 가기</button></div>';
+  var nm=esc(name).replace(/'/g,'');
+  if(v && v.vtype==='비용항목') return '<div class="acct-bar item" onclick="event.stopPropagation()">'+
+    '<span class="ab-ty item">📌 비용항목</span>'+
+    '<span class="ab-acct">외주사 아님 — 송금 대상이 아니에요'+(v.memo?' · <b>'+esc(v.memo)+'</b>':'')+'</span>'+
+    '<span class="ab-amt">금액 <b>'+won(total)+'</b>원</span></div>';
+  if(!v) return '<div class="acct-bar none">⚠ <b>'+esc(name)+'</b> 등록부에 없어요 — 송금 불가'+
+    '<button class="mini-btn" onclick="event.stopPropagation();openVReg(\''+nm+'\')">＋ 바로 등록</button></div>';
+  if(!v.account) return '<div class="acct-bar none">⚠ <b>'+esc(name)+'</b> 계좌가 아직 없어요 — 송금 불가'+
+    '<button class="mini-btn" onclick="event.stopPropagation();copyVendorLink(\''+esc(v.share_code||'')+'\',\''+nm+'\')">📋 입력링크 복사</button>'+
+    '<button class="mini-btn" onclick="event.stopPropagation();VIEW=\'vendor\';VQ=\''+nm+'\';render()">등록부에서 열기</button></div>';
   var line=(v.bank||'')+' '+(v.account||'')+(v.holder?' ('+v.holder+')':'');
   return '<div class="acct-bar" onclick="event.stopPropagation()">'+
     '<span class="ab-ty'+(v.vtype==='프리랜서'?' free':'')+'">'+esc(v.vtype||'유형미정')+'</span>'+
@@ -1403,13 +1456,59 @@ function exportVendorLedger(){
 }
 
 // ─── 외주사·프리랜서 등록부 (마스터) ───
-var V_TYPES=['세금계산서','프리랜서','현금영수증'];
+var V_TYPES=['세금계산서','프리랜서','현금영수증','비용항목'];
 var VOPEN={}; // 등록부 카드 토글
 function toggleVend(id){ VOPEN[id]=!VOPEN[id]; render(); }
 var VG_OPEN={}; // 등록부 그룹 토글 (기본 접힘)
 function toggleVGroup(k){ VG_OPEN[k]=!VG_OPEN[k]; render(); }
+var VQ=''; // 등록부 검색어
+function setVQ(q){ VQ=q; renderVendorView(); var el=document.getElementById('vSearch'); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); } }
+// ─── ⚠ 미등록 이름 → 눌러서 바로 등록 ───
+var VREG=null; // {name}
+function openVReg(name){ VREG={name:name||''}; render(); }
+function closeVReg(){ VREG=null; render(); }
+function saveVReg(){
+  var g=function(id){ var e=document.getElementById(id); return e?String(e.value||'').trim():''; };
+  var n=g('vrName'); if(!n){ toast('이름을 입력하세요'); return; }
+  var ty=g('vrType'), memo=g('vrMemo');
+  if((DB.vendors||[]).some(function(v){return String(v.name||'').trim()===n;})){ toast('이미 등록된 이름이에요'); return; }
+  VREG=null;
+  busy(gs('addVendor',{name:n}).then(function(v){
+    var p={ID:v.ID}; if(ty) p.vtype=ty; if(memo) p.memo=memo;
+    return (ty||memo) ? gs('updateVendor',p) : null;
+  }).then(load).then(function(){
+    toast(ty==='비용항목' ? '📌 비용항목으로 처리했어요' : '✅ '+n+' 등록 완료 — 링크 보내서 계좌 받으세요');
+  }));
+}
+function vregHTML(){
+  if(!VREG) return '';
+  var n=esc(VREG.name);
+  return '<div class="mod-bg" onclick="if(event.target===this)closeVReg()"><div class="mod">'+
+    '<div class="mod-h"><b>⚠ 등록부에 없는 이름이에요</b>'+
+      '<span class="mod-sub">「'+n+'」 — 이게 뭔지 정하면 경고가 사라집니다</span></div>'+
+    '<div class="mod-b">'+
+      '<div class="mod-row"><label>이름 / 닉네임</label>'+
+        '<input id="vrName" value="'+n+'" placeholder="예: 광주맛집 루피"></div>'+
+      '<div class="mod-row"><label>이게 뭔가요?</label>'+
+        '<select id="vrType">'+
+          '<option value="">⏳ 외주사인데 유형은 본인이 고르게 (링크 보냄)</option>'+
+          '<option value="세금계산서">🧾 세금계산서 발행 가능한 사업자</option>'+
+          '<option value="프리랜서">🪪 프리랜서 (3.3% 공제)</option>'+
+          '<option value="현금영수증">🧾 현금영수증</option>'+
+          '<option value="비용항목">📌 외주사 아님 — 자체 비용 (커피값·화분 등)</option>'+
+        '</select></div>'+
+      '<div class="mod-row"><label>메모 <span style="font-weight:400;color:#aaa">— 왜 이렇게 처리했는지</span></label>'+
+        '<textarea id="vrMemo" placeholder="예: 촬영 현장 커피값, 자체 지출이라 송금 대상 아님"></textarea></div>'+
+      '<div class="mod-hint">· <b>외주사</b>로 등록하면 ⏳ 입력 전에 들어가고, 링크를 보내면 본인이 계좌·서류를 채웁니다.<br>'+
+        '· <b>비용항목</b>은 송금 대상이 아니라서 계좌 없이도 경고가 안 뜹니다.</div>'+
+    '</div>'+
+    '<div class="mod-f"><button class="mod-x" onclick="closeVReg()">취소</button>'+
+      '<button class="mod-ok" onclick="saveVReg()">등록하기</button></div>'+
+  '</div></div>';
+}
 // 뭐가 빠졌는지 — 계좌·번호·서류 (유형별로 필요 서류가 다름)
 function vendorMissing(v){
+  if(v.vtype==='비용항목') return []; // 자체 비용 = 계좌·서류 필요 없음
   var free=(v.vtype==='프리랜서'), m=[];
   if(!String(v.account||'').trim()) m.push('계좌번호');
   if(!String(v.holder||'').trim()) m.push('예금주');
@@ -1421,7 +1520,12 @@ function vendorMissing(v){
 }
 function vendorDone(v){ return !!v.vtype && vendorMissing(v).length===0; }
 function renderVendorView(){
-  var vs=(DB.vendors||[]).slice().sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
+  var all=(DB.vendors||[]).slice().sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
+  var q=String(VQ||'').trim().toLowerCase();
+  var vs = !q ? all : all.filter(function(v){
+    return ['name','memo','holder','account','bank','biz_no','vtype'].some(function(k){
+      return String(v[k]||'').toLowerCase().indexOf(q)>=0; });
+  });
   var vf=function(v, field, ph, w){ return '<input value="'+esc(v[field]||'')+'" placeholder="'+ph+'" onchange="setVendorField(\''+v.ID+'\',\''+field+'\',this.value)" style="width:'+(w||120)+'px">'; };
   var vsel=function(v){ return '<select onchange="setVendorField(\''+v.ID+'\',\'vtype\',this.value)">'+
     ['<option value="">유형</option>'].concat(V_TYPES.map(function(t){return '<option'+(v.vtype===t?' selected':'')+'>'+t+'</option>';})).join('')+'</select>'; };
@@ -1466,13 +1570,14 @@ function renderVendorView(){
   };
   // 그룹: ⏳입력 전(시작 안 함) → ⚠미작성(유형만 고르고 계좌·서류 빠짐) → 유형별(완비)
   var gr={}; vs.forEach(function(v){ var k = !v.vtype ? '입력 전' : (vendorDone(v) ? v.vtype : '미작성'); (gr[k]=gr[k]||[]).push(v); });
-  var order=['입력 전','미작성','세금계산서','프리랜서','현금영수증'].filter(function(k){ return gr[k]; });
+  var order=['입력 전','미작성','세금계산서','프리랜서','현금영수증','비용항목'].filter(function(k){ return gr[k]; });
   var META={'입력 전':{e:'⏳',s:'링크 보내고 기다리는 중'},'미작성':{e:'⚠️',s:'계좌·서류가 빠졌어요 — 채워달라고 하세요'},
-            '세금계산서':{e:'🧾',s:'입력 완료'},'프리랜서':{e:'🪪',s:'입력 완료'},'현금영수증':{e:'🧾',s:'입력 완료'}};
+            '세금계산서':{e:'🧾',s:'입력 완료'},'프리랜서':{e:'🪪',s:'입력 완료'},'현금영수증':{e:'🧾',s:'입력 완료'},
+            '비용항목':{e:'📌',s:'외주사 아님 — 자체 비용이라 송금 안 함'}};
   var cards = vs.length ? order.map(function(k){
-    var open=!!VG_OPEN[k], list=gr[k], m=META[k]||{e:'',s:''};
-    var noAcct=list.filter(function(v){return !v.account;}).length;
-    return '<div class="vgrp'+(k==='입력 전'?' waiting':(k==='미작성'?' todo':''))+'">'+
+    var open=!!VG_OPEN[k] || !!q, list=gr[k], m=META[k]||{e:'',s:''};
+    var noAcct=(k==='비용항목')?0:list.filter(function(v){return !v.account;}).length;
+    return '<div class="vgrp'+(k==='입력 전'?' waiting':(k==='미작성'?' todo':(k==='비용항목'?' item':'')))+'">'+
       '<div class="vgrp-head" onclick="toggleVGroup(\''+k+'\')">'+
         '<span class="vg-arw">'+(open?'▾':'▸')+'</span>'+
         '<span class="vgrp-ti">'+m.e+' '+esc(k)+'</span>'+
@@ -1482,17 +1587,24 @@ function renderVendorView(){
       '</div>'+
       (open? '<div class="vgrp-body">'+list.map(vcard).join('')+'</div>' : '')+
     '</div>';
-  }).join('') : '<div style="color:#aaa;padding:14px">등록된 외주사가 없어요. 위 칸에 <b>닉네임을 입력</b>해서 시작하세요.</div>';
+  }).join('') : (q
+      ? '<div class="vs-none">「<b>'+esc(VQ)+'</b>」 검색 결과가 없어요. <button class="vs-clr" onclick="setVQ(\'\')">전체 보기</button></div>'
+      : '<div style="color:#aaa;padding:14px">등록된 외주사가 없어요. 위 칸에 <b>닉네임을 입력</b>해서 시작하세요.</div>');
   document.getElementById('vendorView').innerHTML =
     '<div class="sec">'+
       '<h2 style="margin:0 0 10px">🏭 외주사·프리랜서 등록부 <span style="font-size:12px;color:#888;font-weight:400">· 한 번 등록 = 계좌·서류 자동 재사용</span></h2>'+
       '<div class="vadd">'+
-        '<input id="nvName" placeholder="닉네임/이름 입력 후 Enter (예: 광주맛집)" onkeydown="if(event.key===\'Enter\')addVendorQuick()">'+
+        '<input id="nvName" list="dl-accounts" placeholder="닉네임/이름 입력 후 Enter (예: 광주맛집 루피)" onkeydown="if(event.key===\'Enter\')addVendorQuick()">'+
         '<button class="btn-primary" onclick="addVendorQuick()">+ 추가</button>'+
         '<div class="vadd-hint">추가하면 <b>⏳ 입력 전</b>에 들어가요. 링크를 복사해 보내면, 본인이 입력하는 순간 유형별로 자동 이동합니다.</div>'+
       '</div>'+
+      '<div class="vsearch">'+
+        '<input id="vSearch" value="'+esc(VQ)+'" placeholder="🔍 이름·계좌·예금주·메모로 검색 (예: 광주맛집, 국민, 최수진)" oninput="setVQ(this.value)">'+
+        (q?'<button class="vs-clr" onclick="setVQ(\'\')">✕ 지우기</button>':'')+
+        '<span class="vs-cnt">'+(q? vs.length+' / '+all.length+'명' : all.length+'명')+'</span>'+
+      '</div>'+
       '<div class="vend-list">'+cards+'</div></div>'+
-    '<div id="vendorLedger"></div>';
+    '<div id="vendorLedger"></div>'+vregHTML();
   renderVendorLedger(DB.광고주.filter(function(c){return c.상태!=='삭제됨';}));
 }
 function vendorURL(code){ return location.origin + location.pathname.replace(/[^/]*$/,'') + 'v/?c=' + code; }
