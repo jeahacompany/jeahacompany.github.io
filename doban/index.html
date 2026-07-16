@@ -886,6 +886,7 @@ function visibleViews(){
 function render() {
   // 화면 하단 버전 표기 (클릭 → 업데이트로그)
   (function(){ var vb=document.getElementById('verBadge'); if(!vb){ vb=document.createElement('div'); vb.id='verBadge'; vb.style.cssText='position:fixed;right:10px;bottom:8px;font-size:11px;color:#aaa;background:rgba(255,255,255,.9);border:1px solid #eee;padding:2px 9px;border-radius:11px;cursor:pointer;z-index:6'; vb.title='업데이트 로그 보기'; vb.onclick=function(){ VIEW='log'; render(); }; document.body.appendChild(vb); } vb.textContent='도반 '+APP_VER; })();
+  buildDatalists();
   var vv = visibleViews();
   if(!vv.some(function(t){return t[0]===VIEW;})) VIEW='client'; // 권한 없는 탭이면 광고주별로
   document.getElementById('viewtabs').innerHTML =
@@ -915,6 +916,14 @@ function render() {
   else if (VIEW==='trash') renderTrashView();
 }
 function card(l,n){ return '<div class="card"><div class="lbl">'+l+'</div><div class="num">'+n+'</div></div>'; }
+// 자동완성 목록: 실행회사=외주사 등록부, 계정명=지금까지 쓴 인플루언서/블로거 닉네임
+function buildDatalists(){
+  var host=document.getElementById('dataLists'); if(!host){ host=document.createElement('div'); host.id='dataLists'; host.style.display='none'; document.body.appendChild(host); }
+  var vend=(DB.vendors||[]).map(function(v){return v.name;}).filter(Boolean);
+  var acc={}; (DB.섭외||[]).forEach(function(s){ var n=(s.계정명||'').trim(); if(n) acc[n]=1; });
+  var opt=function(arr){ return arr.map(function(x){return '<option value="'+esc(x)+'">';}).join(''); };
+  host.innerHTML='<datalist id="dl-vendors">'+opt(vend)+'</datalist><datalist id="dl-accounts">'+opt(Object.keys(acc).sort())+'</datalist>';
+}
 
 // ─── 광고주별 뷰 ───
 function renderClientView() {
@@ -1644,7 +1653,7 @@ function openClient(id) {
             '<td class="q-act"><button class="pill t-'+esc(t.상태)+'" onclick="cycleTask(\''+t.ID+'\',\''+esc(t.상태)+'\')">'+esc(t.상태)+'</button>' +
               '<button class="del" onclick="del(\'작업\',\''+t.ID+'\')">삭제</button></td>' +
           '</tr>' +
-          (SHOWMARGIN ? '<tr class="qr-exec"><td></td><td colspan="5"><span class="exl">실행</span> <input class="ex-co" value="'+esc(t.실행회사||'')+'" placeholder="실행회사" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">' +
+          (SHOWMARGIN ? '<tr class="qr-exec"><td></td><td colspan="5"><span class="exl">실행</span> <input class="ex-co" list="dl-vendors" value="'+esc(t.실행회사||'')+'" placeholder="실행회사(등록부에서 자동완성)" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">' +
             '<input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="실행비" onchange="setExec(\''+t.ID+'\',\'실행비용\',this.value)">' +
             '<span class="ex-mg">마진 <b style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+'</b> ('+rate+'%)</span></td></tr>' : '');
       }).join('') : '<tr><td colspan="6" style="color:#aaa;font-size:13px;padding:14px 8px">이 견적에 항목을 추가하세요 (아래에서 품목·식·단가 입력)</td></tr>';
@@ -1952,7 +1961,7 @@ function seedCellHTML(s,col){
       ' oninput="seedTime(this,\''+s.ID+'\',\''+col.k+'\')"'+
       ' onchange="seedTimeCommit(this,\''+s.ID+'\',\''+col.k+'\')">';
   }
-  return '<input type="text"'+(col.ph?' placeholder="'+esc(col.ph)+'"':'')+' value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
+  return '<input type="text"'+(col.k==='계정명'?' list="dl-accounts"':'')+(col.ph?' placeholder="'+esc(col.ph)+'"':'')+' value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
 }
 // ─── 명단 순서(드래그 재정렬) ───
 function seedSchedDate(s){ var blog=(s.종류==='블로그'||s.종류==='체험단'); var d=String((blog?s.방문일정:s.촬영일정)||'').trim(); return /^\d{4}-\d{2}-\d{2}/.test(d)?d.slice(0,10):''; }
