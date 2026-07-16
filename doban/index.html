@@ -483,6 +483,10 @@
   .vadd { display:flex; gap:7px; flex-wrap:wrap; background:#fff7f0; border:1.5px dashed #ffc999; border-radius:11px; padding:10px; margin-bottom:12px; }
   .vadd input { flex:1 1 220px; min-width:180px; border:1px solid #e3e3e3; border-radius:8px; padding:9px 11px; font-size:14px; }
   .vadd input:focus { outline:none; border-color:#e8590c; }
+  /* 원장 ↔ 정산 대조 */
+  .led-chk { background:#fff5f5; border:1.5px solid #ffc9c9; color:#c92a2a; border-radius:10px; padding:10px 13px; font-size:13px; font-weight:700; margin-bottom:12px; }
+  .led-chk.ok { background:#ebfbee; border-color:#b2f2bb; color:#237a3b; }
+  .led-chk b { font-weight:900; }
   /* 등록부 검색 */
   .vsearch { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
   .vsearch input { flex:1; border:1.5px solid #e3e3e3; border-radius:9px; padding:10px 12px; font-size:14px; }
@@ -1261,7 +1265,11 @@ function execOfTask(t){
   return feeSumOf(t.광고주ID, ty, r);
 }
 // 원장: 명단 있는 품목은 사람별(섭외)로 잡히므로 품목 단위 외주에서 제외
-function isOutsource(t){ var v=String(t.실행회사||'').trim(); return !hasSeedList(t) && v!=='' && v.indexOf('자체')!==0 && v!=='직접' && (Number(t.실행비용)||0)>0; }
+// 실행비가 잡힌 품목은 자체집행이든 외주든 전부 원장에 올린다 (나간 돈은 다 나간 돈)
+// → 원장 총액과 정산 '총 실행비'는 항상 같아야 함
+function isOutsource(t){ return !hasSeedList(t) && (Number(t.실행비용)||0)>0; }
+// 자체집행/자체실행/직접 = 우리가 직접 쓴 돈. 송금 대상이 아니라 계좌가 필요 없음.
+function isSelfName(n){ var v=String(n||'').trim(); return v.indexOf('자체')===0 || v==='직접'; }
 function payStateOf(t){ var p=t.pay_status||''; return p==='지급완료'?'done':p==='지급예정'?'due':p==='지급요청'?'req':'unpaid'; }
 function togglePay(k){ PAY_OPEN[k]=(PAY_OPEN[k]===false); render(); }
 function setPay(id,o,src){ o.ID=id;
@@ -1294,6 +1302,9 @@ function donePay(id,src){ setPay(id,{pay_status:'지급완료', pay_date:todayIS
 function undoPay(id,src){ setPay(id,{pay_status:'', pay_due:'', pay_date:''},src); }
 // 마우스 올리면 뜨는 외주사 정보
 function vendorTip(name){
+  if(isSelfName(name)) return '<span class="vname">'+esc(name)+'<div class="vtip">'+
+    '<b>'+esc(name)+'</b> <span class="vt-ty">🏠 우리가 직접</span>'+
+    '<div class="vt-r">외주 안 주고 우리가 직접 쓴 돈이에요.<br>송금 대상이 아니라 계좌가 필요 없습니다.</div></div></span>';
   var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===name;})[0];
   if(!v) return '<span class="vname miss" onclick="event.stopPropagation();openVReg(\''+esc(name).replace(/'/g,'')+'\')">'+esc(name)+' ⚠<div class="vtip"><b>등록부에 없어요</b>'+
     '<div class="vt-r">계좌·서류가 없어서 지급이 어려워요.</div>'+
@@ -1314,6 +1325,10 @@ function vendorTip(name){
 }
 // 줄 돈 섹션용 — 계좌를 크게 보여줘서 바로 송금하게
 function acctBar(name, total){
+  if(isSelfName(name)) return '<div class="acct-bar item" onclick="event.stopPropagation()">'+
+    '<span class="ab-ty item">🏠 자체집행</span>'+
+    '<span class="ab-acct">우리가 직접 쓴 돈 — 송금 대상이 아니에요</span>'+
+    '<span class="ab-amt">나간 금액 <b>'+won(total)+'</b>원</span></div>';
   var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===name;})[0];
   var nm=esc(name).replace(/'/g,'');
   if(v && v.vtype==='비용항목') return '<div class="acct-bar item" onclick="event.stopPropagation()">'+
@@ -1343,7 +1358,7 @@ function renderVendorLedger(cs){
   // ① 견적 항목(작업)의 외주 실행비
   var rows=(DB.작업||[]).filter(function(t){ return idset[t.광고주ID] && isOutsource(t); }).map(function(t){
     return { id:t.ID, src:'task', store:storeName(t.광고주ID), round:roundLabel(t.광고주ID, Number(t.차수)||1),
-             item:t.품목, vendor:String(t.실행회사).trim(), cost:Number(t.실행비용)||0,
+             item:t.품목, vendor:String(t.실행회사||'').trim() || '(받는 사람 미지정)', cost:Number(t.실행비용)||0,
              st:payStateOf(t), due:t.pay_due||'', date:t.pay_date||'', tax:t.tax_status||'' };
   });
   // ②-0 명단(섭외) = 사람별 대행비 — 인스타/블로그는 여기가 지급 대상
@@ -1356,11 +1371,10 @@ function renderVendorLedger(cs){
              cost:Number(s.fee)||0, st:payStateOf(s), due:s.pay_due||'', tax:s.tax_status||'',
              date:s.pay_date|| (s.종류==='블로그'||s.종류==='체험단' ? s.방문일정 : s.촬영일정) || '' };
   }));
-  // ② 실행비(견적 밖 대행비·시트에서 이관한 과거 지출)
+  // ② 실행비(견적 밖 대행비·추가 지출)
+  // 자체집행도 실제로 나간 돈이라 원장에 올림 → 원장 총액 = 정산 총 실행비 (항상 일치해야 함)
   rows = rows.concat((DB.실행비||[]).filter(function(e){
-    var v=String(e.실행회사||'').trim();
-    // 실행회사가 비어도 '줄 돈'이라 원장에 올림 (자체집행만 제외)
-    return idset[e.광고주ID] && v.indexOf('자체')!==0 && (Number(e.금액)||0)>0;
+    return idset[e.광고주ID] && (Number(e.금액)||0)>0;
   }).map(function(e){
     var who=String(e.실행회사||'').trim() || String(e.내역||'').trim() || '(받는 사람 미지정)';
     return { id:e.ID, src:'cost', store:storeName(e.광고주ID), round:e.내역||'',
@@ -1421,12 +1435,18 @@ function renderVendorLedger(cs){
         '<span class="pl-cnt">'+arr.length+'</span><span class="pl-arw">'+(open?'▾':'▸')+'</span></div>'+
       '<div class="pl-body" style="display:'+(open?'block':'none')+'">'+body+'</div></div>';
   };
+  // 정산 '총 실행비'와 대조 — 정산과 똑같은 함수(totalExecOf)로 계산해서 항상 같아야 정상
+  var settle=cs.reduce(function(s,c){ return s+totalExecOf(c.ID); },0);
+  var gap=settle-total;
   document.getElementById('vendorLedger').innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:26px 0 10px">'+
-      '<h3 style="margin:0">🏭 대행비 원장 <span style="font-size:12px;color:#888;font-weight:400">· 외주사에 줄 돈 · 이름에 마우스 올리면 계좌 보임</span></h3>'+
+      '<h3 style="margin:0">🏭 대행비 원장 <span style="font-size:12px;color:#888;font-weight:400">· 나간 돈 전부 · 이름에 마우스 올리면 계좌 보임</span></h3>'+
       '<button onclick="exportVendorLedger()" style="background:#e8590c;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">📥 엑셀</button>'+
     '</div>'+
     '<div class="cards" style="margin-bottom:12px">'+card('총 대행비', won(total)+'원')+card('아직 안 준 돈', won(total-doneSum)+'원')+card('지급완료', won(doneSum)+'원')+'</div>'+
+    '<div class="led-chk'+(gap===0?' ok':'')+'">'+(gap===0
+      ? '✅ 정산 <b>총 실행비</b>와 정확히 일치합니다 — '+won(settle)+'원'
+      : '⚠ 정산 <b>총 실행비</b> '+won(settle)+'원과 <b>'+won(Math.abs(gap))+'원</b> 차이가 납니다 — 견적에 실행비만 적히고 원장에 안 올라온 게 있어요')+'</div>'+
     (rows.length ?
       section('req','🙋','지급요청 옴', acc?'예정일 잡거나 바로 지급하세요':'회계과장 확인 중', G.req)+
       section('due','📅','지급예정', '날짜 잡힘', G.due)+
