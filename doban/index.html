@@ -500,6 +500,9 @@
   .pd-co { flex:1 1 190px; min-width:150px; }
   .pd-amt { width:110px; text-align:right; font-weight:800; }
   .pd-q { font-size:11px; font-weight:700; color:#888; background:#f1f3f5; border-radius:5px; padding:1px 6px; }
+  .pd-note { font-size:10.5px; font-weight:600; color:#aaa; }
+  .pd-self { border:1.5px solid #d0d7de; background:#fff; color:#555; border-radius:8px; padding:8px 11px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .pd-self:hover { background:#f1f3f5; border-color:#adb5bd; }
   /* 원장 ↔ 정산 대조 */
   .led-chk { background:#fff5f5; border:1.5px solid #ffc9c9; color:#c92a2a; border-radius:10px; padding:10px 13px; font-size:13px; font-weight:700; margin-bottom:12px; }
   .led-chk.ok { background:#ebfbee; border-color:#b2f2bb; color:#237a3b; }
@@ -1406,7 +1409,8 @@ function copyAcct(t){
   else prompt('복사하세요',t);
 }
 // 견적에 항목은 잡혔는데 아직 실행비(나갈 돈)가 안 정해진 것 — 잊지 않게 원장에 남긴다
-// 명단 품목(인플루언서/블로그)은 명단에 사람별 대행비를 넣어야 하고, 나머지는 실행비용을 직접 넣으면 됨
+// ★ 견적서의 '실행' 칸과 똑같은 필드(작업.실행회사/실행비용)를 쓴다. 어느 쪽에 적든 같은 곳에 저장되고,
+//   값이 들어가는 순간 이 목록에서 빠지므로 이중 입력이 될 수 없다.
 function execPending(idset){
   var out=[];
   (DB.작업||[]).forEach(function(t){
@@ -1419,15 +1423,24 @@ function execPending(idset){
       var ty=seedTypeOf(t.품목);
       var same=tasksOf(t.광고주ID).filter(function(x){ return roundOf(x)===r && seedTypeOf(x.품목)===ty; });
       if(same.length && same[0].ID!==t.ID) return;   // 같은 차수·종류는 한 줄만
-      if(feeSumOf(t.광고주ID, ty, r)>0) return;      // 이미 한 명이라도 넣었으면 진행 중이라 뺌
+      if(feeSumOf(t.광고주ID, ty, r)>0) return;      // 명단에 한 명이라도 넣었으면 진행 중이라 뺌
       out.push({ t:t, budget:budgetOf(t.광고주ID,ty,r)||budget, seed:true, ty:ty, round:r });
     } else {
-      if((Number(t.실행비용)||0)>0) return;           // 이미 실행비 입력됨
+      if((Number(t.실행비용)||0)>0) return;           // 견적서에서든 여기서든 실행비가 들어가면 빠짐
       out.push({ t:t, budget:budget, seed:false, round:r });
     }
   });
   return out;
 }
+// 원장에서 실행비 입력 — 견적서와 같은 필드에 저장하고 원장을 바로 다시 그림
+function setPendExec(id, field, val){
+  if(field==='실행비용') val = Number(String(val).replace(/[^0-9]/g,''))||0;
+  var o={ID:id}; o[field]=val; patchLocal('작업',id,o);
+  if(VIEW==='vendor') renderVendorView(); else render();
+  bg(gs('updateTask',o));
+}
+// 우리가 직접 한 것 = 나갈 돈 없음. 찍으면 미입력 목록에서 빠짐
+function markSelfExec(id){ setPendExec(id,'실행회사','자체실행'); toast('🏠 자체실행 — 나갈 돈 없음으로 정리'); }
 function renderVendorLedger(cs){
   var idset={}; cs.forEach(function(c){ idset[c.ID]=1; });
   // ① 견적 항목(작업)의 외주 실행비
@@ -1511,12 +1524,13 @@ function renderVendorLedger(cs){
       '<div class="pl-body" style="display:'+(open?'block':'none')+'">'+body+'</div></div>';
   };
   // ⬜ 실행비 미입력 — 견적엔 있는데 아직 나갈 돈이 안 정해진 항목
+  // 여기 적는 값 = 견적서 '실행' 칸과 같은 필드. 적는 순간 이 목록에서 사라진다(이중 입력 불가)
   var pend=execPending(idset);
   var pendBudget=pend.reduce(function(s,p){ return s+p.budget; },0);
   var pendSec=(function(){
     var open=pend.length>0 && PAY_OPEN['todo']!==false;
     var body = pend.length ? '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr>'+
-        '<th class="c-store">매장</th><th class="c-item">견적 항목</th><th class="c-amt money">견적(예산)</th><th class="c-act">실행비 입력</th>'+
+        '<th class="c-store">매장</th><th class="c-item">견적 항목</th><th class="c-amt money">견적(예산)</th><th class="c-act">실행비 입력 <span class="pd-note">견적서와 같은 칸이에요</span></th>'+
       '</tr></thead><tbody>'+
       pend.map(function(p){
         var t=p.t;
@@ -1524,17 +1538,18 @@ function renderVendorLedger(cs){
           '<td class="c-item">'+esc(roundLabel(t.광고주ID,p.round))+' · <b>'+esc(t.품목)+'</b>'+
             (t.수량>1?' <span class="pd-q">'+t.수량+'개</span>':'')+'</td>'+
           '<td class="c-amt money">'+won(p.budget)+'</td>'+
-          '<td class="c-act">'+(p.seed
+          '<td class="c-act"><div class="pd-in">'+(p.seed
             ? '<button class="pay-btn req" onclick="openClient(\''+t.광고주ID+'\')">👥 명단에서 사람별로 입력</button>'
-            : '<div class="pd-in"><input class="pd-co" list="dl-vendors" placeholder="외주사 (자체실행이면 자체실행)" value="'+esc(t.실행회사||'')+'" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">'+
-              '<input class="pd-amt" placeholder="실행비" inputmode="numeric" onchange="setExec(\''+t.ID+'\',\'실행비용\',this.value)"></div>')+
-          '</td></tr>';
+            : '<input class="pd-co" list="dl-vendors" placeholder="외주사" value="'+esc(t.실행회사||'')+'" onchange="setPendExec(\''+t.ID+'\',\'실행회사\',this.value)">'+
+              '<input class="pd-amt" placeholder="실행비" inputmode="numeric" onchange="setPendExec(\''+t.ID+'\',\'실행비용\',this.value)">')+
+            '<button class="pd-self" title="우리가 직접 한 거라 나갈 돈이 없어요" onclick="markSelfExec(\''+t.ID+'\')">🏠 자체실행</button>'+
+          '</div></td></tr>';
       }).join('')+'</tbody></table></div>'
       : '<div style="color:#bbb;padding:12px;text-align:center;font-size:13px">전부 입력됐어요 👍</div>';
     return '<div class="pl-sec pl-todo">'+
       '<div class="pl-head'+(open?' open':'')+'" onclick="togglePay(\'todo\')">'+
         '<span class="pl-emo">⬜</span>'+
-        '<span class="pl-txt"><span class="pl-ti">실행비 미입력</span><span class="pl-sub">견적엔 있는데 나갈 돈이 아직 안 정해졌어요</span></span>'+
+        '<span class="pl-txt"><span class="pl-ti">실행비 미입력</span><span class="pl-sub">견적엔 있는데 나갈 돈이 아직 안 정해졌어요 · 견적서에 적어도 여기서 사라져요</span></span>'+
         '<span class="pl-amt">예산 '+won(pendBudget)+'원</span>'+
         '<span class="pl-cnt">'+pend.length+'</span><span class="pl-arw">'+(open?'▾':'▸')+'</span></div>'+
       '<div class="pl-body" style="display:'+(open?'block':'none')+'">'+body+'</div></div>';
