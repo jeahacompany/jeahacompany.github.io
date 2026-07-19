@@ -1521,8 +1521,12 @@ var VOPEN={}; // 등록부 카드 토글
 function toggleVend(id){ VOPEN[id]=!VOPEN[id]; render(); }
 var VG_OPEN={}; // 등록부 그룹 토글 (기본 접힘)
 function toggleVGroup(k){ VG_OPEN[k]=!VG_OPEN[k]; render(); }
-var VQ=''; // 등록부 검색어
-function setVQ(q){ VQ=q; renderVendorView(); var el=document.getElementById('vSearch'); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); } }
+var VQ='';        // 등록부 검색어
+var VQ_IME=false; // 한글 조합 중 여부 — 조합 중에 목록을 다시 그리면 자음·모음이 깨짐
+function vqIME(on){ VQ_IME=!!on; }
+function vqInput(el){ VQ=el.value; if(VQ_IME) return; renderVendList(); }
+function setVQ(q){ VQ=q; var el=document.getElementById('vSearch'); if(el) el.value=q; renderVendList(); }
+function clearVQ(){ setVQ(''); var el=document.getElementById('vSearch'); if(el) el.focus(); }
 // ─── ⚠ 미등록 이름 → 눌러서 바로 등록 ───
 var VREG=null; // {name}
 function openVReg(name){ VREG={name:name||''}; render(); }
@@ -1606,7 +1610,15 @@ function vendorEmpty(v){
          !String(v.biz_no||'').trim() && !String(v.resident_no||'').trim() &&
          !v.doc_bizreg && !v.doc_bankbook && !v.doc_id;
 }
-function renderVendorView(){
+// 검색 결과 목록만 다시 그림 — 검색창(input)은 건드리지 않아야 한글 조합이 안 깨짐
+function renderVendList(){
+  var host=document.getElementById('vendList'); if(!host) return;
+  var r=vendCards();
+  host.innerHTML=r.cards;
+  var c=document.getElementById('vsCnt'); if(c) c.textContent=r.count;
+  var b=document.getElementById('vsClr'); if(b) b.style.display=r.q?'':'none';
+}
+function vendCards(){
   var all=(DB.vendors||[]).slice().sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
   var q=String(VQ||'').trim().toLowerCase();
   var vs = !q ? all : all.filter(function(v){
@@ -1678,8 +1690,12 @@ function renderVendorView(){
       (open? '<div class="vgrp-body">'+list.map(vcard).join('')+'</div>' : '')+
     '</div>';
   }).join('') : (q
-      ? '<div class="vs-none">「<b>'+esc(VQ)+'</b>」 검색 결과가 없어요. <button class="vs-clr" onclick="setVQ(\'\')">전체 보기</button></div>'
+      ? '<div class="vs-none">「<b>'+esc(VQ)+'</b>」 검색 결과가 없어요. <button class="vs-clr" onclick="clearVQ()">전체 보기</button></div>'
       : '<div style="color:#aaa;padding:14px">등록된 외주사가 없어요. 위 칸에 <b>닉네임을 입력</b>해서 시작하세요.</div>');
+  return { cards:cards, q:q, count:(q? vs.length+' / '+all.length+'명' : all.length+'명') };
+}
+function renderVendorView(){
+  var r=vendCards();
   document.getElementById('vendorView').innerHTML =
     '<div class="sec">'+
       '<h2 style="margin:0 0 10px">🏭 외주사·프리랜서 등록부 <span style="font-size:12px;color:#888;font-weight:400">· 한 번 등록 = 계좌·서류 자동 재사용</span></h2>'+
@@ -1688,13 +1704,21 @@ function renderVendorView(){
         '<button class="btn-primary" onclick="addVendorQuick()">+ 추가</button>'+
         '<div class="vadd-hint">추가하면 <b>⏳ 입력 전</b>에 들어가요. 링크를 복사해 보내면, 본인이 입력하는 순간 유형별로 자동 이동합니다.</div>'+
       '</div>'+
+      // 한글 조합 중엔 목록을 다시 안 그림 (그리면 자음·모음이 깨짐)
       '<div class="vsearch">'+
-        '<input id="vSearch" value="'+esc(VQ)+'" placeholder="🔍 이름·계좌·예금주·메모로 검색 (예: 광주맛집, 국민, 최수진)" oninput="setVQ(this.value)">'+
-        (q?'<button class="vs-clr" onclick="setVQ(\'\')">✕ 지우기</button>':'')+
-        '<span class="vs-cnt">'+(q? vs.length+' / '+all.length+'명' : all.length+'명')+'</span>'+
+        '<input id="vSearch" value="'+esc(VQ)+'" placeholder="🔍 이름·계좌·예금주·메모로 검색 (예: 광주맛집, 국민, 최수진)"'+
+          ' oninput="vqInput(this)">'+
+        '<button id="vsClr" class="vs-clr" style="display:'+(r.q?'':'none')+'" onclick="clearVQ()">✕ 지우기</button>'+
+        '<span class="vs-cnt" id="vsCnt">'+r.count+'</span>'+
       '</div>'+
-      '<div class="vend-list">'+cards+'</div></div>'+
+      '<div class="vend-list" id="vendList">'+r.cards+'</div></div>'+
     '<div id="vendorLedger"></div>'+vregHTML();
+  // composition 이벤트는 인라인 속성(oncompositionstart)이 안 먹어서 직접 붙임
+  var se=document.getElementById('vSearch');
+  if(se){
+    se.addEventListener('compositionstart', function(){ vqIME(1); });
+    se.addEventListener('compositionend', function(){ vqIME(0); vqInput(se); });
+  }
   renderVendorLedger(DB.광고주.filter(function(c){return c.상태!=='삭제됨';}));
 }
 function vendorURL(code){ return location.origin + location.pathname.replace(/[^/]*$/,'') + 'v/?c=' + code; }
