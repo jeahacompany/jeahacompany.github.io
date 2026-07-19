@@ -483,6 +483,11 @@
   .vadd { display:flex; gap:7px; flex-wrap:wrap; background:#fff7f0; border:1.5px dashed #ffc999; border-radius:11px; padding:10px; margin-bottom:12px; }
   .vadd input { flex:1 1 220px; min-width:180px; border:1px solid #e3e3e3; border-radius:8px; padding:9px 11px; font-size:14px; }
   .vadd input:focus { outline:none; border-color:#e8590c; }
+  /* 이름 매칭 */
+  .vh-link { font-size:11px; font-weight:800; background:#e7f5ff; color:#1971c2; border-radius:6px; padding:2px 8px; white-space:nowrap; }
+  .mod-hit { background:#e7f5ff; border:1.5px solid #a5d8ff; color:#1971c2; border-radius:10px; padding:10px 12px; font-size:13px; font-weight:700; }
+  .mod-hit b { font-weight:900; }
+  .mod-hit .mh-s { display:block; font-weight:600; font-size:11.5px; color:#4a90c2; margin-top:4px; line-height:1.5; }
   /* 원장 ↔ 정산 대조 */
   .led-chk { background:#fff5f5; border:1.5px solid #ffc9c9; color:#c92a2a; border-radius:10px; padding:10px 13px; font-size:13px; font-weight:700; margin-bottom:12px; }
   .led-chk.ok { background:#ebfbee; border-color:#b2f2bb; color:#237a3b; }
@@ -1270,6 +1275,34 @@ function execOfTask(t){
 function isOutsource(t){ return !hasSeedList(t) && (Number(t.실행비용)||0)>0; }
 // 자체집행/자체실행/직접 = 우리가 직접 쓴 돈. 송금 대상이 아니라 계좌가 필요 없음.
 function isSelfName(n){ var v=String(n||'').trim(); return v.indexOf('자체')===0 || v==='직접'; }
+// ─── 이름 매칭 ───
+// 등록부 닉네임을 명단·실행회사와 이어줌. 띄어쓰기·대소문자·한글 조합(NFC/NFD)이 달라도 같은 사람으로 봄
+//   예) '광주맛집루피' = '광주맛집 루피' = '광주맛집  루피'
+function vnorm(s){
+  s=String(s==null?'':s);
+  if(s.normalize) s=s.normalize('NFC');
+  return s.replace(/\s+/g,'').toLowerCase();
+}
+function findVendor(name){
+  var vs=DB.vendors||[], t=String(name||'').trim();
+  if(!t) return null;
+  for(var i=0;i<vs.length;i++){ if(String(vs[i].name||'').trim()===t) return vs[i]; } // 완전일치 우선
+  var k=vnorm(t);
+  for(var j=0;j<vs.length;j++){ if(vnorm(vs[j].name)===k) return vs[j]; }             // 띄어쓰기만 다른 경우
+  return null;
+}
+// 이 이름으로 원장에 잡혀 있는 대행비 (등록하면 뭐가 연결되는지 보여주려고)
+function ledgerHitsOf(name){
+  var k=vnorm(name), out=[];
+  if(!k) return out;
+  (DB.섭외||[]).forEach(function(s){ if(vnorm(s.계정명)===k && (Number(s.fee)||0)>0)
+    out.push({store:storeName(s.광고주ID), cost:Number(s.fee)||0}); });
+  (DB.실행비||[]).forEach(function(e){ if((Number(e.금액)||0)>0 && (vnorm(e.실행회사)===k || (!String(e.실행회사||'').trim() && vnorm(e.내역)===k)))
+    out.push({store:storeName(e.광고주ID), cost:Number(e.금액)||0}); });
+  (DB.작업||[]).forEach(function(t){ if(vnorm(t.실행회사)===k && (Number(t.실행비용)||0)>0 && !hasSeedList(t))
+    out.push({store:storeName(t.광고주ID), cost:Number(t.실행비용)||0}); });
+  return out;
+}
 function payStateOf(t){ var p=t.pay_status||''; return p==='지급완료'?'done':p==='지급예정'?'due':p==='지급요청'?'req':'unpaid'; }
 function togglePay(k){ PAY_OPEN[k]=(PAY_OPEN[k]===false); render(); }
 function setPay(id,o,src){ o.ID=id;
@@ -1280,7 +1313,7 @@ function setPay(id,o,src){ o.ID=id;
   else bg(gs('updateTask',o)); }
 // 세금계산서 단계: 미요청 → 발행요청(실무자/회계) → 확인완료(회계) · 프리랜서는 해당 없음
 function taxNeeded(vendorName){
-  var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===vendorName;})[0];
+  var v=findVendor(vendorName);
   return !!v && (v.vtype==='세금계산서' || v.vtype==='현금영수증');
 }
 function reqTax(id,src){ setPay(id,{tax_status:'발행요청'},src); toast('🧾 계산서 발행 요청했어요'); }
@@ -1305,7 +1338,7 @@ function vendorTip(name){
   if(isSelfName(name)) return '<span class="vname">'+esc(name)+'<div class="vtip">'+
     '<b>'+esc(name)+'</b> <span class="vt-ty">🏠 우리가 직접</span>'+
     '<div class="vt-r">외주 안 주고 우리가 직접 쓴 돈이에요.<br>송금 대상이 아니라 계좌가 필요 없습니다.</div></div></span>';
-  var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===name;})[0];
+  var v=findVendor(name);
   if(!v) return '<span class="vname miss" onclick="event.stopPropagation();openVReg(\''+esc(name).replace(/'/g,'')+'\')">'+esc(name)+' ⚠<div class="vtip"><b>등록부에 없어요</b>'+
     '<div class="vt-r">계좌·서류가 없어서 지급이 어려워요.</div>'+
     '<span class="vt-cta">👆 눌러서 바로 등록하기</span></div></span>';
@@ -1329,7 +1362,7 @@ function acctBar(name, total){
     '<span class="ab-ty item">🏠 자체집행</span>'+
     '<span class="ab-acct">우리가 직접 쓴 돈 — 송금 대상이 아니에요</span>'+
     '<span class="ab-amt">나간 금액 <b>'+won(total)+'</b>원</span></div>';
-  var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===name;})[0];
+  var v=findVendor(name);
   var nm=esc(name).replace(/'/g,'');
   if(v && v.vtype==='비용항목') return '<div class="acct-bar item" onclick="event.stopPropagation()">'+
     '<span class="ab-ty item">📌 비용항목</span>'+
@@ -1467,7 +1500,7 @@ function exportVendorLedger(){
   var cell=function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
   var ST={done:'지급완료',due:'지급예정',req:'지급요청',unpaid:'미지급'};
   var lines=VLEDGER.map(function(r){
-    var v=(DB.vendors||[]).filter(function(x){return String(x.name||'').trim()===r.vendor;})[0]||{};
+    var v=findVendor(r.vendor)||{};
     return [r.vendor,v.vtype||'',v.bank||'',v.account||'',v.holder||'',r.store,r.round,r.item,r.cost,ST[r.st],r.due,r.date].map(cell).join(',');
   });
   var csv='﻿'+cols.join(',')+'\n'+lines.join('\n');
@@ -1491,24 +1524,34 @@ function saveVReg(){
   var g=function(id){ var e=document.getElementById(id); return e?String(e.value||'').trim():''; };
   var n=g('vrName'); if(!n){ toast('이름을 입력하세요'); return; }
   var ty=g('vrType'), memo=g('vrMemo');
-  if((DB.vendors||[]).some(function(v){return String(v.name||'').trim()===n;})){ toast('이미 등록된 이름이에요'); return; }
+  var dup=findVendor(n);
+  if(dup){ toast('이미 등록돼 있어요 — 「'+dup.name+'」'); return; }
+  var hits=ledgerHitsOf(n).length;
   VREG=null;
   busy(gs('addVendor',{name:n}).then(function(v){
     var p={ID:v.ID}; if(ty) p.vtype=ty; if(memo) p.memo=memo;
     return (ty||memo) ? gs('updateVendor',p) : null;
   }).then(load).then(function(){
-    toast(ty==='비용항목' ? '📌 비용항목으로 처리했어요' : '✅ '+n+' 등록 완료 — 링크 보내서 계좌 받으세요');
+    toast(ty==='비용항목' ? '📌 비용항목으로 처리했어요'
+      : '✅ '+n+' 등록 완료'+(hits?' — 대행비 '+hits+'건 연결됨':' — 링크 보내서 계좌 받으세요'));
   }));
 }
 function vregHTML(){
   if(!VREG) return '';
   var n=esc(VREG.name);
+  var hits=ledgerHitsOf(VREG.name);
+  var hsum=hits.reduce(function(s,h){return s+h.cost;},0);
+  var stores={}; hits.forEach(function(h){ stores[h.store]=(stores[h.store]||0)+h.cost; });
+  var slist=Object.keys(stores).map(function(k){ return esc(k)+' '+won(stores[k])+'원'; }).join(' · ');
   return '<div class="mod-bg" onclick="if(event.target===this)closeVReg()"><div class="mod">'+
     '<div class="mod-h"><b>⚠ 등록부에 없는 이름이에요</b>'+
       '<span class="mod-sub">「'+n+'」 — 이게 뭔지 정하면 경고가 사라집니다</span></div>'+
     '<div class="mod-b">'+
+      (hits.length ? '<div class="mod-hit">🔗 등록하면 <b>'+hits.length+'건 / '+won(hsum)+'원</b>이 이 사람으로 연결돼요'+
+        '<span class="mh-s">'+slist+'</span></div>' : '')+
       '<div class="mod-row"><label>이름 / 닉네임</label>'+
-        '<input id="vrName" value="'+n+'" placeholder="예: 광주맛집 루피"></div>'+
+        '<input id="vrName" list="dl-accounts" value="'+n+'" placeholder="예: 광주맛집 루피">'+
+        '<span class="mod-hint">띄어쓰기가 달라도 알아서 연결됩니다 (광주맛집루피 = 광주맛집 루피)</span></div>'+
       '<div class="mod-row"><label>이게 뭔가요?</label>'+
         '<select id="vrType">'+
           '<option value="">⏳ 외주사인데 유형은 본인이 고르게 (링크 보냄)</option>'+
@@ -1563,6 +1606,8 @@ function renderVendorView(){
         '<span class="vh-name">'+esc(v.name||'(이름 없음)')+'</span>'+
         '<span class="vh-ty'+(free?' free':'')+(v.vtype?'':' wait')+'">'+esc(v.vtype||'⏳ 입력 대기')+'</span>'+
         '<span class="vh-acct">'+(v.account?esc(v.bank||'')+' '+esc(v.account):'<span class="warn">계좌 미등록</span>')+'</span>'+
+        (function(){ var hs=ledgerHitsOf(v.name);
+          return hs.length ? '<span class="vh-link" title="이 닉네임으로 원장에 잡힌 대행비">🔗 '+hs.length+'건 '+won(hs.reduce(function(s,h){return s+h.cost;},0))+'원</span>' : ''; })()+
         (function(){ var ms=vendorMissing(v);
           return v.vtype && ms.length ? '<span class="vh-miss" title="이것들을 채워달라고 요청하세요">⚠ '+esc(ms.join(', '))+' 없음</span>'
                : '<span class="vh-doc'+(dt>0&&dn===dt?' ok':'')+'">서류 '+dn+'/'+dt+'</span>'; })()+'</div>'+
@@ -1648,10 +1693,14 @@ function copyVendorLink(code, name){
 function addVendorQuick(){
   var n=(document.getElementById('nvName')||{}).value||''; n=n.trim();
   if(!n){ toast('닉네임을 먼저 입력하세요'); return; }
-  if((DB.vendors||[]).some(function(v){return String(v.name||'').trim()===n;})){ toast('이미 등록된 이름이에요'); return; }
+  var dup=findVendor(n);
+  if(dup){ toast('이미 등록돼 있어요 — 「'+dup.name+'」'); VQ=dup.name; VOPEN[dup.ID]=true; render(); return; }
+  var hits=ledgerHitsOf(n).length; // 이 닉네임으로 원장에 잡혀 있던 대행비
   gs('addVendor',{name:n}).then(function(v){ // 유형은 본인이 링크에서 고름
     if(v&&v.ID){ DB.vendors=DB.vendors||[]; DB.vendors.push(v); VG_OPEN['입력 전']=true; VOPEN[v.ID]=true; } // 방금 넣은 건 바로 펼침
-    toast('✅ '+n+' 추가됨 — 📋 복사해서 카톡으로 보내세요'); render();
+    var el=document.getElementById('nvName'); if(el) el.value='';
+    toast(hits ? '✅ '+n+' 추가됨 — 대행비 '+hits+'건이 연결됐어요'
+               : '✅ '+n+' 추가됨 — 📋 복사해서 카톡으로 보내세요'); render();
   }).catch(function(e){ toast('오류: '+((e&&e.message)||e)); });
 }
 function setVendorField(id, field, val){ var o={ID:id}; o[field]=val; DB.vendors=DB.vendors||[]; patchLocal('vendors',id,o); bg(gs('updateVendor',o)); }
