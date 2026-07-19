@@ -488,6 +488,18 @@
   .mod-hit { background:#e7f5ff; border:1.5px solid #a5d8ff; color:#1971c2; border-radius:10px; padding:10px 12px; font-size:13px; font-weight:700; }
   .mod-hit b { font-weight:900; }
   .mod-hit .mh-s { display:block; font-weight:600; font-size:11.5px; color:#4a90c2; margin-top:4px; line-height:1.5; }
+  /* 실행비 미입력 (아직 나갈 돈이 안 정해진 견적 항목) */
+  .pl-sec.pl-todo { border-color:#d0d7de; }
+  .pl-todo .pl-head { background:#f8f9fa; }
+  .pl-todo .pl-head:hover { background:#f1f3f5; }
+  .pl-todo .pl-cnt { background:#868e96; }
+  .pl-todo .pl-amt { color:#868e96; }
+  .pd-in { display:flex; gap:6px; flex-wrap:wrap; }
+  .pd-in input { border:1.5px solid #e3e3e3; border-radius:8px; padding:8px 10px; font-size:13px; font-family:inherit; }
+  .pd-in input:focus { outline:none; border-color:#e8590c; }
+  .pd-co { flex:1 1 190px; min-width:150px; }
+  .pd-amt { width:110px; text-align:right; font-weight:800; }
+  .pd-q { font-size:11px; font-weight:700; color:#888; background:#f1f3f5; border-radius:5px; padding:1px 6px; }
   /* 원장 ↔ 정산 대조 */
   .led-chk { background:#fff5f5; border:1.5px solid #ffc9c9; color:#c92a2a; border-radius:10px; padding:10px 13px; font-size:13px; font-weight:700; margin-bottom:12px; }
   .led-chk.ok { background:#ebfbee; border-color:#b2f2bb; color:#237a3b; }
@@ -1393,6 +1405,29 @@ function copyAcct(t){
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done).catch(function(){ prompt('복사하세요',t); });
   else prompt('복사하세요',t);
 }
+// 견적에 항목은 잡혔는데 아직 실행비(나갈 돈)가 안 정해진 것 — 잊지 않게 원장에 남긴다
+// 명단 품목(인플루언서/블로그)은 명단에 사람별 대행비를 넣어야 하고, 나머지는 실행비용을 직접 넣으면 됨
+function execPending(idset){
+  var out=[];
+  (DB.작업||[]).forEach(function(t){
+    if(!idset[t.광고주ID]) return;
+    var budget=Number(t.금액)||0;
+    if(budget<=0) return;                       // 할인·네고 같은 0원 항목은 제외
+    if(isSelfName(t.실행회사)) return;           // '자체실행'으로 찍었으면 정리 끝난 것 (나갈 돈 없음)
+    var r=roundOf(t);
+    if(hasSeedList(t)){                          // 인플루언서·블로그 = 명단에서 사람별로 입력
+      var ty=seedTypeOf(t.품목);
+      var same=tasksOf(t.광고주ID).filter(function(x){ return roundOf(x)===r && seedTypeOf(x.품목)===ty; });
+      if(same.length && same[0].ID!==t.ID) return;   // 같은 차수·종류는 한 줄만
+      if(feeSumOf(t.광고주ID, ty, r)>0) return;      // 이미 한 명이라도 넣었으면 진행 중이라 뺌
+      out.push({ t:t, budget:budgetOf(t.광고주ID,ty,r)||budget, seed:true, ty:ty, round:r });
+    } else {
+      if((Number(t.실행비용)||0)>0) return;           // 이미 실행비 입력됨
+      out.push({ t:t, budget:budget, seed:false, round:r });
+    }
+  });
+  return out;
+}
 function renderVendorLedger(cs){
   var idset={}; cs.forEach(function(c){ idset[c.ID]=1; });
   // ① 견적 항목(작업)의 외주 실행비
@@ -1475,6 +1510,35 @@ function renderVendorLedger(cs){
         '<span class="pl-cnt">'+arr.length+'</span><span class="pl-arw">'+(open?'▾':'▸')+'</span></div>'+
       '<div class="pl-body" style="display:'+(open?'block':'none')+'">'+body+'</div></div>';
   };
+  // ⬜ 실행비 미입력 — 견적엔 있는데 아직 나갈 돈이 안 정해진 항목
+  var pend=execPending(idset);
+  var pendBudget=pend.reduce(function(s,p){ return s+p.budget; },0);
+  var pendSec=(function(){
+    var open=pend.length>0 && PAY_OPEN['todo']!==false;
+    var body = pend.length ? '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr>'+
+        '<th class="c-store">매장</th><th class="c-item">견적 항목</th><th class="c-amt money">견적(예산)</th><th class="c-act">실행비 입력</th>'+
+      '</tr></thead><tbody>'+
+      pend.map(function(p){
+        var t=p.t;
+        return '<tr><td class="c-store">'+esc(storeName(t.광고주ID))+'</td>'+
+          '<td class="c-item">'+esc(roundLabel(t.광고주ID,p.round))+' · <b>'+esc(t.품목)+'</b>'+
+            (t.수량>1?' <span class="pd-q">'+t.수량+'개</span>':'')+'</td>'+
+          '<td class="c-amt money">'+won(p.budget)+'</td>'+
+          '<td class="c-act">'+(p.seed
+            ? '<button class="pay-btn req" onclick="openClient(\''+t.광고주ID+'\')">👥 명단에서 사람별로 입력</button>'
+            : '<div class="pd-in"><input class="pd-co" list="dl-vendors" placeholder="외주사 (자체실행이면 자체실행)" value="'+esc(t.실행회사||'')+'" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">'+
+              '<input class="pd-amt" placeholder="실행비" inputmode="numeric" onchange="setExec(\''+t.ID+'\',\'실행비용\',this.value)"></div>')+
+          '</td></tr>';
+      }).join('')+'</tbody></table></div>'
+      : '<div style="color:#bbb;padding:12px;text-align:center;font-size:13px">전부 입력됐어요 👍</div>';
+    return '<div class="pl-sec pl-todo">'+
+      '<div class="pl-head'+(open?' open':'')+'" onclick="togglePay(\'todo\')">'+
+        '<span class="pl-emo">⬜</span>'+
+        '<span class="pl-txt"><span class="pl-ti">실행비 미입력</span><span class="pl-sub">견적엔 있는데 나갈 돈이 아직 안 정해졌어요</span></span>'+
+        '<span class="pl-amt">예산 '+won(pendBudget)+'원</span>'+
+        '<span class="pl-cnt">'+pend.length+'</span><span class="pl-arw">'+(open?'▾':'▸')+'</span></div>'+
+      '<div class="pl-body" style="display:'+(open?'block':'none')+'">'+body+'</div></div>';
+  })();
   // 정산 '총 실행비'와 대조 — 정산과 똑같은 함수(totalExecOf)로 계산해서 항상 같아야 정상
   var settle=cs.reduce(function(s,c){ return s+totalExecOf(c.ID); },0);
   var gap=settle-total;
@@ -1487,6 +1551,7 @@ function renderVendorLedger(cs){
     '<div class="led-chk'+(gap===0?' ok':'')+'">'+(gap===0
       ? '✅ 정산 <b>총 실행비</b>와 정확히 일치합니다 — '+won(settle)+'원'
       : '⚠ 정산 <b>총 실행비</b> '+won(settle)+'원과 <b>'+won(Math.abs(gap))+'원</b> 차이가 납니다 — 견적에 실행비만 적히고 원장에 안 올라온 게 있어요')+'</div>'+
+    pendSec+
     (rows.length ?
       section('req','🙋','지급요청 옴', acc?'예정일 잡거나 바로 지급하세요':'회계과장 확인 중', G.req)+
       section('due','📅','지급예정', '날짜 잡힘', G.due)+
