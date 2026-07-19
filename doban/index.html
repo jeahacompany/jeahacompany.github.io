@@ -1348,6 +1348,13 @@ function vendorTip(name){
     (v.memo?'<div class="vt-r muted">'+esc(v.memo)+'</div>':'')+'</div></span>';
   var doc=function(l,p){ return '<span class="vt-d'+(p?' ok':'')+'">'+(p?'✔':'✗')+' '+l+'</span>'; };
   var free=(v.vtype==='프리랜서');
+  var ms=vendorPayBlock(v);
+  // 송금에 꼭 필요한 게 빠진 사람 — 지급 처리는 되지만 입력 요청이 필요하니 여기서도 티나게
+  // (서류만 없는 건 여기선 안 띄움. 등록부 카드에서 따로 표시)
+  if(ms.length) return '<span class="vname miss" onclick="event.stopPropagation();VQ=\''+esc(v.name||'').replace(/'/g,'')+'\';VG_OPEN[\'입력 전\']=true;VG_OPEN[\'미작성\']=true;VOPEN[\''+v.ID+'\']=true;render();window.scrollTo(0,0)">'+esc(name)+' ⚠<div class="vtip">'+
+    '<b>'+esc(v.name||'')+'</b> <span class="vt-ty">'+esc(v.vtype||'유형 미정')+'</span>'+
+    '<div class="vt-r">아직 안 받은 것 — <b>'+esc(ms.join(', '))+'</b></div>'+
+    '<span class="vt-cta">👆 눌러서 등록부에서 열기 (링크 보내기)</span></div></span>';
   return '<span class="vname">'+esc(name)+'<div class="vtip">'+
     '<b>'+esc(v.name||'')+'</b> <span class="vt-ty">'+esc(v.vtype||'유형 미정')+'</span>'+
     '<div class="vt-r">'+(free?'주민번호':'사업자번호')+' <b>'+esc((free?v.resident_no:v.biz_no)||'—')+'</b></div>'+
@@ -1582,6 +1589,23 @@ function vendorMissing(v){
   return m;
 }
 function vendorDone(v){ return !!v.vtype && vendorMissing(v).length===0; }
+// 송금 자체를 막는 것만 (서류는 제외 — 서류는 등록부 카드에서 따로 챙김)
+function vendorPayBlock(v){
+  if(!v || v.vtype==='비용항목') return [];
+  var free=(v.vtype==='프리랜서'), m=[];
+  if(!String(v.account||'').trim()) m.push('계좌번호');
+  if(!String(v.holder||'').trim()) m.push('예금주');
+  if(!String((free?v.resident_no:v.biz_no)||'').trim()) m.push(free?'주민번호':'사업자번호');
+  return m;
+}
+// 유형만 찍혀 있고 본인이 실제로 채운 게 하나도 없는 상태 = 아직 '입력 전'
+// (우리가 미리 유형만 골라둔 경우 — 링크 보내서 입력을 요청해야 함)
+function vendorEmpty(v){
+  if(v.vtype==='비용항목') return false; // 자체 비용은 채울 게 없음
+  return !String(v.account||'').trim() && !String(v.holder||'').trim() &&
+         !String(v.biz_no||'').trim() && !String(v.resident_no||'').trim() &&
+         !v.doc_bizreg && !v.doc_bankbook && !v.doc_id;
+}
 function renderVendorView(){
   var all=(DB.vendors||[]).slice().sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
   var q=String(VQ||'').trim().toLowerCase();
@@ -1604,7 +1628,8 @@ function renderVendorView(){
       '<div class="vend-head" onclick="toggleVend(\''+v.ID+'\')">'+
         '<span class="vh-arw">'+(open?'▾':'▸')+'</span>'+
         '<span class="vh-name">'+esc(v.name||'(이름 없음)')+'</span>'+
-        '<span class="vh-ty'+(free?' free':'')+(v.vtype?'':' wait')+'">'+esc(v.vtype||'⏳ 입력 대기')+'</span>'+
+        '<span class="vh-ty'+(free?' free':'')+((v.vtype&&!vendorEmpty(v))?'':' wait')+'">'+
+          (!v.vtype ? '⏳ 입력 대기' : (vendorEmpty(v) ? '⏳ '+esc(v.vtype)+' · 입력 대기' : esc(v.vtype)))+'</span>'+
         '<span class="vh-acct">'+(v.account?esc(v.bank||'')+' '+esc(v.account):'<span class="warn">계좌 미등록</span>')+'</span>'+
         (function(){ var hs=ledgerHitsOf(v.name);
           return hs.length ? '<span class="vh-link" title="이 닉네임으로 원장에 잡힌 대행비">🔗 '+hs.length+'건 '+won(hs.reduce(function(s,h){return s+h.cost;},0))+'원</span>' : ''; })()+
@@ -1634,7 +1659,7 @@ function renderVendorView(){
     '</div>';
   };
   // 그룹: ⏳입력 전(시작 안 함) → ⚠미작성(유형만 고르고 계좌·서류 빠짐) → 유형별(완비)
-  var gr={}; vs.forEach(function(v){ var k = !v.vtype ? '입력 전' : (vendorDone(v) ? v.vtype : '미작성'); (gr[k]=gr[k]||[]).push(v); });
+  var gr={}; vs.forEach(function(v){ var k = (!v.vtype || vendorEmpty(v)) ? '입력 전' : (vendorDone(v) ? v.vtype : '미작성'); (gr[k]=gr[k]||[]).push(v); });
   var order=['입력 전','미작성','세금계산서','프리랜서','현금영수증','비용항목'].filter(function(k){ return gr[k]; });
   var META={'입력 전':{e:'⏳',s:'링크 보내고 기다리는 중'},'미작성':{e:'⚠️',s:'계좌·서류가 빠졌어요 — 채워달라고 하세요'},
             '세금계산서':{e:'🧾',s:'입력 완료'},'프리랜서':{e:'🪪',s:'입력 완료'},'현금영수증':{e:'🧾',s:'입력 완료'},
