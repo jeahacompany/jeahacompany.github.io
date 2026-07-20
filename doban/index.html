@@ -1191,6 +1191,8 @@ function render() {
       var cls = 'viewtab' + (VIEW===t[0]?' on':'') + (t[0]==='register'?' reg':'');
       return '<div class="'+cls+'" onclick="VIEW=\''+t[0]+'\';render()">'+t[1]+'</div>';
     }).join('') + '<div class="viewtab" onclick="logout()" style="color:#c92a2a">로그아웃</div>';
+  // 탭을 옮기면 펼쳐둔 토글은 전부 접힌 상태로 되돌림 (다시 들어오면 항상 깔끔하게)
+  if(LAST_VIEW!==VIEW){ resetToggles(); LAST_VIEW=VIEW; }
   ['today','client','task','influ','vendor','settle','register','staff','log','trash'].forEach(function (v) {
     var el=document.getElementById(v+'View'); if(el) el.style.display = VIEW===v ? '' : 'none';
   });
@@ -1211,6 +1213,17 @@ function render() {
   else if (VIEW==='staff') renderStaffView();
   else if (VIEW==='log') renderLogView();
   else if (VIEW==='trash') renderTrashView();
+}
+// ─── 토글 상태 ───
+// 펼침 상태는 화면을 옮기는 순간 버린다. 저장해두면 다음에 들어왔을 때 엉뚱하게 펼쳐져 있어서
+// "내가 이걸 왜 열어놨지" 하게 됨. 전부 접힌 채로 시작하고, 필요한 것만 그때그때 펴는 게 낫다.
+var LAST_VIEW=null;
+function resetToggles(){
+  PAY_OPEN={}; PAY_VOPEN={};     // 대행비 원장 (상태 섹션 · 외주사별)
+  VOPEN={}; VG_OPEN={};          // 외주사 등록부 (카드 · 그룹)
+  INF_OPEN={};                   // 인플루언서 명부 카드
+  SEEDOPEN={}; TASKOPEN={};      // 매장 상세 명단 섹션 · 작업현황 상태 그룹
+  SDEDIT={};                     // 정산 편집 모드도 같이 닫음
 }
 function card(l,n){ return '<div class="card"><div class="lbl">'+l+'</div><div class="num">'+n+'</div></div>'; }
 // 자동완성 목록: 실행회사=외주사 등록부, 계정명=지금까지 쓴 인플루언서/블로거 닉네임
@@ -1346,10 +1359,10 @@ function exportQuoteSheet(){
 
 // ─── 대행비 원장 (외주 실행비 + 지급 관리) ───
 var VLEDGER=[];
-var PAY_OPEN={req:true, due:true, unpaid:true, done:false}; // 지급상태별 토글
+var PAY_OPEN={};  // 지급상태별 토글 (전부 기본 접힘)
 var PAY_VOPEN={}; // 상태 안 · 외주사별 서브토글 (vk = 'req|외주사명')
 // 기본값: 줄 돈(요청·예정·미지급)은 펼침 / 지급완료는 접힘 — 안 눌렀으면 undefined라 기본값 적용
-function payVOpen(vk){ var key=String(vk).split('|')[0]; return PAY_VOPEN[vk]===undefined ? (key!=='done') : !!PAY_VOPEN[vk]; }
+function payVOpen(vk){ return !!PAY_VOPEN[vk]; }   // 기본 접힘 — 눌러야 펴짐
 function togglePayV(vk){ PAY_VOPEN[vk] = !payVOpen(vk); render(); }
 // 명단이 생기는 품목(인플루언서/블로그/체험단)은 명단 대행비 합이 실행비. 그 외는 품목에 직접 입력한 값.
 function hasSeedList(t){ return !!seedTypeOf(t.품목); }
@@ -1396,7 +1409,7 @@ function ledgerHitsOf(name){
   return out;
 }
 function payStateOf(t){ var p=t.pay_status||''; return p==='지급완료'?'done':p==='지급예정'?'due':p==='지급요청'?'req':'unpaid'; }
-function togglePay(k){ PAY_OPEN[k]=(PAY_OPEN[k]===false); render(); }
+function togglePay(k){ PAY_OPEN[k]=!PAY_OPEN[k]; render(); }   // 기본 접힘
 function setPay(id,o,src){ o.ID=id;
   var tab = src==='cost' ? '실행비' : src==='seed' ? '섭외' : '작업';
   patchLocal(tab,id,o); render();
@@ -1572,7 +1585,7 @@ function renderVendorLedger(cs){
       (acc?' '+doneBtn('✓ 지급완료'):'');
   };
   var section=function(key,emoji,title,sub,arr){
-    var open=arr.length>0 && PAY_OPEN[key]!==false;
+    var open=!!PAY_OPEN[key];
     // 외주사별 서브토글 (줄이 길어서 접어둠)
     var g={}; arr.forEach(function(r){ (g[r.vendor]=g[r.vendor]||[]).push(r); });
     var vnames=Object.keys(g).sort(function(a,b){ return a.localeCompare(b,'ko'); });  // 가나다순
@@ -1605,7 +1618,7 @@ function renderVendorLedger(cs){
   var pend=execPending(idset);
   var pendBudget=pend.reduce(function(s,p){ return s+p.budget; },0);
   var pendSec=(function(){
-    var open=pend.length>0 && PAY_OPEN['todo']!==false;
+    var open=!!PAY_OPEN['todo'];
     var body = pend.length ? '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr>'+
         '<th class="c-store">매장</th><th class="c-item">견적 항목</th><th class="c-amt money">견적(예산)</th><th class="c-act">실행비 입력 <span class="pd-note">견적서와 같은 칸이에요</span></th>'+
       '</tr></thead><tbody>'+
@@ -2634,7 +2647,7 @@ function renderTaskView() {
   document.getElementById('taskList').innerHTML = order.map(function (st) {
     var rows = flt.filter(function(t){return t.상태===st;});
     if (!rows.length) return '';
-    var open = TASKOPEN[st]!==false; // 기본 펼침
+    var open = !!TASKOPEN[st]; // 기본 접힘
     return '<div class="task-sec">' +
       '<h3 class="task-sec-h" onclick="toggleTask(\''+st+'\')">'+(open?'▼':'▶')+' '+st+' <span class="cnt">'+rows.length+'</span></h3>' +
       (open ? rows.map(function (t) {
@@ -2649,7 +2662,7 @@ function renderTaskView() {
   }).join('') || '<div style="text-align:center;color:#aaa;padding:30px">작업이 없습니다</div>';
 }
 function setTaskStatusVal(id, status){ patchLocal('작업',id,{상태:status,완료일:status==='완료'?todayISO():''}); render(); bg(gs('setTaskStatus',{ID:id,상태:status})); }
-function toggleTask(st){ TASKOPEN[st] = (TASKOPEN[st]!==false) ? false : true; render(); }
+function toggleTask(st){ TASKOPEN[st] = !TASKOPEN[st]; render(); }
 
 // ─── 상세 패널 ───
 function openClient(id) {
