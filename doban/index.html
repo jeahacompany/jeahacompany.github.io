@@ -603,6 +603,7 @@
   .logf-b b { font-weight:900; }
   .lg-k { font-size:11px; font-weight:800; background:#f1f3f5; color:#666; border-radius:6px; padding:2px 8px; white-space:nowrap; }
   .lg-k.owner { background:#fff4e6; color:#e8590c; }
+  .lg-k.fail { background:#fff5f5; color:#c92a2a; }
   /* 원장 ↔ 정산 대조 */
   .led-chk { background:#fff5f5; border:1.5px solid #ffc9c9; color:#c92a2a; border-radius:10px; padding:10px 13px; font-size:13px; font-weight:700; margin-bottom:12px; }
   .led-chk.ok { background:#ebfbee; border-color:#b2f2bb; color:#237a3b; }
@@ -917,7 +918,7 @@ if (typeof google === 'undefined' && /[?&]mock=1/.test(location.search)) {
 }
 
 var APP_VER = 'v1.0.0';           // 화면 하단 표기 + 업데이트로그 기준 버전
-var DB = null, PIN = '2944', ME = null, FILTER = '전체', CUR = null, VIEW = 'client', ASSIGNEE = '전체', CURROUND = 1, SHOWMARGIN = false, DTAB = 'info';
+var DB = null, ME = null, FILTER = '전체', CUR = null, VIEW = 'client', ASSIGNEE = '전체', CURROUND = 1, SHOWMARGIN = false, DTAB = 'info';
 function canSeeMargin(){ return !!(ME && ME.마진보기 === 'Y'); }
 function isAdmin(){ return !!(ME && ME.역할 === 'admin'); }
 function isAccountant(){ return !!(ME && (ME.역할 === 'admin' || ME.역할 === '회계')); } // 지급예정·지급완료 처리 권한
@@ -932,12 +933,25 @@ var CATALOG = [
 // 백엔드: Supabase (Postgres + RPC 함수). URL/키 바뀌면 이 두 줄만 교체
 var SB_URL = 'https://bgkdkfmdndhqgfdygmfm.supabase.co';
 var SB_KEY = 'sb_publishable_KxsYIOy5d4i7TR5PVBExLg_8UvNz6v9';
+// 로그인하면 발급받는 세션 토큰. 이게 없으면 백엔드가 아무것도 안 내준다.
+// (예전엔 PIN 2944가 코드에 박혀 있어서 소스만 보면 누구나 전체 데이터를 꺼낼 수 있었음)
+var TOKEN = null;
+function sbRpc(fn, body){
+  return fetch(SB_URL + '/rest/v1/rpc/' + fn, {
+    method:'POST',
+    headers:{ 'apikey':SB_KEY, 'Authorization':'Bearer '+SB_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify(body||{})
+  }).then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error('('+r.status+') '+t); });
+    return r.json();
+  });
+}
 function gs(action, payload) {
   var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
   var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 25000) : null;
   var opt = { method: 'POST',
     headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ p_action: action, p_payload: payload || {}, p_pin: PIN }) };
+    body: JSON.stringify({ p_action: action, p_payload: payload || {}, p_pin: TOKEN }) };
   if (ctrl) opt.signal = ctrl.signal;
   return fetch(SB_URL + '/rest/v1/rpc/api', opt).then(function (r) {
     if (timer) clearTimeout(timer);
@@ -956,16 +970,21 @@ function toast(m){ var t=document.getElementById('toast'); t.textContent=m; t.st
 function won(n){ n=Number(n)||0; return n.toLocaleString('ko-KR'); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
-// ─── 직원 로그인 (아이디+비번, 프론트에서 직원목록 대조 · PIN은 공용 백엔드키) ───
-function findStaff(list, id, pw){ return (list||[]).filter(function(u){ return String(u.아이디)===String(id) && String(u.비밀번호)===String(pw); })[0]; }
-function loginOK(d, id, pw){
-  var u = findStaff(d.직원, id, pw);
-  if(!u){ document.getElementById('pinErr').textContent='아이디 또는 비밀번호가 틀렸습니다'; return false; }
-  ME = u; localStorage.setItem('doban_user', JSON.stringify({id:id, pw:pw}));
+// ─── 직원 로그인 (서버가 검증하고 세션 토큰을 발급) ───
+// 비번 대조를 서버에서 하므로 브라우저에 비밀번호를 저장하지 않는다. 실패도 서버가 기록한다.
+function afterLogin(d){
   document.getElementById('pinGate').style.display='none';
   DB = d; render();
   try{ var oc=localStorage.getItem('doban_open'); if(oc && DB.광고주.some(function(c){return c.ID===oc && c.상태!=='삭제됨';})) openClient(oc); }catch(e){} // 새로고침 시 보던 업체 복원
-  return true;
+}
+function doStaffLogin(id, pw){
+  return sbRpc('staff_login', { p_id:id, p_pw:pw }).then(function(res){
+    if(!res || res.ok===false){ throw new Error((res&&res.error)||'로그인 실패'); }
+    TOKEN = res.token; ME = res.user;
+    try{ localStorage.setItem('doban_token', TOKEN); localStorage.setItem('doban_me', ME.이름||''); }catch(e){}
+    try{ localStorage.removeItem('doban_user'); }catch(e){}   // 예전에 저장해둔 아이디·비번 제거
+    return gs('all').then(afterLogin);
+  });
 }
 function enter() {
   var id=document.getElementById('loginId').value.trim(), pw=document.getElementById('loginPw').value.trim();
@@ -981,29 +1000,78 @@ function logAccessNow(name){
   catch(e){ send('(확인불가)'); }
 }
 function loginTry(id, pw, n) {
-  gs('all').then(function (d) { if(loginOK(d, id, pw)) logAccessNow(ME?ME.이름:id); }).catch(function (e) {
+  doStaffLogin(id, pw).catch(function (e) {
     var el = document.getElementById('pinErr');
+    var msg = (e&&e.message)||'';
+    if (/아이디 또는 비밀번호/.test(msg)) { el.textContent = msg; return; }   // 비번 틀림 = 재시도 의미 없음
     if (n < 2) { el.textContent='연결 중… 잠시만요'; setTimeout(function(){ loginTry(id, pw, n+1); }, 1400); }
     else { el.textContent='연결이 불안정해요. 다시 눌러주세요.'; }
   });
 }
 // 자동 로그인 (저장된 세션 복원 — 로그인창 대신 로딩만 보이게, 일시 실패엔 세션 유지)
 function _showLoginForm(msg){ var lf=document.getElementById('loginForm'), ll=document.getElementById('loginLoading'), g=document.getElementById('pinGate'); if(g) g.style.display='flex'; if(ll) ll.style.display='none'; if(lf) lf.style.display='block'; if(msg){ var e=document.getElementById('pinErr'); if(e) e.textContent=msg; } }
-(function(){ var s=localStorage.getItem('doban_user'); if(!s) return; var id,pw; try{ var o=JSON.parse(s); id=o.id; pw=o.pw; }catch(e){ var p=s.split(String.fromCharCode(1)); id=p[0]; pw=p[1]; } if(!id) return; var lf=document.getElementById('loginForm'), ll=document.getElementById('loginLoading'); if(lf) lf.style.display='none'; if(ll) ll.style.display='block'; autoLogin(id, pw, 0); })();
-function autoLogin(id, pw, n){
+(function(){
+  var t=null; try{ t=localStorage.getItem('doban_token'); }catch(e){}
+  try{ localStorage.removeItem('doban_user'); }catch(e){}      // 예전 방식(아이디·비번 저장) 흔적 제거
+  if(!t) return;
+  TOKEN=t;
+  var lf=document.getElementById('loginForm'), ll=document.getElementById('loginLoading');
+  if(lf) lf.style.display='none'; if(ll) ll.style.display='block';
+  autoLogin(0);
+})();
+// 저장된 토큰으로 복원. 토큰이 죽었으면(30일 경과·로그아웃) 다시 로그인.
+function autoLogin(n){
   gs('all').then(function(d){
-    var u=findStaff(d.직원, id, pw);
-    if(u){ loginOK(d, id, pw); }
-    else if((d.직원||[]).length){ localStorage.removeItem('doban_user'); _showLoginForm('세션이 만료됐어요. 다시 로그인해 주세요.'); }
-    else { if(n<6) setTimeout(function(){ autoLogin(id, pw, n+1); }, 1500); else _showLoginForm(''); }
-  }).catch(function(){ if(n<8) setTimeout(function(){ autoLogin(id, pw, n+1); }, 1500); else _showLoginForm('연결이 불안정해요. 새로고침 해주세요.'); });
+    ME = (d.직원||[]).filter(function(u){ return String(u.이름)===String(meNameFromToken()); })[0] || ME;
+    if(!ME){ // 이름 매칭 실패 시 서버에 다시 물어보지 않고 로그인창
+      _showLoginForm('다시 로그인해 주세요.'); return;
+    }
+    afterLogin(d);
+  }).catch(function(e){
+    var msg=(e&&e.message)||'';
+    if(/401|403|PIN|권한/.test(msg)){ try{ localStorage.removeItem('doban_token'); }catch(x){} TOKEN=null; _showLoginForm('세션이 만료됐어요. 다시 로그인해 주세요.'); return; }
+    if(n<8) setTimeout(function(){ autoLogin(n+1); }, 1500);
+    else _showLoginForm('연결이 불안정해요. 새로고침 해주세요.');
+  });
 }
-function logout(){ localStorage.removeItem('doban_user'); location.reload(); }
+// 토큰만으론 내가 누군지 모르니, 로그인할 때 이름을 같이 저장해둔다
+function meNameFromToken(){ try{ return localStorage.getItem('doban_me')||''; }catch(e){ return ''; } }
+function logout(){
+  var t=TOKEN;
+  try{ localStorage.removeItem('doban_token'); localStorage.removeItem('doban_me'); localStorage.removeItem('doban_user'); }catch(e){}
+  TOKEN=null;
+  if(t) sbRpc('staff_logout',{p_token:t}).catch(function(){}).then(function(){ location.reload(); });
+  else location.reload();
+}
 
 // ─── 로그 뷰 (관리자 전용): 접속로그 + 업데이트로그 + 백업 ───
 var LOGKIND='전체'; // 접속로그 필터
 // 예전 기록엔 구분이 없음 → 직원으로 봄
-function kindOf(a){ return String(a.구분||'')==='점주' ? '점주' : '직원'; }
+function kindOf(a){ var k=String(a.구분||''); return (k==='점주'||k==='로그인실패') ? k : '직원'; }
+// ─── 변경 이력 (누가 뭘 바꿨나) — 양이 많아 api('all')에 안 넣고 따로 불러옴 ───
+var AUDIT=null, AUDIT_DAYS=14;
+function loadAudit(days){
+  AUDIT_DAYS=days||AUDIT_DAYS;
+  var box=document.getElementById('auditBox'); if(box) box.innerHTML='<div style="color:#aaa;padding:12px">불러오는 중…</div>';
+  sbRpc('audit_list',{p_token:TOKEN, p_days:AUDIT_DAYS, p_limit:500})
+    .then(function(rows){ AUDIT=rows||[]; renderAudit(); })
+    .catch(function(e){ if(box) box.innerHTML='<div style="color:#c92a2a;padding:12px">불러오지 못했어요: '+esc((e&&e.message)||'')+'</div>'; });
+}
+function renderAudit(){
+  var box=document.getElementById('auditBox'); if(!box) return;
+  if(!AUDIT || !AUDIT.length){ box.innerHTML='<div style="color:#bbb;padding:12px">최근 '+AUDIT_DAYS+'일간 변경 기록이 없어요</div>'; return; }
+  var ACT={'추가':{c:'#1971c2',b:'#e7f5ff'},'수정':{c:'#e8850a',b:'#fff4e0'},'삭제':{c:'#c92a2a',b:'#fff5f5'}};
+  box.innerHTML='<div class="ss-wrap"><table class="qsheet-tbl"><thead><tr>'+
+    '<th>시간</th><th>누가</th><th style="text-align:center">동작</th><th>어디</th><th>바뀐 내용</th>'+
+    '</tr></thead><tbody>'+
+    AUDIT.map(function(a){ var m=ACT[a.동작]||{c:'#666',b:'#f1f3f5'};
+      return '<tr><td style="white-space:nowrap">'+esc(a.시간)+'</td>'+
+        '<td><b>'+esc(a.이름)+'</b></td>'+
+        '<td style="text-align:center"><span style="font-size:11.5px;font-weight:800;color:'+m.c+';background:'+m.b+';border-radius:7px;padding:2px 8px">'+esc(a.동작)+'</span></td>'+
+        '<td>'+esc(a.탭)+'</td>'+
+        '<td style="font-size:12px;color:#555;word-break:break-all">'+esc(String(a.내용||'').slice(0,160))+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
 function renderLogView(){
   var acc=(DB.접속로그||[]).slice().reverse();
   var accF=(LOGKIND==='전체') ? acc : acc.filter(function(a){ return kindOf(a)===LOGKIND; });
@@ -1019,17 +1087,23 @@ function renderLogView(){
       ['광고주','작업','섭외','입금','실행비','정보'].map(function(t){ return '<button class="btn-ghost" onclick="exportCSV(\''+t+'\')">'+t+' ⬇</button>'; }).join('') +
       '</div></div>' +
     '<div class="sec"><h3>📋 접속 로그 <span style="font-size:11px;color:#999;font-weight:400">· 누가·언제·어디서 접속했나 (30분 안에 다시 들어오면 한 줄로 묶임)</span></h3>' +
-      '<div class="logf">' + ['전체','직원','점주'].map(function(k){
+      '<div class="logf">' + ['전체','직원','점주','로그인실패'].map(function(k){
         var n = k==='전체' ? acc.length : acc.filter(function(a){ return kindOf(a)===k; }).length;
         return '<button class="logf-b'+(LOGKIND===k?' on':'')+'" onclick="LOGKIND=\''+k+'\';render()">'+k+' <b>'+n+'</b></button>'; }).join('') + '</div>' +
       '<div class="ss-wrap"><table class="ss"><thead><tr><th>시간</th><th>구분</th><th>이름</th><th>IP</th><th>환경</th></tr></thead><tbody>' +
       (accF.length?accF.map(function(a){ var k=kindOf(a);
         return '<tr><td style="white-space:nowrap">'+esc(a.시간)+'</td>'+
-          '<td><span class="lg-k'+(k==='점주'?' owner':'')+'">'+(k==='점주'?'🏪 점주':'👤 직원')+'</span></td>'+
+          '<td><span class="lg-k'+(k==='점주'?' owner':(k==='로그인실패'?' fail':''))+'">'+
+            (k==='점주'?'🏪 점주':(k==='로그인실패'?'⛔ 로그인실패':'👤 직원'))+'</span></td>'+
           '<td><b>'+esc(a.이름)+'</b></td><td>'+esc(a.IP)+'</td>'+
           '<td style="font-size:11px;color:#999">'+esc(String(a.환경||'').slice(0,70))+'</td></tr>'; }).join('')
         :'<tr><td colspan="5" style="color:#bbb;padding:12px">아직 접속 기록이 없어요</td></tr>') +
       '</tbody></table></div></div>' +
+    '<div class="sec"><h3>✏️ 변경 이력 <span style="font-size:11px;color:#999;font-weight:400">· 누가 언제 무엇을 바꿨나 (금액·명단·삭제까지 전부)</span></h3>' +
+      '<div class="logf">' + [7,14,30,90].map(function(d){
+        return '<button class="logf-b sm'+(AUDIT_DAYS===d?' on':'')+'" onclick="loadAudit('+d+')">최근 '+d+'일</button>'; }).join('') +
+        '<button class="vs-clr" style="margin-left:auto" onclick="loadAudit(AUDIT_DAYS)">🔄 새로고침</button></div>' +
+      '<div id="auditBox"><div style="color:#aaa;padding:12px">기간을 눌러 불러오세요</div></div></div>' +
     '<div class="sec"><h3>🗒 업데이트 로그</h3>' +
       '<div class="ss-wrap"><table class="ss"><thead><tr><th>날짜</th><th>버전</th><th>내용</th></tr></thead><tbody>' +
       (upd.length?upd.map(function(u){ return '<tr><td style="white-space:nowrap">'+esc(u.날짜)+'</td><td><b>'+esc(u.버전)+'</b></td><td>'+esc(u.내용)+'</td></tr>'; }).join(''):'<tr><td colspan="3" style="color:#bbb;padding:12px">아직 없어요</td></tr>') +
