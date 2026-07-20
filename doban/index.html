@@ -1173,7 +1173,7 @@ function render() {
       var cls = 'viewtab' + (VIEW===t[0]?' on':'') + (t[0]==='register'?' reg':'');
       return '<div class="'+cls+'" onclick="VIEW=\''+t[0]+'\';render()">'+t[1]+'</div>';
     }).join('') + '<div class="viewtab" onclick="logout()" style="color:#c92a2a">로그아웃</div>';
-  ['today','client','task','vendor','settle','register','staff','log','trash'].forEach(function (v) {
+  ['today','client','task','influ','vendor','settle','register','staff','log','trash'].forEach(function (v) {
     var el=document.getElementById(v+'View'); if(el) el.style.display = VIEW===v ? '' : 'none';
   });
   // 알림바: 오늘 방문/촬영 + 미배정 작업
