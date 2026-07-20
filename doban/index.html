@@ -1534,7 +1534,7 @@ function renderVendorLedger(cs){
     var open=arr.length>0 && PAY_OPEN[key]!==false;
     // 외주사별 서브토글 (줄이 길어서 접어둠)
     var g={}; arr.forEach(function(r){ (g[r.vendor]=g[r.vendor]||[]).push(r); });
-    var vnames=Object.keys(g).sort(function(a,b){ return sum(g[b])-sum(g[a]) || a.localeCompare(b); });
+    var vnames=Object.keys(g).sort(function(a,b){ return a.localeCompare(b,'ko'); });  // 가나다순
     var pend=(key!=='done'); // 줄 돈 = 기본 펼침 / 끝난 건 = 기본 접힘 (둘 다 눌러서 토글 가능)
     var body = arr.length ? vnames.map(function(v){
       var vk=key+'|'+v, vo = payVOpen(vk);
