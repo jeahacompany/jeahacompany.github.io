@@ -515,6 +515,29 @@
   .inf-ok { font-size:11px; font-weight:800; color:#237a3b; background:#ebfbee; border-radius:6px; padding:2px 8px; }
   .inf-no { font-size:11px; font-weight:800; color:#c92a2a; background:#fff5f5; border-radius:6px; padding:2px 8px; }
   .inf-head .inf-ok, .inf-head .inf-no { margin-left:auto; }
+  .inf-ig { font-size:11.5px; font-weight:700; color:#c2255c; background:#fff0f6; border-radius:6px; padding:2px 8px; text-decoration:none; }
+  .inf-ig:hover { background:#ffdeeb; }
+  .inf-fol { font-size:11.5px; font-weight:700; color:#666; }
+  .inf-star { display:inline-flex; gap:1px; cursor:pointer; }
+  .inf-star b { color:#dee2e6; font-size:15px; line-height:1; }
+  .inf-star b.on { color:#f59f00; }
+  .inf-star b:hover { color:#ffc078; }
+  .inf-diff { font-size:11.5px; font-weight:800; border-radius:6px; padding:2px 7px; }
+  .inf-diff.up { color:#c92a2a; background:#fff5f5; }
+  .inf-diff.down { color:#1971c2; background:#e7f5ff; }
+  /* 펼친 내용 */
+  .inf-body { border-top:1px solid #f1f3f5; padding:11px 13px; display:flex; flex-direction:column; gap:10px; background:#fcfcfd; }
+  .it-lb { font-size:11.5px; font-weight:800; color:#888; white-space:nowrap; }
+  .inf-trend { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .it-p { font-size:13px; font-weight:800; color:#666; background:#fff; border:1px solid #e9ecef; border-radius:7px; padding:3px 9px; }
+  .it-p.now { color:#e8590c; border-color:#ffc999; background:#fff7f0; }
+  .it-ar { color:#ccc; font-weight:800; }
+  .it-sum { font-size:12px; font-weight:800; color:#555; margin-left:4px; }
+  .inf-price { display:flex; gap:8px; align-items:flex-start; font-size:12.5px; color:#555; line-height:1.6; }
+  .inf-price span:last-child { white-space:pre-wrap; }
+  .inf-memo { display:flex; gap:8px; align-items:flex-start; }
+  .inf-memo textarea { flex:1; border:1.5px solid #e3e3e3; border-radius:9px; padding:9px 11px; font-size:13px; font-family:inherit; min-height:52px; resize:vertical; }
+  .inf-memo textarea:focus { outline:none; border-color:#e8590c; }
   /* 접속로그 필터·구분 */
   .logf { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
   .logf-b { border:1.5px solid #e3e3e3; background:#fff; color:#666; border-radius:20px; padding:6px 14px; font-size:12.5px; font-weight:700; cursor:pointer; }
@@ -1818,6 +1841,26 @@ function setINFQ(q){ INFQ=q; var el=document.getElementById('iSearch'); if(el) e
 function clearINFQ(){ setINFQ(''); var el=document.getElementById('iSearch'); if(el) el.focus(); }
 function setInfSort(s){ INF_SORT=s; renderInfluView(); }
 function toggleInf(k){ INF_OPEN[k]=!INF_OPEN[k]; renderInfList(); }
+// 별점 — 같은 별을 다시 누르면 해제
+function starHTML(vid, rating){
+  if(!vid) return '';
+  var r=Number(rating)||0, out='<span class="inf-star" onclick="event.stopPropagation()">';
+  for(var i=1;i<=5;i++){
+    out += '<b class="'+(i<=r?'on':'')+'" title="'+i+'점'+(i===r?' (다시 누르면 해제)':'')+'"'+
+           ' onclick="setInfRating(\''+vid+'\','+(i===r?0:i)+')">★</b>';
+  }
+  return out+'</span>';
+}
+function setInfRating(vid, val){
+  patchLocal('vendors', vid, {rating:String(val||'')});
+  renderInfList();
+  bg(gs('updateVendor',{ID:vid, rating:String(val||'')}));
+}
+function setInfNote(vid, val){
+  patchLocal('vendors', vid, {note:val});
+  bg(gs('updateVendor',{ID:vid, note:val}));   // 재렌더 안 함(타이핑 끊김 방지)
+  toast('📝 메모 저장됨');
+}
 // 인플루언서별로 묶기 — 같은 사람이면 띄어쓰기 달라도 한 명으로
 function influList(){
   var by={};
@@ -1851,20 +1894,45 @@ function infCards(){
     return g.name.toLowerCase().indexOf(q)>=0 || Object.keys(g.stores).some(function(s){ return s.toLowerCase().indexOf(q)>=0; });
   });
   var rows = list.length ? list.map(function(g){
-    var open=!!INF_OPEN[g.key], v=findVendor(g.name);
-    var acct = v && v.account ? '<span class="inf-ok">🏦 계좌 있음</span>'
-             : (v ? '<span class="inf-no">⚠ 계좌 없음</span>' : '<span class="inf-no">⚠ 등록부에 없음</span>');
+    var open=!!INF_OPEN[g.key], v=findVendor(g.name)||{};
+    var acct = v.account ? '<span class="inf-ok">🏦 계좌</span>'
+             : (v.ID ? '<span class="inf-no">⚠ 계좌 없음</span>' : '<span class="inf-no">⚠ 등록부에 없음</span>');
+    var fol = Number(String(v.followers||'').replace(/[^0-9]/g,''))||0;
+    // 단가 변동: 오래된 → 최근 순으로 실제 준 금액
+    var hist=g.rows.filter(function(r){ return r.fee>0; })
+                   .sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:0); });
+    var first=hist[0], last=hist[hist.length-1];
+    var diff = (first&&last&&hist.length>1) ? last.fee-first.fee : 0;
     return '<div class="inf-card">'+
       '<div class="inf-head" onclick="toggleInf(\''+g.key+'\')">'+
         '<span class="vg-arw">'+(open?'▾':'▸')+'</span>'+
         '<span class="inf-name">'+esc(g.name)+'</span>'+
+        (v.handle?'<a class="inf-ig" href="'+esc(v.insta_url||('https://www.instagram.com/'+String(v.handle).replace(/^@/,'')))+'" target="_blank" onclick="event.stopPropagation()">📷 '+esc(v.handle)+'</a>':'')+
+        (fol?'<span class="inf-fol">👥 '+fol.toLocaleString('ko-KR')+'</span>':'')+
+        starHTML(v.ID, v.rating)+
         '<span class="inf-cnt">'+g.cnt+'회</span>'+
         '<span class="inf-store">'+g.storeN+'개 매장</span>'+
         '<span class="inf-fee">최근 '+won(g.lastFee)+'원</span>'+
+        (diff?'<span class="inf-diff '+(diff>0?'up':'down')+'">'+(diff>0?'▲':'▼')+won(Math.abs(diff))+'</span>':'')+
         '<span class="inf-tot">누적 '+won(g.total)+'원</span>'+
         acct+
       '</div>'+
-      (open? '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr>'+
+      (open? '<div class="inf-body">'+
+        // 단가 변동 이력
+        (hist.length>1 ? '<div class="inf-trend"><span class="it-lb">💰 단가 변동</span>'+
+          hist.map(function(r,i){
+            return '<span class="it-p'+(i===hist.length-1?' now':'')+'" title="'+esc(r.store)+' · '+esc(r.date||'')+'">'+won(r.fee)+'</span>'+
+                   (i<hist.length-1?'<span class="it-ar">→</span>':'');
+          }).join('')+
+          '<span class="it-sum">'+(diff>0?'올랐어요 +':(diff<0?'내렸어요 −':'그대로 '))+won(Math.abs(diff))+'</span></div>' : '')+
+        // 공식 단가표(시트)
+        (v.price_note?'<div class="inf-price"><span class="it-lb">📋 공식 단가표</span><span>'+esc(v.price_note)+'</span></div>':'')+
+        // 메모
+        '<div class="inf-memo"><span class="it-lb">📝 메모</span>'+
+          '<textarea placeholder="이때 어땠는지 적어두세요 — 예: 연락 잘 됨, 수정 요청 많았음, 사진 퀄 좋음" '+
+          (v.ID?'onchange="setInfNote(\''+v.ID+'\',this.value)"':'disabled')+'>'+esc(v.note||'')+'</textarea></div>'+
+        // 이력 표
+        '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr>'+
           '<th class="c-store">매장</th><th class="c-item">견적</th><th>촬영일</th>'+
           '<th class="c-amt money">대행비</th><th>진행</th><th>지급</th><th>링크</th></tr></thead><tbody>'+
         g.rows.slice().sort(function(a,b){ return a.date<b.date?1:(a.date>b.date?-1:0); }).map(function(r){
@@ -1874,7 +1942,7 @@ function infCards(){
             '<td>'+esc(r.prog||'-')+'</td>'+
             '<td>'+(r.pay==='지급완료'?'<span class="inf-ok">✓ 완료</span>':'<span class="inf-no">'+esc(r.pay||'미지급')+'</span>')+'</td>'+
             '<td>'+(r.url?'<a href="'+esc(r.url)+'" target="_blank">🔗</a>':'-')+'</td></tr>';
-        }).join('')+'</tbody></table></div>' : '')+
+        }).join('')+'</tbody></table></div></div>' : '')+
     '</div>';
   }).join('') : (q? '<div class="vs-none">「<b>'+esc(INFQ)+'</b>」 결과가 없어요. <button class="vs-clr" onclick="clearINFQ()">전체 보기</button></div>'
                   : '<div style="color:#aaa;padding:14px">아직 인플루언서 기록이 없어요.</div>');
@@ -1916,10 +1984,13 @@ function renderInfluView(){
 function exportInflu(){
   var all=influList(); if(!all.length){ toast('인플루언서 기록이 없어요'); return; }
   var cell=function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
-  var cols=['닉네임','횟수','매장수','매장','최근대행비','누적대행비','지급완료액','게시완료','최근작업일','계좌등록'];
-  var lines=all.map(function(g){ var v=findVendor(g.name);
-    return [g.name,g.cnt,g.storeN,Object.keys(g.stores).join(' / '),g.lastFee,g.total,g.paid,g.done,g.last,
-            (v&&v.account)?'O':'X'].map(cell).join(','); });
+  var cols=['닉네임','인스타','팔로워','별점','횟수','매장수','매장','첫단가','최근단가','증감','누적대행비','지급완료액','게시완료','최근작업일','계좌등록','메모'];
+  var lines=all.map(function(g){ var v=findVendor(g.name)||{};
+    var h=g.rows.filter(function(r){return r.fee>0;}).sort(function(a,b){return a.date<b.date?-1:1;});
+    var f=h.length?h[0].fee:0, l=h.length?h[h.length-1].fee:0;
+    return [g.name, v.handle||'', v.followers||'', v.rating||'', g.cnt, g.storeN,
+            Object.keys(g.stores).join(' / '), f, l, (h.length>1?l-f:0), g.total, g.paid, g.done, g.last,
+            v.account?'O':'X', v.note||''].map(cell).join(','); });
   downloadFile('도반_인플루언서명부_'+todayStr()+'.csv', String.fromCharCode(0xFEFF)+cols.join(',')+'\n'+lines.join('\n'), 'text/csv;charset=utf-8');
   toast('📥 인플루언서 명부 저장됨 ('+all.length+'명)');
 }
