@@ -106,6 +106,7 @@
   table.quote { width:100%; border-collapse:collapse; min-width:520px; box-shadow:none; }
   table.quote th, table.quote td { padding:9px 10px; font-size:13px; border-bottom:1px solid #f0f0f0; text-align:left; }
   table.quote th { background:#fafafa; color:#888; font-size:12px; }
+  table.quote th.money, table.quote th.col-amt { text-align:right; }   /* 머리글도 숫자 쪽으로 */
   table.quote .q-item b { font-size:14px; }
   table.quote .q-item small { color:#aaa; font-size:11px; display:block; }
   table.quote input { width:100%; padding:7px 8px; border:1px solid #ddd; border-radius:7px; font-size:13px; text-align:right; }
@@ -367,6 +368,8 @@
   .money { text-align:right; font-variant-numeric:tabular-nums; }
   table.qsheet-tbl { border-collapse:collapse; width:100%; min-width:640px; font-size:13px; }
   table.qsheet-tbl th { background:#fafafa; color:#888; font-size:11.5px; padding:8px 10px; border-bottom:1.5px solid #eee; white-space:nowrap; text-align:left; }
+  /* 머리글도 숫자와 같은 쪽으로 — th의 text-align:left 가 .money 를 덮어써서 줄이 안 맞았음 */
+  table.qsheet-tbl th.money { text-align:right; }
   table.qsheet-tbl td { padding:9px 10px; border-bottom:1px solid #f0f0f0; }
   table.qsheet-tbl tbody tr:hover { background:#fff8f2; }
   table.qsheet-tbl tr.vl-grp td { background:#f6f4f1; font-size:12.5px; padding:8px 10px; border-top:2px solid #eee; }
