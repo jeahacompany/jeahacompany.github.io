@@ -523,6 +523,10 @@
   .it-sum.stale { color:#e8850a; font-weight:700; }
   .inf-empty { font-size:11.5px; font-weight:700; color:#adb5bd; background:#f8f9fa; border-radius:6px; padding:2px 8px; }
   .inf-new { background:#e7f5ff; color:#1971c2; border-radius:20px; font-size:12px; font-weight:800; padding:2px 10px; }
+  .inf-edit.add { border-color:#a5d8ff; color:#1971c2; background:#e7f5ff; }
+  .inf-edit.add:hover { background:#d0ebff; border-color:#74c0fc; color:#1864ab; }
+  .logf-b.sm { font-size:12px; padding:5px 11px; }
+  .inf-hint { font-size:12.5px; color:#1971c2; background:#e7f5ff; border:1px solid #a5d8ff; border-radius:9px; padding:9px 12px; margin-bottom:10px; }
   .inf-upd { font-size:11px; font-weight:700; color:#aaa; }
   .inf-fee i { font-style:normal; font-size:11px; color:#adb5bd; font-weight:700; }
   .it-p i { display:block; font-style:normal; font-size:10px; font-weight:700; color:#adb5bd; text-align:center; margin-top:1px; }
@@ -1842,7 +1846,15 @@ function vendCards(){
   return { cards:cards, q:q, count:(q? vs.length+' / '+all.length+'명' : all.length+'명') };
 }
 // ─── 📷 인플루언서 명부 (블로그·체험단 제외) ───
-var INFQ='', INF_IME=false, INF_SORT='recent', INF_OPEN={};
+var INFQ='', INF_IME=false, INF_SORT='recent', INF_OPEN={}, INF_FILTER='all';
+function setInfFilter(f){ INF_FILTER=f; renderInfluView(); }
+// 등록부에만 있고 아직 인플루언서로 표시 안 된 사람 → 한 번 눌러 명부로
+function markAsInflu(vid){
+  patchLocal('vendors', vid, {kind:'인플루언서', updated_at:todayISO()});
+  renderInfluView();
+  bg(gs('updateVendor',{ID:vid, kind:'인플루언서', updated_at:todayISO()}));
+  toast('📷 인플루언서 명부에 추가됐어요');
+}
 function infIME(on){ INF_IME=!!on; }
 function infInput(el){ INFQ=el.value; if(INF_IME) return; renderInfList(); }
 function setINFQ(q){ INFQ=q; var el=document.getElementById('iSearch'); if(el) el.value=q; renderInfList(); }
@@ -1964,9 +1976,14 @@ function influList(){
     if(!g.lastFee && fee>0) g.lastFee=fee;
   });
   // 아직 같이 일한 기록이 없어도 명부에 등록된 인플루언서는 목록에 보이게
+  // 등록부에만 있는 사람(인플루언서 표시 안 됨)도 담아두고, '등록부에만' 필터에서만 보여줌
   (DB.vendors||[]).forEach(function(v){
-    if(v.kind!=='인플루언서') return;
     var k=vnorm(v.name); if(!k || by[k]) return;
+    if(v.vtype==='비용항목') return;                       // 커피값 같은 자체 비용은 사람이 아님
+    if(v.kind!=='인플루언서'){
+      by[k]={ key:k, name:v.name, rows:[], stores:{}, total:0, paid:0, done:0, last:'', lastFee:0, onlyReg:true };
+      return;
+    }
     by[k]={ key:k, name:v.name, rows:[], stores:{}, total:0, paid:0, done:0, last:'', lastFee:0 };
   });
   var arr=Object.keys(by).map(function(k){ var g=by[k]; g.cnt=g.rows.length; g.storeN=Object.keys(g.stores).length; return g; });
@@ -1977,7 +1994,15 @@ function influList(){
   return arr.sort(SORT[INF_SORT]||SORT.cnt);
 }
 function infCards(){
-  var all=influList(), q=String(INFQ||'').trim().toLowerCase();
+  var raw=influList(), q=String(INFQ||'').trim().toLowerCase();
+  // 필터: 전체 / 인스타 미입력 / 신규(기록없음) / 등록부에만
+  var all=raw.filter(function(g){
+    if(INF_FILTER==='reg') return !!g.onlyReg;
+    if(g.onlyReg) return false;                                  // 평소엔 등록부에만 있는 사람 숨김
+    if(INF_FILTER==='noinsta'){ var v=findVendor(g.name); return !v || !v.handle; }
+    if(INF_FILTER==='new') return g.cnt===0;
+    return true;
+  });
   var list = !q ? all : all.filter(function(g){
     return g.name.toLowerCase().indexOf(q)>=0 || Object.keys(g.stores).some(function(s){ return s.toLowerCase().indexOf(q)>=0; });
   });
@@ -2002,7 +2027,9 @@ function infCards(){
         (g.cnt?'<span class="inf-fee">최근 '+won(g.lastFee)+'원 <i>'+esc(mmdd(g.last))+'</i></span>':'')+
         (diff?'<span class="inf-diff '+(diff>0?'up':'down')+'">'+(diff>0?'▲':'▼')+won(Math.abs(diff))+'</span>':'')+
         (v.updated_at?'<span class="inf-upd">수정 '+esc(mmdd(v.updated_at))+'</span>':'')+
-        (v.ID?'<button class="inf-edit" onclick="event.stopPropagation();openInfEdit(\''+v.ID+'\')">✏️ 수정</button>':'')+
+        (g.onlyReg
+          ? '<button class="inf-edit add" onclick="event.stopPropagation();markAsInflu(\''+v.ID+'\')">📷 인플루언서로 추가</button>'
+          : (v.ID?'<button class="inf-edit" onclick="event.stopPropagation();openInfEdit(\''+v.ID+'\')">✏️ 수정</button>':''))+
       '</div>'+
       (open? '<div class="inf-body">'+
         // 단가 변동 이력
@@ -2062,10 +2089,16 @@ function renderInfList(){
   var b=document.getElementById('iClr'); if(b) b.style.display=r.q?'':'none';
 }
 function renderInfluView(){
-  var r=infCards(), all=r.all;
-  var totalPeople=all.length;
-  var repeat=all.filter(function(g){ return g.cnt>=2; }).length;
-  var noInfo=all.filter(function(g){ var v=findVendor(g.name); return !v || !v.handle; }).length;  // 인스타 미입력
+  var r=infCards();
+  var raw=influList();
+  var mine=raw.filter(function(g){ return !g.onlyReg; });            // 인플루언서 명부
+  var totalPeople=mine.length;
+  var repeat=mine.filter(function(g){ return g.cnt>=2; }).length;
+  var noInfo=mine.filter(function(g){ var v=findVendor(g.name); return !v || !v.handle; }).length;
+  var newN=mine.filter(function(g){ return g.cnt===0; }).length;
+  var regN=raw.filter(function(g){ return g.onlyReg; }).length;
+  var FILTERS=[['all','전체',totalPeople],['noinsta','📷 인스타 미입력',noInfo],
+               ['new','🆕 기록 없음',newN],['reg','📋 등록부에만',regN]];
   var SORTS=[['cnt','많이 한 순'],['recent','최근 순'],['money','금액 순'],['name','이름 순']];
   document.getElementById('influView').innerHTML =
     '<div class="sec">'+
@@ -2083,9 +2116,12 @@ function renderInfluView(){
         '<button id="iClr" class="vs-clr" style="display:'+(r.q?'':'none')+'" onclick="clearINFQ()">✕ 지우기</button>'+
         '<span class="vs-cnt" id="iCnt">'+r.count+'</span>'+
       '</div>'+
+      '<div class="logf">'+FILTERS.map(function(f){
+        return '<button class="logf-b'+(INF_FILTER===f[0]?' on':'')+'" onclick="setInfFilter(\''+f[0]+'\')">'+f[1]+' <b>'+f[2]+'</b></button>'; }).join('')+'</div>'+
       '<div class="logf">'+SORTS.map(function(s){
-        return '<button class="logf-b'+(INF_SORT===s[0]?' on':'')+'" onclick="setInfSort(\''+s[0]+'\')">'+s[1]+'</button>'; }).join('')+
+        return '<button class="logf-b sm'+(INF_SORT===s[0]?' on':'')+'" onclick="setInfSort(\''+s[0]+'\')">'+s[1]+'</button>'; }).join('')+
         '<button class="vs-clr" onclick="exportInflu()" style="margin-left:auto">📥 엑셀</button></div>'+
+      (INF_FILTER==='reg'?'<div class="inf-hint">📋 등록부(대행비)에는 있는데 인플루언서 명부엔 없는 사람들이에요. 눌러서 옮기면 여기서 관리됩니다.</div>':'')+
       '<div id="infList">'+r.rows+'</div>'+
     '</div>'+infEditHTML();
   var se=document.getElementById('iSearch');
