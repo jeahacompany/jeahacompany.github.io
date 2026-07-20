@@ -517,7 +517,10 @@
   .inf-head .inf-ok, .inf-head .inf-no { margin-left:auto; }
   .inf-ig { font-size:11.5px; font-weight:700; color:#c2255c; background:#fff0f6; border-radius:6px; padding:2px 8px; text-decoration:none; }
   .inf-ig:hover { background:#ffdeeb; }
-  .inf-fol { font-size:11.5px; font-weight:700; color:#666; }
+  .inf-fol { font-size:11.5px; font-weight:700; color:#666; display:inline-flex; align-items:baseline; gap:4px; }
+  .inf-fol i { font-style:normal; font-size:10.5px; font-weight:700; color:#adb5bd; }
+  .inf-fol i.old { color:#e8850a; background:#fff4e0; border-radius:5px; padding:1px 5px; }
+  .it-sum.stale { color:#e8850a; font-weight:700; }
   .inf-empty { font-size:11.5px; font-weight:700; color:#adb5bd; background:#f8f9fa; border-radius:6px; padding:2px 8px; }
   .inf-new { background:#e7f5ff; color:#1971c2; border-radius:20px; font-size:12px; font-weight:800; padding:2px 10px; }
   .inf-upd { font-size:11px; font-weight:700; color:#aaa; }
@@ -1852,6 +1855,14 @@ function folLog(s){
     var p=l.split('|'); return { d:(p[0]||'').trim(), n:Number(p[1])||0 };
   }).filter(function(e){ return e.d && e.n; });
 }
+// 팔로워를 마지막으로 적어둔 날 (없으면 '')
+function folDate(v){ var l=folLog(v&&v.fol_log); return l.length?l[0].d:''; }
+// 오래됐거나 날짜를 모르는 팔로워 수 = 다시 확인해야 함 (90일 기준)
+function folStale(v){
+  var d=folDate(v); if(!d) return true;
+  var t=new Date(d+'T00:00:00'); if(isNaN(t)) return true;
+  return (Date.now()-t.getTime()) > 90*24*60*60*1000;
+}
 // 날짜 짧게 (2026-07-20 → 7/20). 올해가 아니면 연도까지 보여줘서 오타를 못 숨기게
 function mmdd(d){
   var m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/); if(!m) return '';
@@ -1900,8 +1911,11 @@ function infEditHTML(){
         '<span class="mod-hint">@ 없이 적으셔도 됩니다. 주소는 자동으로 만들어져요.</span></div>'+
       '<div class="mod-row"><label>인스타 주소 <span style="font-weight:400;color:#aaa">— 비워두면 자동</span></label>'+
         '<input id="ieUrl" value="'+esc(v.insta_url||'')+'" placeholder="https://www.instagram.com/..."></div>'+
-      '<div class="mod-row"><label>팔로워</label>'+
-        '<input id="ieFol" inputmode="numeric" value="'+esc(v.followers||'')+'" placeholder="예: 69000"></div>'+
+      '<div class="mod-row"><label>팔로워'+
+        (folDate(v)?' <span style="font-weight:400;color:#aaa">— 마지막 기록 '+esc(mmdd(folDate(v)))+'</span>'
+                   :' <span style="font-weight:400;color:#e8850a">— 기록된 날짜 없음</span>')+'</label>'+
+        '<input id="ieFol" inputmode="numeric" value="'+esc(v.followers||'')+'" placeholder="예: 69000">'+
+        '<span class="mod-hint">숫자를 바꿔 저장하면 <b>오늘 날짜로 기록</b>돼서 변화가 쌓입니다.</span></div>'+
       '<div class="mod-row"><label>📋 공식 단가표</label>'+
         '<textarea id="iePrice" placeholder="예: 피드 35만원 / 릴스 40만원 / 피드+릴스 55만원&#10;상단고정 7일 5만원, 댓글이벤트·스토리 무료">'+esc(v.price_note||'')+'</textarea></div>'+
       '<div class="mod-row"><label>📝 메모</label>'+
@@ -1981,7 +1995,8 @@ function infCards(){
         '<span class="inf-name">'+esc(g.name)+'</span>'+
         (v.handle?'<a class="inf-ig" href="'+esc(v.insta_url||('https://www.instagram.com/'+String(v.handle).replace(/^@/,'')))+'" target="_blank" onclick="event.stopPropagation()">📷 '+esc(v.handle)+'</a>'
                  :'<span class="inf-empty">인스타 미입력</span>')+
-        (fol?'<span class="inf-fol">👥 '+fol.toLocaleString('ko-KR')+'</span>':'')+
+        (fol?'<span class="inf-fol">👥 '+fol.toLocaleString('ko-KR')+
+             '<i'+(folStale(v)?' class="old"':'')+'>'+(folDate(v)?esc(mmdd(folDate(v))):'날짜 없음')+'</i></span>':'')+
         (g.cnt?'<span class="inf-cnt">'+g.cnt+'회</span>':'<span class="inf-new">신규</span>')+
         (g.cnt?'<span class="inf-store">'+g.storeN+'개 매장</span>':'')+
         (g.cnt?'<span class="inf-fee">최근 '+won(g.lastFee)+'원 <i>'+esc(mmdd(g.last))+'</i></span>':'')+
@@ -2001,14 +2016,20 @@ function infCards(){
           '</div>' : '')+
         // 팔로워 변화
         (function(){ var fl=folLog(v.fol_log);
-          if(fl.length<2) return '';
+          if(!fl.length){
+            return fol ? '<div class="inf-trend"><span class="it-lb">👥 팔로워</span>'+
+              '<span class="it-p now">'+fol.toLocaleString('ko-KR')+'<i>날짜 없음</i></span>'+
+              '<span class="it-sum stale">✏️ 수정에서 한 번 저장하면 그날부터 기록이 쌓여요</span></div>' : '';
+          }
           var d2=fl[0].n-fl[fl.length-1].n;
           return '<div class="inf-trend"><span class="it-lb">👥 팔로워</span>'+
             fl.slice().reverse().map(function(e,i,a){
               return '<span class="it-p'+(i===a.length-1?' now':'')+'">'+e.n.toLocaleString('ko-KR')+'<i>'+esc(mmdd(e.d))+'</i></span>'+
                      (i<a.length-1?'<span class="it-ar">→</span>':'');
             }).join('')+
-            '<span class="it-sum">'+(d2>0?'+':(d2<0?'−':''))+Math.abs(d2).toLocaleString('ko-KR')+'</span></div>';
+            (fl.length>1?'<span class="it-sum">'+(d2>0?'+':(d2<0?'−':''))+Math.abs(d2).toLocaleString('ko-KR')+'</span>':'')+
+            (folStale(v)?'<span class="it-sum stale">오래됐어요 — 다시 확인해보세요</span>':'')+
+          '</div>';
         })()+
         // 공식 단가표 · 메모 (수정은 ✏️ 버튼으로)
         '<div class="inf-price"><span class="it-lb">📋 공식 단가표</span>'+
