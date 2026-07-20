@@ -110,6 +110,8 @@
   table.records{width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);}
   table.records th, table.records td{border-bottom:1px solid #eee; padding:9px 8px; font-size:13px; text-align:center; white-space:nowrap; vertical-align:middle;}
   #adminRecordsTable th, #adminRecordsTable td{padding:8px 6px; font-size:12.5px;}
+  /* 품목 칸: 길면 …으로 줄이고 마우스 올리면 전체 보임 */
+  #adminRecordsTable .prod-cell{max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555; text-align:left;}
   #adminRecordsTable .status-badge{padding:3px 8px; font-size:11px;}
   .status-stack{display:flex; flex-direction:column; gap:3px; align-items:center;}
   .status-row{display:flex; flex-direction:row; flex-wrap:wrap; gap:4px; justify-content:center;}
@@ -436,7 +438,7 @@
           <div class="table-scroll">
           <table class="records" id="adminRecordsTable">
             <thead>
-              <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>진행·입금·완료 상태</th><th>관리</th></tr>
+              <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>품목</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>진행·입금·완료 상태</th><th>관리</th></tr>
             </thead>
             <tbody id="adminRecordsTbody"></tbody>
           </table>
@@ -827,6 +829,26 @@ async function resetMarginDetail(id){
     if(document.getElementById('admin-tab-settlement').classList.contains('active')) renderSettlement();
     alert('기본 계산값으로 되돌렸습니다.');
   }catch(e){ if(!handleSessionError(e)) alert('실패: ' + e.message); }
+}
+// 견적에서 품목(제품명) 목록 뽑기 — 캠페인 우선, 없으면 견적 항목에서
+function quoteProducts(q){
+  let names = [];
+  if(Array.isArray(q.campaigns) && q.campaigns.length){
+    names = q.campaigns.map(c=>String((c&&c.product)||'').trim()).filter(Boolean);
+  }
+  if(!names.length && Array.isArray(q.items)){
+    names = q.items.filter(x=>String(x.item||'').indexOf('리뷰어')===0)
+                   .map(x=>String(x.product||'').trim()).filter(Boolean);
+  }
+  if(!names.length && Array.isArray(q.items)){
+    names = q.items.map(x=>String(x.product||'').trim()).filter(Boolean);
+  }
+  return Array.from(new Set(names));
+}
+// 표에 보여줄 품목 문자열 (여러 개면 쉼표로)
+function quoteProductLabel(q){
+  const n = quoteProducts(q);
+  return n.length ? n.join(', ') : '-';
 }
 function quoteTotalQty(items){
   const r = (items||[]).find(x=>String(x.item||'').indexOf('리뷰어')===0);
@@ -1746,7 +1768,7 @@ function renderAdminRecords(){
   const cnt = document.getElementById('recCount');
   const viewLbl = recView==='completed' ? '완료 ' : recView==='held' ? '보류 ' : '';
   if(cnt) cnt.textContent = viewLbl + list.length + '건' + (sf || filter ? ' (필터 적용됨)' : '');
-  if(!list.length){ tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
+  if(!list.length){ tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
   list
     .forEach(q=>{
       const mg = quoteProfit(q);
@@ -1762,6 +1784,7 @@ function renderAdminRecords(){
         <td>${q.quoteNo}</td>
         <td>${q.date}${ddBadge}</td>
         <td>${esc(q.client)}</td>
+        <td class="prod-cell" title="${esc(quoteProductLabel(q))}">${esc(quoteProductLabel(q))}</td>
         <td>${won(q.total)}원</td>
         <td>${qy}건</td>
         <td class="margin-cell" title="클릭하면 항목별 세부 마진이 펼쳐집니다" onclick="toggleMarginRow('${q.id}','m')">+${won(mg)}원${isMarginOverridden(q)?' <span class="adj-tag">조정</span>':''} ▾</td>
@@ -1824,8 +1847,8 @@ function exportSettlementCsv(){
 function exportRecordsCsv(){
   const list = quotes.filter(q=>!q.archived).filter(q=> recView==='completed'?q.completed : recView==='held'?q.held : true)
     .slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
-  const rows = [['견적번호','날짜','고객사','합계금액(원)','진행','입금','작업완료','보류']];
-  list.forEach(q=> rows.push([q.quoteNo, q.date, q.client, Number(q.total)||0,
+  const rows = [['견적번호','날짜','고객사','품목','합계금액(원)','진행','입금','작업완료','보류']];
+  list.forEach(q=> rows.push([q.quoteNo, q.date, q.client, quoteProductLabel(q), Number(q.total)||0,
     q.inProgress?'진행중':'진행전', q.deposited?'입금':'미입금', q.completed?'완료':'미완료', q.held?'보류':'']));
   downloadCsv('전체기록_'+new Date().toISOString().slice(0,10)+'.csv', rows);
 }
