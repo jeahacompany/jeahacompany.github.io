@@ -1863,7 +1863,8 @@ function setInfKind(vid, kind, msg){
   if(msg) toast(msg);
 }
 function markAsInflu(vid){ setInfKind(vid,'인플루언서','📷 인플루언서 명부에 추가됐어요'); }
-function markNotInflu(vid){ setInfKind(vid,'기타','✖ 인플루언서 아님으로 분류 — 명부에서 안 보입니다'); }
+// 인플루언서 명부에서만 빼고 등록부(대행비)에는 그대로 남김 — 되돌리려면 '📋 등록부에만'에서
+function markNotInflu(vid){ setInfKind(vid,'기타','✖ 등록부로 옮겼어요 — 대행비는 그대로, 인플루언서 명부에서만 빠집니다'); }
 function delInflu(vid){
   var v=(DB.vendors||[]).filter(function(x){return x.ID===vid;})[0]||{};
   INFEDIT=null;
@@ -2006,18 +2007,13 @@ function influList(){
   // 등록부에만 있는 사람(인플루언서 표시 안 됨)도 담아두고, '등록부에만' 필터에서만 보여줌
   (DB.vendors||[]).forEach(function(v){
     var k=vnorm(v.name); if(!k) return;
-    if(v.vtype==='비용항목' || v.kind==='기타') { delete by[k]; return; }  // 인플루언서 아님 → 아예 안 보임
-    if(by[k]) return;
-    var base={ key:k, name:v.name, rows:[], stores:{}, total:0, paid:0, done:0, last:'', lastFee:0 };
-    if(v.kind==='삭제됨') base.deleted=true;
-    else if(v.kind!=='인플루언서') base.onlyReg=true;      // 등록부에만 있고 아직 분류 안 함
-    by[k]=base;
-  });
-  // 명단 기록이 있어도 '기타/삭제됨'으로 분류했으면 그 상태를 따름
-  (DB.vendors||[]).forEach(function(v){
-    var k=vnorm(v.name), g=by[k]; if(!g) return;
-    if(v.kind==='삭제됨'){ g.deleted=true; g.onlyReg=false; }
-    else if(v.kind==='인플루언서'){ g.deleted=false; g.onlyReg=false; }
+    if(v.vtype==='비용항목'){ delete by[k]; return; }     // 커피값 같은 건 사람이 아니라 아예 제외
+    if(!by[k]) by[k]={ key:k, name:v.name, rows:[], stores:{}, total:0, paid:0, done:0, last:'', lastFee:0 };
+    var g=by[k];
+    g.deleted=false; g.onlyReg=false; g.notInf=false;     // 상태는 kind 하나로만 결정
+    if(v.kind==='삭제됨') g.deleted=true;
+    else if(v.kind==='기타') g.notInf=true;               // 인플루언서 아님(등록부에만 남김)
+    else if(v.kind!=='인플루언서') g.onlyReg=true;         // 아직 분류 안 함
   });
   var arr=Object.keys(by).map(function(k){ var g=by[k]; g.cnt=g.rows.length; g.storeN=Object.keys(g.stores).length; return g; });
   var SORT={ cnt:function(a,b){ return b.cnt-a.cnt || b.total-a.total; },
@@ -2030,9 +2026,10 @@ function infCards(){
   var raw=influList(), q=String(INFQ||'').trim().toLowerCase();
   // 필터: 전체 / 인스타 미입력 / 신규(기록없음) / 등록부에만
   var all=raw.filter(function(g){
-    if(INF_FILTER==='trash') return !!g.deleted;
-    if(INF_FILTER==='reg')   return !!g.onlyReg;
-    if(g.deleted || g.onlyReg) return false;                     // 평소엔 삭제함·미분류 숨김
+    if(INF_FILTER==='trash')  return !!g.deleted;
+    if(INF_FILTER==='reg')    return !!g.onlyReg;
+    if(INF_FILTER==='notinf') return !!g.notInf;
+    if(g.deleted || g.onlyReg || g.notInf) return false;         // 평소엔 삭제함·미분류·인스타아님 숨김
     if(INF_FILTER==='noinsta'){ var v=findVendor(g.name); return !v || !v.handle; }
     if(INF_FILTER==='new') return g.cnt===0;
     return true;
@@ -2065,10 +2062,13 @@ function infCards(){
           : g.deleted
             ? '<button class="inf-edit add" onclick="event.stopPropagation();restoreInflu(\''+v.ID+'\')">↩ 복원</button>'+
               '<button class="inf-edit danger" onclick="event.stopPropagation();purgeInflu(\''+v.ID+'\')">🗑 완전삭제</button>'
+          : g.notInf
+            ? '<button class="inf-edit add" onclick="event.stopPropagation();markAsInflu(\''+v.ID+'\')">↩ 인플루언서로 되돌리기</button>'
           : g.onlyReg
             ? '<button class="inf-edit add" onclick="event.stopPropagation();markAsInflu(\''+v.ID+'\')">📷 인플루언서로 추가</button>'+
               '<button class="inf-edit" onclick="event.stopPropagation();markNotInflu(\''+v.ID+'\')" title="실비 지급·업체처럼 인플루언서가 아닌 경우">✖ 아님</button>'
-            : '<button class="inf-edit" onclick="event.stopPropagation();openInfEdit(\''+v.ID+'\')">✏️ 수정</button>')+
+            : '<button class="inf-edit" onclick="event.stopPropagation();markNotInflu(\''+v.ID+'\')" title="인플루언서가 아니에요 — 등록부(대행비)에는 그대로 남습니다">✖ 인스타 아님</button>'+
+              '<button class="inf-edit" onclick="event.stopPropagation();openInfEdit(\''+v.ID+'\')">✏️ 수정</button>')+
       '</div>'+
       (open? '<div class="inf-body">'+
         // 단가 변동 이력
@@ -2130,15 +2130,17 @@ function renderInfList(){
 function renderInfluView(){
   var r=infCards();
   var raw=influList();
-  var mine=raw.filter(function(g){ return !g.onlyReg && !g.deleted; });   // 인플루언서 명부(살아있는 사람)
+  var mine=raw.filter(function(g){ return !g.onlyReg && !g.deleted && !g.notInf; });  // 인플루언서 명부(살아있는 사람)
   var totalPeople=mine.length;
   var repeat=mine.filter(function(g){ return g.cnt>=2; }).length;
   var noInfo=mine.filter(function(g){ var v=findVendor(g.name); return !v || !v.handle; }).length;
   var newN=mine.filter(function(g){ return g.cnt===0; }).length;
   var regN=raw.filter(function(g){ return g.onlyReg; }).length;
   var delN=raw.filter(function(g){ return g.deleted; }).length;
+  var notN=raw.filter(function(g){ return g.notInf; }).length;
   var FILTERS=[['all','전체',totalPeople],['noinsta','📷 인스타 미입력',noInfo],
-               ['new','🆕 기록 없음',newN],['reg','📋 등록부에만',regN],['trash','🗑 삭제함',delN]];
+               ['new','🆕 기록 없음',newN],['reg','📋 등록부에만',regN],
+               ['notinf','✖ 인스타 아님',notN],['trash','🗑 삭제함',delN]];
   var SORTS=[['cnt','많이 한 순'],['recent','최근 순'],['money','금액 순'],['name','이름 순']];
   document.getElementById('influView').innerHTML =
     '<div class="sec">'+
@@ -2162,6 +2164,7 @@ function renderInfluView(){
         return '<button class="logf-b sm'+(INF_SORT===s[0]?' on':'')+'" onclick="setInfSort(\''+s[0]+'\')">'+s[1]+'</button>'; }).join('')+
         '<button class="vs-clr" onclick="exportInflu()" style="margin-left:auto">📥 엑셀</button></div>'+
       (INF_FILTER==='reg'?'<div class="inf-hint">📋 등록부(대행비)에는 있는데 인플루언서 명부엔 없는 사람들이에요.<br>인플루언서면 <b>📷 추가</b>, 실비 지급이나 업체면 <b>✖ 아님</b>을 눌러주세요 — 아님으로 두면 다신 안 보입니다.</div>':'')+
+      (INF_FILTER==='notinf'?'<div class="inf-hint">✖ 인플루언서가 아니라고 표시한 사람들이에요 (실비 지급·업체 등).<br><b>대행비 등록부에는 그대로 있어서 지급은 정상</b>이고, 여기 명부에서만 빠져 있습니다. 잘못 눌렀으면 되돌리세요.</div>':'')+
       (INF_FILTER==='trash'?'<div class="inf-hint warn">🗑 삭제함이에요. <b>↩ 복원</b>으로 되돌리거나 <b>완전삭제</b>로 영구 삭제합니다.<br>대행비 원장의 기록은 그대로 남아요(계좌·인스타 정보만 사라집니다).</div>':'')+
       '<div id="infList">'+r.rows+'</div>'+
     '</div>'+infEditHTML();
