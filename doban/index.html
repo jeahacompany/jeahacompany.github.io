@@ -41,6 +41,28 @@
   .sc-bud:focus { outline:none; border-style:solid; border-color:#e8590c; }
   .sc-bud.set { border-style:solid; border-color:#e8590c; background:#fff7f0; }
   .sc-q { font-size:11.5px; font-weight:700; color:#a89078; background:#fff; border-radius:6px; padding:2px 7px; }
+  /* 광고주 세금계산서 (받을 돈) */
+  .inv-wrap { border:1.5px solid #b2f2bb; background:#f4fdf6; border-radius:13px; padding:11px; margin-bottom:12px; }
+  .inv-title { font-size:14px; font-weight:800; color:#237a3b; margin:2px 2px 9px; }
+  .inv-title span { font-size:11.5px; font-weight:400; color:#7cb894; }
+  .inv-btn { border:1.5px solid #e3e3e3; background:#fff; color:#555; border-radius:8px; padding:6px 11px;
+    font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .inv-btn:hover { background:#f6f6f8; }
+  .inv-btn.done { border-color:#b2f2bb; background:#ebfbee; color:#237a3b; }
+  .inv-btn.done:hover { background:#d3f9d8; }
+  .inv-badge { display:inline-block; font-size:11.5px; font-weight:800; border-radius:7px; padding:4px 9px; white-space:nowrap; }
+  .inv-badge.req { background:#fff4e0; color:#e8850a; }
+  .inv-badge.done { background:#ebfbee; color:#237a3b; }
+  .inv-badge.clickable { border:none; cursor:pointer; }
+  .inv-badge.clickable:hover { filter:brightness(.95); }
+  .c-inv { text-align:center; white-space:nowrap; }
+  .inv-mail { font-size:12px; color:#555; }
+  .inv-nomail { font-size:11.5px; color:#c92a2a; }
+  .pl-sec.pl-invreq { border-color:#ffd8a8; }
+  .pl-invreq .pl-head { background:#fff9f0; }
+  .pl-invreq .pl-cnt { background:#e8850a; }
+  .pl-sec.pl-invdone .pl-head { background:#f4fdf6; }
+  .pl-invdone .pl-cnt { background:#37b24d; }
   /* 계정정보 바로가기 버튼 */
   .plat-go { border:1.5px solid #a5d8ff; background:#e7f5ff; color:#1971c2; border-radius:8px;
     padding:7px 13px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
@@ -1325,6 +1347,39 @@ function renderSettleView() {
 
 // ─── 최근 견적 시트 (회계·세금계산서 정리용) ───
 var QUOTE_SHEET=[]; // 엑셀 내보내기용 최근 견적 데이터
+// ─── 청구 세금계산서 (우리가 광고주에게 발행) ───
+// 대행비 쪽 tax_status는 '받는' 계산서(외주사→우리), 이건 '주는' 계산서(우리→광고주)라 별도.
+// 상태는 그 차수의 첫 작업 행에 저장한다 (견적 한 건 = 계산서 한 장).
+function invAnchor(id, r){
+  return tasksOf(id).filter(function(t){ return roundOf(t)===r; })
+    .sort(function(a,b){ return String(a.ID)<String(b.ID)?-1:1; })[0]||null;
+}
+function invStateOf(id, r){ var t=invAnchor(id,r); return t ? String(t.inv_status||'') : ''; }
+function setInvoice(id, r, st){
+  var t=invAnchor(id,r); if(!t) return;
+  var o={ ID:t.ID, inv_status:st, inv_date: st==='발행완료' ? todayISO() : '' };
+  patchLocal('작업', t.ID, o);
+  render();
+  bg(gs('updateTask',o));
+}
+function reqInvoice(id,r){ setInvoice(id,r,'요청'); toast('🧾 세금계산서 발행 요청했어요'); }
+function doneInvoice(id,r){ setInvoice(id,r,'발행완료'); toast('✓ 발행완료 처리'); }
+function undoInvoice(id,r){ setInvoice(id,r,''); }
+// 견적 한 줄에 붙는 버튼
+function invBtns(q){
+  var st=invStateOf(q.id,q.r), acc=isAccountant();
+  var stop='event.stopPropagation();';
+  if(st==='발행완료'){
+    var t=invAnchor(q.id,q.r), d=t?mmdd(t.inv_date):'';
+    return acc ? '<button class="inv-badge done clickable" title="다시 누르면 취소" onclick="'+stop+'undoInvoice(\''+q.id+'\','+q.r+')">✓ 발행완료 '+esc(d)+' ✕</button>'
+               : '<span class="inv-badge done">✓ 발행완료 '+esc(d)+'</span>';
+  }
+  if(st==='요청'){
+    return '<button class="inv-badge req clickable" title="다시 누르면 요청 취소" onclick="'+stop+'undoInvoice(\''+q.id+'\','+q.r+')">🙋 요청됨 ✕</button>'+
+           (acc?' <button class="inv-btn done" onclick="'+stop+'doneInvoice(\''+q.id+'\','+q.r+')">✓ 발행완료</button>':'');
+  }
+  return '<button class="inv-btn" onclick="'+stop+'reqInvoice(\''+q.id+'\','+q.r+')">🧾 계산서 요청</button>';
+}
 function renderQuoteSheet(cs){
   var rows=[];
   cs.forEach(function(c){
@@ -1350,7 +1405,8 @@ function renderQuoteSheet(cs){
       '<td class="money">'+won(q.vat)+'</td>'+
       '<td class="money"><b>'+won(q.total)+'</b></td>'+
       '<td class="money">'+(q.pay>0?won(q.pay):'<span style="color:#ccc">—</span>')+'</td>'+
-      '<td style="text-align:center"><span style="font-size:12px;font-weight:700;color:'+q.st.c+';background:'+q.st.bg+';border-radius:8px;padding:3px 9px;white-space:nowrap">'+q.st.t+'</span></td></tr>';
+      '<td style="text-align:center"><span style="font-size:12px;font-weight:700;color:'+q.st.c+';background:'+q.st.bg+';border-radius:8px;padding:3px 9px;white-space:nowrap">'+q.st.t+'</span></td>'+
+      '<td class="c-inv">'+invBtns(q)+'</td></tr>';
   }).join('');
   var tS=rows.reduce(function(s,q){return s+q.supply;},0), tV=rows.reduce(function(s,q){return s+q.vat;},0),
       tT=rows.reduce(function(s,q){return s+q.total;},0), tP=rows.reduce(function(s,q){return s+q.pay;},0);
@@ -1361,10 +1417,10 @@ function renderQuoteSheet(cs){
     '</div>'+
     (rows.length ?
       '<div class="ss-wrap"><table class="qsheet-tbl"><thead><tr>'+
-        '<th>견적일</th><th>매장</th><th>견적명</th><th class="money">공급가액</th><th class="money">부가세</th><th class="money">청구합계</th><th class="money">입금</th><th style="text-align:center">수금</th>'+
+        '<th>견적일</th><th>매장</th><th>견적명</th><th class="money">공급가액</th><th class="money">부가세</th><th class="money">청구합계</th><th class="money">입금</th><th style="text-align:center">수금</th><th style="text-align:center">세금계산서</th>'+
       '</tr></thead><tbody>'+body+
       '<tr style="background:#faf7f2;font-weight:700"><td colspan="3">합계 · '+rows.length+'건</td>'+
-        '<td class="money">'+won(tS)+'</td><td class="money">'+won(tV)+'</td><td class="money">'+won(tT)+'</td><td class="money">'+won(tP)+'</td><td></td></tr>'+
+        '<td class="money">'+won(tS)+'</td><td class="money">'+won(tV)+'</td><td class="money">'+won(tT)+'</td><td class="money">'+won(tP)+'</td><td></td><td></td></tr>'+
       '</tbody></table></div>'
       : '<div style="color:#aaa;padding:18px 4px;font-size:13px">아직 견적이 없어요.</div>')+
     '<p style="font-size:12px;color:#aaa;margin:8px 0 0">* 공급가액 = 청구합계 ÷ 1.1, 부가세 = 청구합계 − 공급가액 (청구합계는 부가세 포함). 줄을 누르면 해당 매장으로 이동해요.</p>';
@@ -1666,6 +1722,47 @@ function renderVendorLedger(cs){
         '<span class="pl-cnt">'+pend.length+'</span><span class="pl-arw">'+(open?'▾':'▸')+'</span></div>'+
       '<div class="pl-body" style="display:'+(open?'block':'none')+'">'+body+'</div></div>';
   })();
+  // 🧾 광고주에게 발행할 세금계산서 — 요청 온 것 / 발행완료
+  var invRows=[];
+  cs.forEach(function(c){
+    roundsOf(c.ID).forEach(function(rr){
+      var st=invStateOf(c.ID,rr); if(st!=='요청' && st!=='발행완료') return;
+      var t=invAnchor(c.ID,rr), total=roundSum(c.ID,rr);
+      invRows.push({ id:c.ID, r:rr, store:c.매장명, name:roundLabel(c.ID,rr), date:roundDateShow(c.ID,rr),
+                     total:total, supply:Math.round(total/1.1), st:st, done:t?(t.inv_date||''):'',
+                     email:c.tax_email||'' });
+    });
+  });
+  var invReq=invRows.filter(function(x){return x.st==='요청';});
+  var invDone=invRows.filter(function(x){return x.st==='발행완료';});
+  var invSec=function(key,emoji,title,sub,arr){
+    var open=!!PAY_OPEN[key];
+    var body = arr.length ? '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr>'+
+        '<th class="c-store">매장</th><th class="c-item">견적</th><th>견적일</th>'+
+        '<th class="c-amt money">공급가액</th><th class="c-amt money">청구합계</th><th>계산서 이메일</th><th class="c-act">처리</th>'+
+      '</tr></thead><tbody>'+
+      arr.map(function(x){
+        return '<tr><td class="c-store">'+esc(x.store)+'</td><td class="c-item">'+esc(x.name)+'</td>'+
+          '<td style="white-space:nowrap">'+esc(x.date||'—')+'</td>'+
+          '<td class="c-amt money">'+won(x.supply)+'</td>'+
+          '<td class="c-amt money"><b>'+won(x.total)+'</b></td>'+
+          '<td>'+(x.email?'<span class="inv-mail">'+esc(x.email)+'</span> <button class="mini-btn" onclick="copyAcct(\''+esc(x.email)+'\')">📋</button>'
+                        :'<span class="inv-nomail">이메일 없음 — 업체정보 서류탭에서 입력</span>')+'</td>'+
+          '<td class="c-act">'+(x.st==='요청'
+            ? (acc?'<button class="inv-btn done" onclick="doneInvoice(\''+x.id+'\','+x.r+')">✓ 발행완료</button>'
+                  :'<span class="inv-badge req">🙋 요청됨 · 회계과장 확인 중</span>')
+            : (acc?'<button class="inv-badge done clickable" onclick="undoInvoice(\''+x.id+'\','+x.r+')">✓ '+esc(mmdd(x.done))+' 발행완료 ✕</button>'
+                  :'<span class="inv-badge done">✓ '+esc(mmdd(x.done))+' 발행완료</span>'))+'</td></tr>';
+      }).join('')+'</tbody></table></div>'
+      : '<div style="color:#bbb;padding:12px;text-align:center;font-size:13px">없어요</div>';
+    return '<div class="pl-sec pl-'+key+'">'+
+      '<div class="pl-head'+(open?' open':'')+'" onclick="togglePay(\''+key+'\')">'+
+        '<span class="pl-emo">'+emoji+'</span>'+
+        '<span class="pl-txt"><span class="pl-ti">'+title+'</span><span class="pl-sub">'+sub+'</span></span>'+
+        '<span class="pl-amt">'+won(arr.reduce(function(s,x){return s+x.total;},0))+'원</span>'+
+        '<span class="pl-cnt">'+arr.length+'</span><span class="pl-arw">'+(open?'▾':'▸')+'</span></div>'+
+      '<div class="pl-body" style="display:'+(open?'block':'none')+'">'+body+'</div></div>';
+  };
   // 정산 '총 실행비'와 대조 — 정산과 똑같은 함수(totalExecOf)로 계산해서 항상 같아야 정상
   var settle=cs.reduce(function(s,c){ return s+totalExecOf(c.ID); },0);
   var gap=settle-total;
@@ -1678,6 +1775,12 @@ function renderVendorLedger(cs){
     '<div class="led-chk'+(gap===0?' ok':'')+'">'+(gap===0
       ? '✅ 정산 <b>총 실행비</b>와 정확히 일치합니다 — '+won(settle)+'원'
       : '⚠ 정산 <b>총 실행비</b> '+won(settle)+'원과 <b>'+won(Math.abs(gap))+'원</b> 차이가 납니다 — 견적에 실행비만 적히고 원장에 안 올라온 게 있어요')+'</div>'+
+    // 받을 돈 쪽 — 광고주에게 발행할 계산서
+    '<div class="inv-wrap">'+
+      '<div class="inv-title">🧾 광고주 세금계산서 <span>· 우리가 발행해야 할 것 (정산 탭에서 요청하면 여기 모입니다)</span></div>'+
+      invSec('invreq','🙋','발행해야 할 계산서', acc?'발행하고 완료를 눌러주세요':'회계과장이 발행 중', invReq)+
+      invSec('invdone','✅','발행완료','끝났어요', invDone)+
+    '</div>'+
     pendSec+
     (rows.length ?
       section('req','🙋','지급요청 옴', acc?'예정일 잡거나 바로 지급하세요':'회계과장 확인 중', G.req)+
