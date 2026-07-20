@@ -1269,6 +1269,10 @@ function resetToggles(){
   SEEDOPEN={}; TASKOPEN={};      // 매장 상세 명단 섹션 · 작업현황 상태 그룹
   SDEDIT={};                     // 정산 편집 모드도 같이 닫음
 }
+// 부가세 포함 금액. 10원 단위로 맞춘다 —
+// 공급가액을 역산해 넣은 단가(예: 545,455)에 ×1.1 하면 600,000.5 → 600,001 처럼 1원씩 튀어서
+// 견적서·세금계산서 숫자가 지저분해짐. 견적은 어차피 10원 단위라 여기서 정리한다.
+function vatIncl(pre){ return Math.round(pre*1.1/10)*10; }
 function card(l,n){ return '<div class="card"><div class="lbl">'+l+'</div><div class="num">'+n+'</div></div>'; }
 // 자동완성 목록: 실행회사=외주사 등록부, 계정명=지금까지 쓴 인플루언서/블로거 닉네임
 function buildDatalists(){
@@ -2503,7 +2507,7 @@ function submitReg(){
   var sub=0, picked=[];
   QUOTE_ITEMS.forEach(function(it,i){
     var p=quoteVal('qprice'+i), q=quoteVal('qqty'+i);
-    if(q>0){ var amt=p*q; sub+=amt; picked.push({품목:it[0], 세부내용:q+it[2], 금액:Math.round(amt*1.1), 수량:q, 단가:p}); }
+    if(q>0){ var amt=p*q; sub+=amt; picked.push({품목:it[0], 세부내용:q+it[2], 금액:vatIncl(amt), 수량:q, 단가:p}); }
   });
   var tot=sub+Math.round(sub*0.1);
   var payload={매장명:g('r매장명'),지역:g('r지역'),대표자:g('r대표자'),연락처:g('r연락처'),
@@ -3085,7 +3089,7 @@ function addQuoteLine(){
   var 단가=numVal(document.getElementById('nt단가').value);
   var pre=numVal(document.getElementById('nt금액').value);
   if(!pre && 수량 && 단가) pre=수량*단가; // 금액 비면 식×단가 (음수 단가=할인 허용)
-  var 금액=Math.round(pre*1.1); // 저장은 부가세 포함(계약총액 기준 유지)
+  var 금액=vatIncl(pre); // 저장은 부가세 포함(계약총액 기준 유지)
   var 견적명=NEWQNAME[CUR+'_'+CURROUND]||''; // 커스텀 이름만 저장, 기본은 비움('견적서'로 표시)
   var st=seedTypeOf(품목);
   var rr=CURROUND;
@@ -3102,7 +3106,7 @@ function editQuoteLine(taskId, field, val){
     var 수량 = field==='수량' ? (Number(val)||0) : (Number(t.수량)||0);
     var 단가 = field==='단가' ? numVal(val) : (Number(t.단가)||0);
     upd.수량=수량; upd.단가=단가;
-    if(수량 && 단가) upd.금액=Math.round(수량*단가*1.1); // 부가세 포함 저장(음수 단가=할인 허용)
+    if(수량 && 단가) upd.금액=vatIncl(수량*단가); // 부가세 포함 저장(음수 단가=할인 허용)
     else upd.금액=0;
   } else { upd[field]=val; }
   var r=roundOf(t);
