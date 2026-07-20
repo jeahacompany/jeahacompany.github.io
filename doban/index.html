@@ -41,6 +41,20 @@
   .sc-bud:focus { outline:none; border-style:solid; border-color:#e8590c; }
   .sc-bud.set { border-style:solid; border-color:#e8590c; background:#fff7f0; }
   .sc-q { font-size:11.5px; font-weight:700; color:#a89078; background:#fff; border-radius:6px; padding:2px 7px; }
+  /* 견적 시트 매장별 토글 */
+  .qs-grp { border:1px solid #eee; border-radius:11px; background:#fff; margin-bottom:7px; overflow:hidden; }
+  .qs-head { display:flex; align-items:center; gap:10px; padding:11px 13px; cursor:pointer; user-select:none; flex-wrap:wrap; }
+  .qs-head:hover { background:#fafafa; }
+  .qs-no { background:#343a40; color:#fff; border-radius:6px; font-size:11.5px; font-weight:800; padding:2px 8px; min-width:24px; text-align:center; }
+  .qs-store { font-weight:800; font-size:14.5px; min-width:110px; }
+  .qs-cnt { background:#f1f3f5; color:#666; border-radius:20px; font-size:11.5px; font-weight:800; padding:2px 9px; }
+  .qs-sum { font-size:12.5px; color:#666; font-variant-numeric:tabular-nums; }
+  .qs-sum b { color:#333; font-weight:800; }
+  .qs-due { margin-left:auto; font-size:12px; font-weight:800; color:#c92a2a; background:#fff5f5; border-radius:7px; padding:3px 9px; }
+  .qs-ok { margin-left:auto; font-size:12px; font-weight:800; color:#237a3b; background:#e6fcf0; border-radius:7px; padding:3px 9px; }
+  .qs-total { display:flex; align-items:center; gap:14px; flex-wrap:wrap; background:#faf7f2; border:1px solid #eee;
+    border-radius:11px; padding:12px 14px; margin-top:8px; font-size:13px; font-weight:700; color:#555; }
+  .qs-total b { color:#222; font-weight:900; font-variant-numeric:tabular-nums; }
   /* 광고주 세금계산서 (받을 돈) */
   .inv-wrap { border:1.5px solid #b2f2bb; background:#f4fdf6; border-radius:13px; padding:11px; margin-bottom:12px; }
   .inv-title { font-size:14px; font-weight:800; color:#237a3b; margin:2px 2px 9px; }
@@ -741,8 +755,8 @@
   <div id="vendorView" style="display:none"></div>
 
   <div id="settleView" style="display:none">
-    <div class="cards" id="settlecards"></div>
     <div id="quoteSheet"></div>
+    <div class="cards" id="settlecards"></div>
     <h3 style="margin:26px 0 8px">🏪 매장별 합계</h3>
     <table>
       <thead><tr>
@@ -1345,6 +1359,7 @@ function resetToggles(){
   VOPEN={}; VG_OPEN={};          // 외주사 등록부 (카드 · 그룹)
   INF_OPEN={};                   // 인플루언서 명부 카드
   SEEDOPEN={}; TASKOPEN={};      // 매장 상세 명단 섹션 · 작업현황 상태 그룹
+  QS_OPEN={};                    // 견적 시트 매장별 토글
   SDEDIT={};                     // 정산 편집 모드도 같이 닫음
 }
 // 부가세 포함 금액. 10원 단위로 맞춘다 —
@@ -1364,6 +1379,21 @@ function buildDatalists(){
 }
 
 // ─── 광고주별 뷰 ───
+// 매장 정렬 규칙 — 광고주 탭에서 매긴 번호가 곧 순서. 견적 시트도 이걸 그대로 씀.
+function clientOrderCmp(a,b){
+  var ha=(a.번호!=null&&a.번호!==''), hb=(b.번호!=null&&b.번호!=='');
+  if(ha&&hb) return (Number(a.번호)||0)-(Number(b.번호)||0); // 둘 다 번호 → 번호순
+  if(ha) return -1; if(hb) return 1;                        // 번호 매긴 건 위로 고정
+  return String(b.ID).localeCompare(String(a.ID));          // 나머지는 최신 등록순
+}
+// 견적 시트 매장별 토글
+var QS_OPEN={};
+function toggleQS(id){ if(QS_OPEN[id]) delete QS_OPEN[id]; else QS_OPEN[id]=true; renderSettleView(); }
+function toggleQSAll(){
+  if(Object.keys(QS_OPEN).length){ QS_OPEN={}; }
+  else { (DB.광고주||[]).forEach(function(c){ if(c.상태!=='삭제됨') QS_OPEN[c.ID]=true; }); }
+  renderSettleView();
+}
 function renderClientView() {
   var cs = DB.광고주.filter(function(c){return c.상태!=='삭제됨';});
   var 진행 = cs.filter(function(c){return c.상태==='진행중';}).length;
@@ -1375,12 +1405,7 @@ function renderClientView() {
     return '<div class="chip'+(FILTER===s?' on':'')+'" onclick="FILTER=\''+s+'\';render()">'+s+'</div>';
   }).join('');
 
-  var list = cs.slice().sort(function(a,b){
-      var ha=(a.번호!=null&&a.번호!==''), hb=(b.번호!=null&&b.번호!=='');
-      if(ha&&hb) return (Number(a.번호)||0)-(Number(b.번호)||0); // 둘 다 번호 → 번호순
-      if(ha) return -1; if(hb) return 1;                        // 번호 매긴 건 위로 고정
-      return String(b.ID).localeCompare(String(a.ID));          // 나머지는 최신 등록순(맨 위)
-    })
+  var list = cs.slice().sort(clientOrderCmp)
     .filter(function(c){ return FILTER==='전체' || c.상태===FILTER; });
   document.getElementById('tbody').innerHTML = list.map(function (c) {
     var ts = tasksOf(c.ID), done = ts.filter(function(t){return t.상태==='완료';}).length;
@@ -1476,12 +1501,16 @@ function renderQuoteSheet(cs){
                   total:total, supply:supply, vat:vat, pay:pay, st:st });
     });
   });
-  rows.sort(function(a,b){ if(a.date&&b.date){ if(a.date!==b.date) return a.date<b.date?1:-1; } else if(a.date) return -1; else if(b.date) return 1; return 0; }); // 최신순
+  rows.sort(function(a,b){ if(a.date&&b.date){ if(a.date!==b.date) return a.date<b.date?1:-1; } else if(a.date) return -1; else if(b.date) return 1; return 0; }); // 매장 안에서는 최신순
   QUOTE_SHEET=rows;
-  var body=rows.map(function(q){
+
+  // 매장별로 묶는다. 순서는 광고주 탭에서 매긴 번호와 똑같이 (번호 없으면 최신 등록순 뒤로)
+  var byStore={}; rows.forEach(function(q){ (byStore[q.id]=byStore[q.id]||[]).push(q); });
+  var order=cs.slice().sort(clientOrderCmp).filter(function(c){ return byStore[c.ID]; });
+
+  var tr=function(q){
     return '<tr onclick="openClient(\''+q.id+'\')" style="cursor:pointer">'+
       '<td style="white-space:nowrap">'+esc(q.date||'—')+'</td>'+
-      '<td><b>'+esc(q.store)+'</b></td>'+
       '<td>'+esc(q.name)+'</td>'+
       '<td class="money">'+won(q.supply)+'</td>'+
       '<td class="money">'+won(q.vat)+'</td>'+
@@ -1489,21 +1518,50 @@ function renderQuoteSheet(cs){
       '<td class="money">'+(q.pay>0?won(q.pay):'<span style="color:#ccc">—</span>')+'</td>'+
       '<td style="text-align:center"><span style="font-size:12px;font-weight:700;color:'+q.st.c+';background:'+q.st.bg+';border-radius:8px;padding:3px 9px;white-space:nowrap">'+q.st.t+'</span></td>'+
       '<td class="c-inv">'+invBtns(q)+'</td></tr>';
+  };
+  var groups=order.map(function(c){
+    var g=byStore[c.ID], open=!!QS_OPEN[c.ID];
+    var sS=g.reduce(function(s,q){return s+q.supply;},0), sV=g.reduce(function(s,q){return s+q.vat;},0),
+        sT=g.reduce(function(s,q){return s+q.total;},0), sP=g.reduce(function(s,q){return s+q.pay;},0);
+    var due=sT-sP;
+    var no=(c.번호!=null&&c.번호!=='') ? '<span class="qs-no">'+esc(c.번호)+'</span>' : '';
+    return '<div class="qs-grp">'+
+      '<div class="qs-head" onclick="toggleQS(\''+c.ID+'\')">'+
+        '<span class="vg-arw">'+(open?'▾':'▸')+'</span>'+ no +
+        '<span class="qs-store">'+esc(c.매장명)+'</span>'+
+        '<span class="qs-cnt">'+g.length+'건</span>'+
+        '<span class="qs-sum">청구 <b>'+won(sT)+'</b></span>'+
+        '<span class="qs-sum">입금 <b>'+won(sP)+'</b></span>'+
+        (due>0 ? '<span class="qs-due">미수 '+won(due)+'</span>' : '<span class="qs-ok">완납</span>')+
+      '</div>'+
+      (open ? '<div class="ss-wrap"><table class="qsheet-tbl"><thead><tr>'+
+          '<th>견적일</th><th>견적명</th><th class="money">공급가액</th><th class="money">부가세</th>'+
+          '<th class="money">청구합계</th><th class="money">입금</th><th style="text-align:center">수금</th>'+
+          '<th style="text-align:center">세금계산서</th></tr></thead><tbody>'+
+          g.map(tr).join('')+
+          '<tr style="background:#faf7f2;font-weight:700"><td colspan="2">'+esc(c.매장명)+' 합계</td>'+
+            '<td class="money">'+won(sS)+'</td><td class="money">'+won(sV)+'</td>'+
+            '<td class="money">'+won(sT)+'</td><td class="money">'+won(sP)+'</td><td></td><td></td></tr>'+
+        '</tbody></table></div>' : '')+
+    '</div>';
   }).join('');
+
   var tS=rows.reduce(function(s,q){return s+q.supply;},0), tV=rows.reduce(function(s,q){return s+q.vat;},0),
       tT=rows.reduce(function(s,q){return s+q.total;},0), tP=rows.reduce(function(s,q){return s+q.pay;},0);
   document.getElementById('quoteSheet').innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:6px 0 8px">'+
-      '<h3 style="margin:0">🧾 최근 견적 시트 <span style="font-size:12px;color:#888;font-weight:400">· 세금계산서 정리용 · 최신순</span></h3>'+
-      '<button onclick="exportQuoteSheet()" style="background:#e8590c;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">📥 엑셀(CSV) 받기</button>'+
+      '<h3 style="margin:0">🧾 최근 견적 시트 <span style="font-size:12px;color:#888;font-weight:400">· 세금계산서 정리용 · 매장별 (광고주 번호순)</span></h3>'+
+      '<div style="display:flex;gap:7px">'+
+        '<button class="vs-clr" onclick="toggleQSAll()">'+(Object.keys(QS_OPEN).length?'▸ 모두 접기':'▾ 모두 펼치기')+'</button>'+
+        '<button onclick="exportQuoteSheet()" style="background:#e8590c;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">📥 엑셀(CSV) 받기</button>'+
+      '</div>'+
     '</div>'+
     (rows.length ?
-      '<div class="ss-wrap"><table class="qsheet-tbl"><thead><tr>'+
-        '<th>견적일</th><th>매장</th><th>견적명</th><th class="money">공급가액</th><th class="money">부가세</th><th class="money">청구합계</th><th class="money">입금</th><th style="text-align:center">수금</th><th style="text-align:center">세금계산서</th>'+
-      '</tr></thead><tbody>'+body+
-      '<tr style="background:#faf7f2;font-weight:700"><td colspan="3">합계 · '+rows.length+'건</td>'+
-        '<td class="money">'+won(tS)+'</td><td class="money">'+won(tV)+'</td><td class="money">'+won(tT)+'</td><td class="money">'+won(tP)+'</td><td></td><td></td></tr>'+
-      '</tbody></table></div>'
+      groups +
+      '<div class="qs-total"><span>전체 합계 · '+rows.length+'건</span>'+
+        '<span>공급가액 <b>'+won(tS)+'</b></span><span>부가세 <b>'+won(tV)+'</b></span>'+
+        '<span>청구 <b>'+won(tT)+'</b></span><span>입금 <b>'+won(tP)+'</b></span>'+
+        (tT-tP>0?'<span class="qs-due">미수 '+won(tT-tP)+'</span>':'')+'</div>'
       : '<div style="color:#aaa;padding:18px 4px;font-size:13px">아직 견적이 없어요.</div>')+
     '<p style="font-size:12px;color:#aaa;margin:8px 0 0">* 공급가액 = 청구합계 ÷ 1.1, 부가세 = 청구합계 − 공급가액 (청구합계는 부가세 포함). 줄을 누르면 해당 매장으로 이동해요.</p>';
 }
