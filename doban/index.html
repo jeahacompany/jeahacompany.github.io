@@ -503,6 +503,14 @@
   .pd-note { font-size:10.5px; font-weight:600; color:#aaa; }
   .pd-self { border:1.5px solid #d0d7de; background:#fff; color:#555; border-radius:8px; padding:8px 11px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
   .pd-self:hover { background:#f1f3f5; border-color:#adb5bd; }
+  /* 접속로그 필터·구분 */
+  .logf { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+  .logf-b { border:1.5px solid #e3e3e3; background:#fff; color:#666; border-radius:20px; padding:6px 14px; font-size:12.5px; font-weight:700; cursor:pointer; }
+  .logf-b:hover { background:#f6f6f8; }
+  .logf-b.on { background:#e8590c; border-color:#e8590c; color:#fff; }
+  .logf-b b { font-weight:900; }
+  .lg-k { font-size:11px; font-weight:800; background:#f1f3f5; color:#666; border-radius:6px; padding:2px 8px; white-space:nowrap; }
+  .lg-k.owner { background:#fff4e6; color:#e8590c; }
   /* 원장 ↔ 정산 대조 */
   .led-chk { background:#fff5f5; border:1.5px solid #ffc9c9; color:#c92a2a; border-radius:10px; padding:10px 13px; font-size:13px; font-weight:700; margin-bottom:12px; }
   .led-chk.ok { background:#ebfbee; border-color:#b2f2bb; color:#237a3b; }
@@ -873,6 +881,7 @@ function enter() {
 }
 function logAccessNow(name){
   var env=navigator.userAgent;
+  // 직원 로그는 구분을 안 보냄(서버 logAccess가 안 받음) → 빈 값이면 kindOf()가 '직원'으로 처리
   var send=function(ip){ gs('logAccess',{이름:name||'',IP:ip||'',환경:env}).catch(function(){}); };
   try{ fetch('https://api.ipify.org?format=json').then(function(r){return r.json();}).then(function(j){ send(j.ip); }).catch(function(){ send('(확인불가)'); }); }
   catch(e){ send('(확인불가)'); }
@@ -898,8 +907,12 @@ function autoLogin(id, pw, n){
 function logout(){ localStorage.removeItem('doban_user'); location.reload(); }
 
 // ─── 로그 뷰 (관리자 전용): 접속로그 + 업데이트로그 + 백업 ───
+var LOGKIND='전체'; // 접속로그 필터
+// 예전 기록엔 구분이 없음 → 직원으로 봄
+function kindOf(a){ return String(a.구분||'')==='점주' ? '점주' : '직원'; }
 function renderLogView(){
   var acc=(DB.접속로그||[]).slice().reverse();
+  var accF=(LOGKIND==='전체') ? acc : acc.filter(function(a){ return kindOf(a)===LOGKIND; });
   var upd=(DB.업데이트로그||[]).slice().reverse();
   document.getElementById('logView').innerHTML =
     '<div class="sec"><h3>💾 백업 <span style="font-size:11px;color:#999;font-weight:400">· 데이터 안 잃어버리게</span></h3>' +
@@ -911,9 +924,17 @@ function renderLogView(){
     '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
       ['광고주','작업','섭외','입금','실행비','정보'].map(function(t){ return '<button class="btn-ghost" onclick="exportCSV(\''+t+'\')">'+t+' ⬇</button>'; }).join('') +
       '</div></div>' +
-    '<div class="sec"><h3>📋 접속 로그 <span style="font-size:11px;color:#999;font-weight:400">· 누가·언제·어디서 접속했나</span></h3>' +
-      '<div class="ss-wrap"><table class="ss"><thead><tr><th>시간</th><th>이름</th><th>IP</th><th>환경</th></tr></thead><tbody>' +
-      (acc.length?acc.map(function(a){ return '<tr><td>'+esc(a.시간)+'</td><td><b>'+esc(a.이름)+'</b></td><td>'+esc(a.IP)+'</td><td style="font-size:11px;color:#999">'+esc(String(a.환경||'').slice(0,70))+'</td></tr>'; }).join(''):'<tr><td colspan="4" style="color:#bbb;padding:12px">아직 접속 기록이 없어요</td></tr>') +
+    '<div class="sec"><h3>📋 접속 로그 <span style="font-size:11px;color:#999;font-weight:400">· 누가·언제·어디서 접속했나 (30분 안에 다시 들어오면 한 줄로 묶임)</span></h3>' +
+      '<div class="logf">' + ['전체','직원','점주'].map(function(k){
+        var n = k==='전체' ? acc.length : acc.filter(function(a){ return kindOf(a)===k; }).length;
+        return '<button class="logf-b'+(LOGKIND===k?' on':'')+'" onclick="LOGKIND=\''+k+'\';render()">'+k+' <b>'+n+'</b></button>'; }).join('') + '</div>' +
+      '<div class="ss-wrap"><table class="ss"><thead><tr><th>시간</th><th>구분</th><th>이름</th><th>IP</th><th>환경</th></tr></thead><tbody>' +
+      (accF.length?accF.map(function(a){ var k=kindOf(a);
+        return '<tr><td style="white-space:nowrap">'+esc(a.시간)+'</td>'+
+          '<td><span class="lg-k'+(k==='점주'?' owner':'')+'">'+(k==='점주'?'🏪 점주':'👤 직원')+'</span></td>'+
+          '<td><b>'+esc(a.이름)+'</b></td><td>'+esc(a.IP)+'</td>'+
+          '<td style="font-size:11px;color:#999">'+esc(String(a.환경||'').slice(0,70))+'</td></tr>'; }).join('')
+        :'<tr><td colspan="5" style="color:#bbb;padding:12px">아직 접속 기록이 없어요</td></tr>') +
       '</tbody></table></div></div>' +
     '<div class="sec"><h3>🗒 업데이트 로그</h3>' +
       '<div class="ss-wrap"><table class="ss"><thead><tr><th>날짜</th><th>버전</th><th>내용</th></tr></thead><tbody>' +
