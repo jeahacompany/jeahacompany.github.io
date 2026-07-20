@@ -1611,10 +1611,6 @@ function vendorTip(name){
     '<b>'+esc(v.name||'')+'</b> <span class="vt-ty">📌 비용항목</span>'+
     '<div class="vt-r">외주사가 아니라 자체 비용이에요. 송금 대상이 아닙니다.</div>'+
     (v.memo?'<div class="vt-r muted">'+esc(v.memo)+'</div>':'')+'</div></span>';
-  // 실무자는 계좌·번호를 서버에서 아예 못 받으므로 '없음'이 아니라 '권한 없음'으로 알려줌
-  if(!isAccountant()) return '<span class="vname">'+esc(name)+'<div class="vtip">'+
-    '<b>'+esc(v.name||'')+'</b> <span class="vt-ty">'+esc(v.vtype||'유형 미정')+'</span>'+
-    '<div class="vt-r">🔒 계좌·번호는 회계과장·관리자만 볼 수 있어요</div></div></span>';
   var doc=function(l,p){ return '<span class="vt-d'+(p?' ok':'')+'">'+(p?'✔':'✗')+' '+l+'</span>'; };
   var free=(v.vtype==='프리랜서');
   var ms=vendorPayBlock(v);
@@ -1634,11 +1630,6 @@ function vendorTip(name){
 }
 // 줄 돈 섹션용 — 계좌를 크게 보여줘서 바로 송금하게
 function acctBar(name, total){
-  // 실무자에겐 서버가 계좌를 아예 안 보냄 (회계과장·관리자만 받음)
-  if(!isAccountant()) return '<div class="acct-bar item" onclick="event.stopPropagation()">'+
-    '<span class="ab-ty item">🔒</span>'+
-    '<span class="ab-acct">계좌는 회계과장·관리자만 볼 수 있어요</span>'+
-    '<span class="ab-amt">보낼 금액 <b>'+won(total)+'</b>원</span></div>';
   if(isSelfName(name)) return '<div class="acct-bar item" onclick="event.stopPropagation()">'+
     '<span class="ab-ty item">🏠 자체집행</span>'+
     '<span class="ab-acct">우리가 직접 쓴 돈 — 송금 대상이 아니에요</span>'+
@@ -1968,7 +1959,6 @@ function vregHTML(){
 }
 // 뭐가 빠졌는지 — 계좌·번호·서류 (유형별로 필요 서류가 다름)
 function vendorMissing(v){
-  if(!isAccountant()) return [];      // 실무자는 계좌·번호를 못 받아서 판단 불가
   if(v.vtype==='비용항목') return []; // 자체 비용 = 계좌·서류 필요 없음
   var free=(v.vtype==='프리랜서'), m=[];
   if(!String(v.account||'').trim()) m.push('계좌번호');
@@ -1982,7 +1972,6 @@ function vendorMissing(v){
 function vendorDone(v){ return !!v.vtype && vendorMissing(v).length===0; }
 // 송금 자체를 막는 것만 (서류는 제외 — 서류는 등록부 카드에서 따로 챙김)
 function vendorPayBlock(v){
-  if(!isAccountant()) return [];   // 실무자는 계좌 정보를 못 받으므로 판단할 수 없음
   if(!v || v.vtype==='비용항목') return [];
   var free=(v.vtype==='프리랜서'), m=[];
   if(!String(v.account||'').trim()) m.push('계좌번호');
@@ -2041,10 +2030,8 @@ function vendCards(){
           '<input class="vend-name" value="'+esc(v.name||'')+'" placeholder="이름/닉네임" onchange="setVendorField(\''+v.ID+'\',\'name\',this.value)">'+
           vsel(v)+'<button class="mini-del" onclick="delVendor(\''+v.ID+'\')">삭제</button></div>'+
         '<div class="vend-fields">'+
-          (isAccountant()
-            ? vf(v, free?'resident_no':'biz_no', free?'주민번호':'사업자번호', 150)+
-              vf(v,'bank','은행',72)+vf(v,'account','계좌번호',165)+vf(v,'holder','예금주',80)
-            : '<span class="vend-lock">🔒 계좌·번호는 회계과장·관리자만 보고 고칠 수 있어요</span>')+
+          vf(v, free?'resident_no':'biz_no', free?'주민번호':'사업자번호', 150)+
+          vf(v,'bank','은행',72)+vf(v,'account','계좌번호',165)+vf(v,'holder','예금주',80)+
           vf(v,'memo','메모(회사/실명)',170)+'</div>'+
         '<div class="vend-docs"><span class="vd-label">서류</span>'+
           (free?'':vdoc(v,'doc_bizreg','사업자등록증'))+
