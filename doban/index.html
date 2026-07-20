@@ -1653,7 +1653,7 @@ function renderVendorLedger(cs){
           '<td class="c-act"><div class="pd-in">'+(p.seed
             ? '<button class="pay-btn req" onclick="openClient(\''+t.광고주ID+'\')">👥 명단에서 사람별로 입력</button>'
             : '<input class="pd-co" list="dl-vendors" placeholder="외주사" value="'+esc(t.실행회사||'')+'" onchange="setPendExec(\''+t.ID+'\',\'실행회사\',this.value)">'+
-              '<input class="pd-amt" placeholder="실행비" inputmode="numeric" onchange="setPendExec(\''+t.ID+'\',\'실행비용\',this.value)">')+
+              '<input class="pd-amt" placeholder="실행비" inputmode="numeric" oninput="fmtNum(this)" onchange="fmtNum(this);setPendExec(\''+t.ID+'\',\'실행비용\',this.value)">')+
             '<button class="pd-self" title="우리가 직접 한 거라 나갈 돈이 없어요" onclick="markSelfExec(\''+t.ID+'\')">🏠 자체실행</button>'+
           '</div></td></tr>';
       }).join('')+'</tbody></table></div>'
@@ -1994,7 +1994,7 @@ function infEditHTML(){
       '<div class="mod-row"><label>팔로워'+
         (folDate(v)?' <span style="font-weight:400;color:#aaa">— 마지막 기록 '+esc(mmdd(folDate(v)))+'</span>'
                    :' <span style="font-weight:400;color:#e8850a">— 기록된 날짜 없음</span>')+'</label>'+
-        '<input id="ieFol" inputmode="numeric" value="'+esc(v.followers||'')+'" placeholder="예: 69000">'+
+        '<input id="ieFol" inputmode="numeric" value="'+(Number(v.followers)?Number(v.followers).toLocaleString('ko-KR'):'')+'" placeholder="예: 69,000" oninput="fmtNum(this)">'+
         '<span class="mod-hint">숫자를 바꿔 저장하면 <b>오늘 날짜로 기록</b>돼서 변화가 쌓입니다.</span></div>'+
       '<div class="mod-row"><label>📋 공식 단가표</label>'+
         '<textarea id="iePrice" placeholder="예: 피드 35만원 / 릴스 40만원 / 피드+릴스 55만원&#10;상단고정 7일 5만원, 댓글이벤트·스토리 무료">'+esc(v.price_note||'')+'</textarea></div>'+
@@ -2361,7 +2361,22 @@ function renderRegisterView() {
     '<button class="btn-primary reg-submit" onclick="submitReg()">광고주 등록</button></div>' +
   '</div></div>';
 }
-function fmtNum(el){ var raw=String(el.value); var neg=raw.replace(/[^0-9-]/g,'').charAt(0)==='-'; var n=raw.replace(/[^0-9]/g,''); el.value = n ? (neg?'-':'')+Number(n).toLocaleString('ko-KR') : (neg?'-':''); }
+// 금액칸 콤마 — 치는 중에 바로 붙되 커서가 안 튀게 (커서 앞 숫자 개수를 기준으로 되돌림)
+function fmtNum(el){
+  var raw=String(el.value);
+  var neg=raw.replace(/[^0-9-]/g,'').charAt(0)==='-';
+  var digits=raw.replace(/[^0-9]/g,'');
+  var caret = (typeof el.selectionStart==='number') ? el.selectionStart : null;
+  var kept = caret===null ? null : raw.slice(0,caret).replace(/[^0-9]/g,'').length;
+  var out = digits ? (neg?'-':'')+Number(digits).toLocaleString('ko-KR') : (neg?'-':'');
+  if(el.value===out){ return; }               // 바뀐 게 없으면 커서도 안 건드림
+  el.value = out;
+  if(kept!==null){
+    var pos=0, seen=0;
+    while(pos<out.length && seen<kept){ if(out.charCodeAt(pos)>=48 && out.charCodeAt(pos)<=57) seen++; pos++; }
+    try{ el.setSelectionRange(pos,pos); }catch(e){}
+  }
+}
 function numVal(s){ s=String(s); var neg=s.replace(/[^0-9-]/g,'').charAt(0)==='-'; var n=Number(s.replace(/[^0-9]/g,''))||0; return neg?-n:n; } // 마이너스(할인) 허용
 function regField(label,id,ph,type){ return '<div>'+innerField(label,id,ph,type)+'</div>'; }
 function innerField(label,id,ph,type){ return '<label>'+label+'</label><input id="'+id+'" type="'+(type||'text')+'" placeholder="'+(ph||'')+'">'; }
@@ -2793,7 +2808,7 @@ function openClient(id) {
               '<input class="qe-sub" value="'+esc(t.세부내용||'')+'" placeholder="비고" onchange="editQuoteLine(\''+t.ID+'\',\'세부내용\',this.value)">' +
               (t.완료일?'<small>완료 '+esc(t.완료일)+'</small>':'')+'</td>' +
             '<td class="q-qty"><input type="number" min="0" class="qe-num" value="'+(qty||'')+'" placeholder="0" onchange="editQuoteLine(\''+t.ID+'\',\'수량\',this.value)"></td>' +
-            '<td class="q-unit"><input inputmode="numeric" class="qe-num" value="'+(unit?unit.toLocaleString('ko-KR'):'')+'" placeholder="0" onchange="fmtNum(this);editQuoteLine(\''+t.ID+'\',\'단가\',this.value)"></td>' +
+            '<td class="q-unit"><input inputmode="numeric" class="qe-num" value="'+(unit?unit.toLocaleString('ko-KR'):'')+'" placeholder="0" oninput="fmtNum(this)" onchange="fmtNum(this);editQuoteLine(\''+t.ID+'\',\'단가\',this.value)"></td>' +
             '<td class="q-amt">'+won(line)+'</td>' +
             '<td class="q-act"><button class="pill t-'+esc(t.상태)+'" onclick="cycleTask(\''+t.ID+'\',\''+esc(t.상태)+'\')">'+esc(t.상태)+'</button>' +
               '<button class="del" onclick="del(\'작업\',\''+t.ID+'\')">삭제</button></td>' +
@@ -2804,7 +2819,7 @@ function openClient(id) {
               ? '<span class="exl">실행</span> <span class="ex-auto">📋 명단 합계 <b>'+won(exec)+'</b>원'+
                 ' <span class="ex-hint">('+seedTypeOf(t.품목)+' 명단에서 사람별 대행비를 적으면 자동 계산돼요)</span></span>'
               : '<span class="exl">실행</span> <input class="ex-co" list="dl-vendors" value="'+esc(t.실행회사||'')+'" placeholder="실행회사(등록부 자동완성)" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)">' +
-                '<input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="대행비" onchange="setExec(\''+t.ID+'\',\'실행비용\',this.value)">') +
+                '<input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="대행비" oninput="fmtNum(this)" onchange="fmtNum(this);setExec(\''+t.ID+'\',\'실행비용\',this.value)">') +
             (SHOWMARGIN ? '<span class="ex-mg">마진 <b style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+'</b> ('+rate+'%)</span>' : '') +
             '</td></tr>';
       }).join('') : '<tr><td colspan="6" style="color:#aaa;font-size:13px;padding:14px 8px">이 견적에 항목을 추가하세요 (아래에서 품목·식·단가 입력)</td></tr>';
@@ -2855,7 +2870,7 @@ function openClient(id) {
         var open=SETTLEEXP===r;
         var payCount=pays.filter(function(p){return (Number(p.차수)||0)===r;}).length;
         var pinCell = payCount<=1
-          ? '<input class="pin-in" inputmode="numeric" value="'+(pin?pin.toLocaleString('ko-KR'):'')+'" placeholder="입금액 입력" onclick="event.stopPropagation()" onchange="fmtNum(this);quickPay(\''+id+'\','+r+',this.value)">'
+          ? '<input class="pin-in" inputmode="numeric" value="'+(pin?pin.toLocaleString('ko-KR'):'')+'" placeholder="입금액 입력" onclick="event.stopPropagation()" oninput="fmtNum(this)" onchange="fmtNum(this);quickPay(\''+id+'\','+r+',this.value)">'
           : won(pin);
         var mrate=q>0?Math.round(pf/q*100):0;
         return '<tr class="settle-row'+(open?' open':'')+'" onclick="SETTLEEXP='+(open?'null':r)+';openClient(\''+id+'\')">' +
@@ -3184,7 +3199,7 @@ function seedCellHTML(s,col){
       ' title="'+(lf?'지난번 '+lf.fee.toLocaleString('ko-KR')+'원'+(lf.store?' ('+esc(lf.store)+')':'')+' — 눌러서 넣기\n':'')+'무조건 부가세 포함가로 입력해주세요"'+
       ' value="'+(mv?mv.toLocaleString('ko-KR'):'')+'"'+
       (lf?' onfocus="if(!this.value){this.value=\''+lf.fee.toLocaleString('ko-KR')+'\';setSeedFee(\''+s.ID+'\',this.value);}"':'')+
-      ' onchange="fmtNum(this);setSeedFee(\''+s.ID+'\',this.value)">'; }
+      ' oninput="fmtNum(this)" onchange="fmtNum(this);setSeedFee(\''+s.ID+'\',this.value)">'; }
   return '<input type="text"'+(col.k==='계정명'?' list="dl-accounts"':'')+(col.ph?' placeholder="'+esc(col.ph)+'"':'')+' value="'+esc(v)+'" onchange="setSeed(\''+s.ID+'\',\''+col.k+'\',this.value)">';
 }
 // ─── 명단 순서(드래그 재정렬) ───
@@ -3289,7 +3304,7 @@ function seedTableHTML(id, groups){
       var budCell = (canSeeMargin() && _bt && g[0]==='인플루언서')   // 인스타(인플루언서)만 예산을 따로 잡음
         ? '<input class="sc-bud'+(_set?' set':'')+'" inputmode="numeric" value="'+(_bud?_bud.toLocaleString('ko-KR'):'')+'"'+
           ' placeholder="'+(_q?_q.toLocaleString('ko-KR'):'0')+'" title="실무자가 쓸 수 있는 한도예요.\n비우면 견적 금액('+won(_q)+'원)을 그대로 씁니다."'+
-          ' onchange="fmtNum(this);setExecBudget(\''+_bt.ID+'\',this.value)">'
+          ' oninput="fmtNum(this)" onchange="fmtNum(this);setExecBudget(\''+_bt.ID+'\',this.value)">'
         : '<b>'+won(_bud)+'</b>';
       var calc='<div class="seed-calc'+(_left<0?' over':'')+'">'+
         '<span class="sc-vat" title="예산·대행비 모두 부가세 포함 기준입니다">VAT 포함</span>'+
@@ -3346,7 +3361,7 @@ function settleDetail(id, r){
       (seedTy
         ? '<td colspan="2" class="ex-auto-td">📋 <b>'+esc(seedTy)+' 명단</b>에서 자동 — 사람별 대행비 합계 <b>'+won(exec)+'</b>원</td>'
         : '<td><input class="ex-co" list="dl-vendors" value="'+esc(t.실행회사||'')+'" placeholder="실행회사" onchange="setExec(\''+t.ID+'\',\'실행회사\',this.value)"></td>' +
-          '<td><input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="실행비" onchange="fmtNum(this);setExec(\''+t.ID+'\',\'실행비용\',this.value)"></td>') +
+          '<td><input class="ex-amt" inputmode="numeric" value="'+(exec?exec.toLocaleString('ko-KR'):'')+'" placeholder="실행비" oninput="fmtNum(this)" onchange="fmtNum(this);setExec(\''+t.ID+'\',\'실행비용\',this.value)"></td>') +
       '<td class="q-amt" style="color:'+(mg<0?'#c92a2a':'#237a3b')+'">'+won(mg)+' ('+rate+'%)</td></tr>';
   }).join('') : '<tr><td colspan="5" style="color:#bbb;padding:8px">이 견적에 항목이 없어요 (견적서 탭에서 추가)</td></tr>';
   var extraRows=costs.filter(function(c){return (Number(c.차수)||0)===r;}).map(function(x){
@@ -3354,7 +3369,7 @@ function settleDetail(id, r){
       '<input class="sd-narae" value="'+esc(x.내역||'')+'" placeholder="내역" onchange="editCost(\''+x.ID+'\',\'내역\',this.value)">' +
       '<input class="sd-co" list="dl-vendors" value="'+esc(x.실행회사||'')+'" placeholder="받는 사람/외주사" onchange="editCost(\''+x.ID+'\',\'실행회사\',this.value)">' +
       '<input type="date" class="sd-dt" value="'+esc(x.날짜||'')+'" title="날짜" onclick="try{this.showPicker()}catch(e){}" onchange="editCost(\''+x.ID+'\',\'날짜\',this.value)">' +
-      '<input class="sd-amt" inputmode="numeric" value="'+(Number(x.금액)?Number(x.금액).toLocaleString('ko-KR'):'')+'" placeholder="금액" onchange="fmtNum(this);editCost(\''+x.ID+'\',\'금액\',this.value)">' +
+      '<input class="sd-amt" inputmode="numeric" value="'+(Number(x.금액)?Number(x.금액).toLocaleString('ko-KR'):'')+'" placeholder="금액" oninput="fmtNum(this)" onchange="fmtNum(this);editCost(\''+x.ID+'\',\'금액\',this.value)">' +
       '<button class="sd-done" onclick="sdToggle(\''+x.ID+'\')">✓ 완료</button><button class="del" onclick="del(\'실행비\',\''+x.ID+'\')">삭제</button></div>';
     return '<div class="sd-readrow"><div class="grow">'+esc(x.내역||'(내역 없음)')+
         (x.실행회사?' <span class="sd-co-tag">→ '+esc(x.실행회사)+'</span>':' <span class="sd-co-tag warn">→ 받는 사람 미지정</span>')+
@@ -3365,7 +3380,7 @@ function settleDetail(id, r){
     if(SDEDIT[p.ID]) return '<div class="sd-editrow">' +
       '<span class="sd-lb">입금일</span>' +
       '<input type="date" class="sd-dt" value="'+esc(p.날짜||'')+'" title="입금일 — 눌러서 달력" onclick="try{this.showPicker()}catch(e){}" onchange="editPay(\''+p.ID+'\',\'날짜\',this.value)">' +
-      '<input class="sd-amt" inputmode="numeric" value="'+(Number(p.금액)?Number(p.금액).toLocaleString('ko-KR'):'')+'" placeholder="입금액" onchange="fmtNum(this);editPay(\''+p.ID+'\',\'금액\',this.value)">' +
+      '<input class="sd-amt" inputmode="numeric" value="'+(Number(p.금액)?Number(p.금액).toLocaleString('ko-KR'):'')+'" placeholder="입금액" oninput="fmtNum(this)" onchange="fmtNum(this);editPay(\''+p.ID+'\',\'금액\',this.value)">' +
       '<input class="sd-memo" value="'+esc(p.메모||'')+'" placeholder="메모" onchange="editPay(\''+p.ID+'\',\'메모\',this.value)">' +
       '<button class="sd-done" onclick="sdToggle(\''+p.ID+'\')">✓ 완료</button><button class="del" onclick="del(\'입금\',\''+p.ID+'\')">삭제</button></div>';
     return '<div class="sd-readrow"><div class="grow"><b>'+won(p.금액)+'원</b><small>'+esc(p.날짜)+' '+esc(p.메모)+'</small></div>' +
