@@ -1901,14 +1901,16 @@ function setINFQ(q){ INFQ=q; var el=document.getElementById('iSearch'); if(el) e
 function clearINFQ(){ setINFQ(''); var el=document.getElementById('iSearch'); if(el) el.focus(); }
 function setInfSort(s){ INF_SORT=s; renderInfluView(); }
 function toggleInf(k){ INF_OPEN[k]=!INF_OPEN[k]; renderInfList(); }
-// 팔로워 이력 파싱: "2026-07-20|69000\n2026-05-01|65000" → [{d,n}, ...] (최근이 앞)
+// 팔로워 이력 파싱: "2026-07-20|69000\n?|65000" → [{d,n}, ...] (최근이 앞)
+// d='?' = 언제 적은 숫자인지 모르는 값 (시트에서 가져왔거나 예전에 날짜 없이 적어둔 것)
 function folLog(s){
   return String(s||'').split('\n').map(function(l){
     var p=l.split('|'); return { d:(p[0]||'').trim(), n:Number(p[1])||0 };
-  }).filter(function(e){ return e.d && e.n; });
+  }).filter(function(e){ return e.n; });
 }
-// 팔로워를 마지막으로 적어둔 날 (없으면 '')
-function folDate(v){ var l=folLog(v&&v.fol_log); return l.length?l[0].d:''; }
+function folLabel(d){ return (!d || d==='?') ? '날짜 없음' : mmdd(d); }
+// 팔로워를 마지막으로 적어둔 날 ('?'거나 기록이 없으면 '')
+function folDate(v){ var l=folLog(v&&v.fol_log); var d=l.length?l[0].d:''; return d==='?'?'':d; }
 // 오래됐거나 날짜를 모르는 팔로워 수 = 다시 확인해야 함 (90일 기준)
 function folStale(v){
   var d=folDate(v); if(!d) return true;
@@ -1940,7 +1942,11 @@ function saveInfEdit(){
           kind:'인플루언서', updated_at:todayISO() };
   // 팔로워가 바뀌었으면 오늘 날짜로 이력에 남김 (최근이 위)
   if(fol && fol!==String(v0.followers||'')){
-    var log=folLog(v0.fol_log).filter(function(e){ return e.d!==todayISO(); });
+    var log=folLog(v0.fol_log);
+    // 원래 있던 숫자가 이력에 없으면(시트에서 가져온 값 등) '날짜 없음'으로 먼저 보관 — 안 그러면 그냥 사라짐
+    var old=Number(v0.followers)||0;
+    if(old && !log.some(function(e){ return e.n===old; })) log.push({ d:'?', n:old });
+    log=log.filter(function(e){ return e.d!==todayISO(); });
     log.unshift({ d:todayISO(), n:Number(fol)||0 });
     o.fol_log = log.slice(0,20).map(function(e){ return e.d+'|'+e.n; }).join('\n');
   }
@@ -2076,7 +2082,8 @@ function infCards(){
             ? '<button class="inf-edit add" onclick="event.stopPropagation();restoreInflu(\''+v.ID+'\')">↩ 복원</button>'+
               '<button class="inf-edit danger" onclick="event.stopPropagation();purgeInflu(\''+v.ID+'\')">🗑 완전삭제</button>'
           : g.notInf
-            ? '<button class="inf-edit add" onclick="event.stopPropagation();markAsInflu(\''+v.ID+'\')">↩ 인플루언서로 되돌리기</button>'
+            ? '<button class="inf-edit add" onclick="event.stopPropagation();markAsInflu(\''+v.ID+'\')">↩ 인플루언서로 되돌리기</button>'+
+              '<button class="inf-edit danger" onclick="event.stopPropagation();delInflu(\''+v.ID+'\')" title="삭제함으로 옮깁니다 — 되돌릴 수 있어요">🗑 삭제</button>'
           : g.onlyReg
             ? '<button class="inf-edit add" onclick="event.stopPropagation();markAsInflu(\''+v.ID+'\')">📷 인플루언서로 추가</button>'+
               '<button class="inf-edit" onclick="event.stopPropagation();markNotInflu(\''+v.ID+'\')" title="실비 지급·업체처럼 인플루언서가 아닌 경우">✖ 아님</button>'
@@ -2103,7 +2110,7 @@ function infCards(){
           var d2=fl[0].n-fl[fl.length-1].n;
           return '<div class="inf-trend"><span class="it-lb">👥 팔로워</span>'+
             fl.slice().reverse().map(function(e,i,a){
-              return '<span class="it-p'+(i===a.length-1?' now':'')+'">'+e.n.toLocaleString('ko-KR')+'<i>'+esc(mmdd(e.d))+'</i></span>'+
+              return '<span class="it-p'+(i===a.length-1?' now':'')+'">'+e.n.toLocaleString('ko-KR')+'<i>'+esc(folLabel(e.d))+'</i></span>'+
                      (i<a.length-1?'<span class="it-ar">→</span>':'');
             }).join('')+
             (fl.length>1?'<span class="it-sum">'+(d2>0?'+':(d2<0?'−':''))+Math.abs(d2).toLocaleString('ko-KR')+'</span>':'')+
