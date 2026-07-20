@@ -518,10 +518,11 @@
   .inf-ig { font-size:11.5px; font-weight:700; color:#c2255c; background:#fff0f6; border-radius:6px; padding:2px 8px; text-decoration:none; }
   .inf-ig:hover { background:#ffdeeb; }
   .inf-fol { font-size:11.5px; font-weight:700; color:#666; }
-  .inf-star { display:inline-flex; gap:1px; cursor:pointer; }
-  .inf-star b { color:#dee2e6; font-size:15px; line-height:1; }
-  .inf-star b.on { color:#f59f00; }
-  .inf-star b:hover { color:#ffc078; }
+  .inf-empty { font-size:11.5px; font-weight:700; color:#adb5bd; background:#f8f9fa; border-radius:6px; padding:2px 8px; }
+  .inf-blank { font-size:12.5px; color:#bbb; }
+  .inf-edit { margin-left:auto; border:1.5px solid #e3e3e3; background:#fff; color:#555; border-radius:8px;
+    padding:5px 12px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .inf-edit:hover { background:#fff7f0; border-color:#ffc999; color:#e8590c; }
   .inf-diff { font-size:11.5px; font-weight:800; border-radius:6px; padding:2px 7px; }
   .inf-diff.up { color:#c92a2a; background:#fff5f5; }
   .inf-diff.down { color:#1971c2; background:#e7f5ff; }
@@ -1841,20 +1842,49 @@ function setINFQ(q){ INFQ=q; var el=document.getElementById('iSearch'); if(el) e
 function clearINFQ(){ setINFQ(''); var el=document.getElementById('iSearch'); if(el) el.focus(); }
 function setInfSort(s){ INF_SORT=s; renderInfluView(); }
 function toggleInf(k){ INF_OPEN[k]=!INF_OPEN[k]; renderInfList(); }
-// 별점 — 같은 별을 다시 누르면 해제
-function starHTML(vid, rating){
-  if(!vid) return '';
-  var r=Number(rating)||0, out='<span class="inf-star" onclick="event.stopPropagation()">';
-  for(var i=1;i<=5;i++){
-    out += '<b class="'+(i<=r?'on':'')+'" title="'+i+'점'+(i===r?' (다시 누르면 해제)':'')+'"'+
-           ' onclick="setInfRating(\''+vid+'\','+(i===r?0:i)+')">★</b>';
-  }
-  return out+'</span>';
+// ─── 인플루언서 정보 수정 ───
+var INFEDIT=null;   // 수정 중인 vendor ID
+function openInfEdit(vid){ INFEDIT=vid; renderInfluView(); }
+function closeInfEdit(){ INFEDIT=null; renderInfluView(); }
+function saveInfEdit(){
+  var g=function(id){ var e=document.getElementById(id); return e?String(e.value||'').trim():''; };
+  var vid=INFEDIT, nm=g('ieName');
+  if(!nm){ toast('닉네임을 입력하세요'); return; }
+  var handle=g('ieHandle');
+  if(handle && handle.charAt(0)!=='@') handle='@'+handle;
+  var url=g('ieUrl');
+  if(!url && handle) url='https://www.instagram.com/'+handle.replace(/^@/,'')+'/';   // 핸들만 적어도 주소 자동
+  var o={ ID:vid, name:nm, handle:handle, insta_url:url,
+          followers:g('ieFol').replace(/[^0-9]/g,''), price_note:g('iePrice'), note:g('ieNote'), kind:'인플루언서' };
+  INFEDIT=null;
+  patchLocal('vendors', vid, o);
+  renderInfluView();
+  bg(gs('updateVendor',o).then(function(){ toast('✅ '+nm+' 저장됨'); }));
 }
-function setInfRating(vid, val){
-  patchLocal('vendors', vid, {rating:String(val||'')});
-  renderInfList();
-  bg(gs('updateVendor',{ID:vid, rating:String(val||'')}));
+function infEditHTML(){
+  if(!INFEDIT) return '';
+  var v=(DB.vendors||[]).filter(function(x){ return x.ID===INFEDIT; })[0]; if(!v) return '';
+  return '<div class="mod-bg" onclick="if(event.target===this)closeInfEdit()"><div class="mod">'+
+    '<div class="mod-h"><b>✏️ 인플루언서 정보 수정</b>'+
+      '<span class="mod-sub">「'+esc(v.name||'')+'」 — 빈 칸만 채우셔도 됩니다</span></div>'+
+    '<div class="mod-b">'+
+      '<div class="mod-row"><label>닉네임</label>'+
+        '<input id="ieName" value="'+esc(v.name||'')+'" placeholder="예: 광주맛집 루피"></div>'+
+      '<div class="mod-row"><label>인스타 아이디</label>'+
+        '<input id="ieHandle" value="'+esc(v.handle||'')+'" placeholder="@gwangju_matzip">'+
+        '<span class="mod-hint">@ 없이 적으셔도 됩니다. 주소는 자동으로 만들어져요.</span></div>'+
+      '<div class="mod-row"><label>인스타 주소 <span style="font-weight:400;color:#aaa">— 비워두면 자동</span></label>'+
+        '<input id="ieUrl" value="'+esc(v.insta_url||'')+'" placeholder="https://www.instagram.com/..."></div>'+
+      '<div class="mod-row"><label>팔로워</label>'+
+        '<input id="ieFol" inputmode="numeric" value="'+esc(v.followers||'')+'" placeholder="예: 69000"></div>'+
+      '<div class="mod-row"><label>📋 공식 단가표</label>'+
+        '<textarea id="iePrice" placeholder="예: 피드 35만원 / 릴스 40만원 / 피드+릴스 55만원&#10;상단고정 7일 5만원, 댓글이벤트·스토리 무료">'+esc(v.price_note||'')+'</textarea></div>'+
+      '<div class="mod-row"><label>📝 메모</label>'+
+        '<textarea id="ieNote" placeholder="이때 어땠는지 — 연락 잘 됨, 수정 요청 많았음, 사진 퀄 좋음 등">'+esc(v.note||'')+'</textarea></div>'+
+    '</div>'+
+    '<div class="mod-f"><button class="mod-x" onclick="closeInfEdit()">취소</button>'+
+      '<button class="mod-ok" onclick="saveInfEdit()">저장</button></div>'+
+  '</div></div>';
 }
 function setInfNote(vid, val){
   patchLocal('vendors', vid, {note:val});
@@ -1895,8 +1925,6 @@ function infCards(){
   });
   var rows = list.length ? list.map(function(g){
     var open=!!INF_OPEN[g.key], v=findVendor(g.name)||{};
-    var acct = v.account ? '<span class="inf-ok">🏦 계좌</span>'
-             : (v.ID ? '<span class="inf-no">⚠ 계좌 없음</span>' : '<span class="inf-no">⚠ 등록부에 없음</span>');
     var fol = Number(String(v.followers||'').replace(/[^0-9]/g,''))||0;
     // 단가 변동: 오래된 → 최근 순으로 실제 준 금액
     var hist=g.rows.filter(function(r){ return r.fee>0; })
@@ -1907,15 +1935,14 @@ function infCards(){
       '<div class="inf-head" onclick="toggleInf(\''+g.key+'\')">'+
         '<span class="vg-arw">'+(open?'▾':'▸')+'</span>'+
         '<span class="inf-name">'+esc(g.name)+'</span>'+
-        (v.handle?'<a class="inf-ig" href="'+esc(v.insta_url||('https://www.instagram.com/'+String(v.handle).replace(/^@/,'')))+'" target="_blank" onclick="event.stopPropagation()">📷 '+esc(v.handle)+'</a>':'')+
+        (v.handle?'<a class="inf-ig" href="'+esc(v.insta_url||('https://www.instagram.com/'+String(v.handle).replace(/^@/,'')))+'" target="_blank" onclick="event.stopPropagation()">📷 '+esc(v.handle)+'</a>'
+                 :'<span class="inf-empty">인스타 미입력</span>')+
         (fol?'<span class="inf-fol">👥 '+fol.toLocaleString('ko-KR')+'</span>':'')+
-        starHTML(v.ID, v.rating)+
         '<span class="inf-cnt">'+g.cnt+'회</span>'+
         '<span class="inf-store">'+g.storeN+'개 매장</span>'+
         '<span class="inf-fee">최근 '+won(g.lastFee)+'원</span>'+
         (diff?'<span class="inf-diff '+(diff>0?'up':'down')+'">'+(diff>0?'▲':'▼')+won(Math.abs(diff))+'</span>':'')+
-        '<span class="inf-tot">누적 '+won(g.total)+'원</span>'+
-        acct+
+        (v.ID?'<button class="inf-edit" onclick="event.stopPropagation();openInfEdit(\''+v.ID+'\')">✏️ 수정</button>':'')+
       '</div>'+
       (open? '<div class="inf-body">'+
         // 단가 변동 이력
@@ -1925,12 +1952,13 @@ function infCards(){
                    (i<hist.length-1?'<span class="it-ar">→</span>':'');
           }).join('')+
           '<span class="it-sum">'+(diff>0?'올랐어요 +':(diff<0?'내렸어요 −':'그대로 '))+won(Math.abs(diff))+'</span></div>' : '')+
-        // 공식 단가표(시트)
-        (v.price_note?'<div class="inf-price"><span class="it-lb">📋 공식 단가표</span><span>'+esc(v.price_note)+'</span></div>':'')+
-        // 메모
-        '<div class="inf-memo"><span class="it-lb">📝 메모</span>'+
-          '<textarea placeholder="이때 어땠는지 적어두세요 — 예: 연락 잘 됨, 수정 요청 많았음, 사진 퀄 좋음" '+
-          (v.ID?'onchange="setInfNote(\''+v.ID+'\',this.value)"':'disabled')+'>'+esc(v.note||'')+'</textarea></div>'+
+        // 공식 단가표 · 메모 (수정은 ✏️ 버튼으로)
+        '<div class="inf-price"><span class="it-lb">📋 공식 단가표</span>'+
+          (v.price_note?'<span>'+esc(v.price_note)+'</span>'
+                       :'<span class="inf-blank">아직 없어요 — ✏️ 수정에서 적어주세요</span>')+'</div>'+
+        '<div class="inf-price"><span class="it-lb">📝 메모</span>'+
+          (v.note?'<span>'+esc(v.note)+'</span>'
+                 :'<span class="inf-blank">아직 없어요 — ✏️ 수정에서 적어주세요</span>')+'</div>'+
         // 이력 표
         '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr>'+
           '<th class="c-store">매장</th><th class="c-item">견적</th><th>촬영일</th>'+
@@ -1958,15 +1986,14 @@ function renderInfluView(){
   var r=infCards(), all=r.all;
   var totalPeople=all.length;
   var repeat=all.filter(function(g){ return g.cnt>=2; }).length;
-  var money=all.reduce(function(s,g){ return s+g.total; },0);
-  var noAcct=all.filter(function(g){ var v=findVendor(g.name); return !v || !v.account; }).length;
+  var noInfo=all.filter(function(g){ var v=findVendor(g.name); return !v || !v.handle; }).length;  // 인스타 미입력
   var SORTS=[['cnt','많이 한 순'],['recent','최근 순'],['money','금액 순'],['name','이름 순']];
   document.getElementById('influView').innerHTML =
     '<div class="sec">'+
       '<h2 style="margin:0 0 10px">📷 인플루언서 명부 <span style="font-size:12px;color:#888;font-weight:400">· 우리랑 몇 번 했고 얼마 줬는지 (블로그·체험단 제외)</span></h2>'+
       '<div class="cards" style="margin-bottom:12px">'+
         card('총 인원', totalPeople+'명')+card('재섭외(2회+)', repeat+'명')+
-        card('누적 대행비', won(money)+'원')+card('계좌 미등록', noAcct+'명')+'</div>'+
+        card('인스타 미입력', noInfo+'명')+'</div>'+
       '<div class="vsearch">'+
         '<input id="iSearch" value="'+esc(INFQ)+'" placeholder="🔍 닉네임·매장으로 검색 (예: 광주맛집, 갈비연)" oninput="infInput(this)">'+
         '<button id="iClr" class="vs-clr" style="display:'+(r.q?'':'none')+'" onclick="clearINFQ()">✕ 지우기</button>'+
@@ -1976,7 +2003,7 @@ function renderInfluView(){
         return '<button class="logf-b'+(INF_SORT===s[0]?' on':'')+'" onclick="setInfSort(\''+s[0]+'\')">'+s[1]+'</button>'; }).join('')+
         '<button class="vs-clr" onclick="exportInflu()" style="margin-left:auto">📥 엑셀</button></div>'+
       '<div id="infList">'+r.rows+'</div>'+
-    '</div>';
+    '</div>'+infEditHTML();
   var se=document.getElementById('iSearch');
   if(se){ se.addEventListener('compositionstart',function(){ infIME(1); });
           se.addEventListener('compositionend',function(){ infIME(0); infInput(se); }); }
@@ -1984,13 +2011,13 @@ function renderInfluView(){
 function exportInflu(){
   var all=influList(); if(!all.length){ toast('인플루언서 기록이 없어요'); return; }
   var cell=function(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
-  var cols=['닉네임','인스타','팔로워','별점','횟수','매장수','매장','첫단가','최근단가','증감','누적대행비','지급완료액','게시완료','최근작업일','계좌등록','메모'];
+  var cols=['닉네임','인스타','인스타주소','팔로워','횟수','매장수','매장','첫단가','최근단가','증감','최근작업일','공식단가표','메모'];
   var lines=all.map(function(g){ var v=findVendor(g.name)||{};
     var h=g.rows.filter(function(r){return r.fee>0;}).sort(function(a,b){return a.date<b.date?-1:1;});
     var f=h.length?h[0].fee:0, l=h.length?h[h.length-1].fee:0;
-    return [g.name, v.handle||'', v.followers||'', v.rating||'', g.cnt, g.storeN,
-            Object.keys(g.stores).join(' / '), f, l, (h.length>1?l-f:0), g.total, g.paid, g.done, g.last,
-            v.account?'O':'X', v.note||''].map(cell).join(','); });
+    return [g.name, v.handle||'', v.insta_url||'', v.followers||'', g.cnt, g.storeN,
+            Object.keys(g.stores).join(' / '), f, l, (h.length>1?l-f:0), g.last,
+            v.price_note||'', v.note||''].map(cell).join(','); });
   downloadFile('도반_인플루언서명부_'+todayStr()+'.csv', String.fromCharCode(0xFEFF)+cols.join(',')+'\n'+lines.join('\n'), 'text/csv;charset=utf-8');
   toast('📥 인플루언서 명부 저장됨 ('+all.length+'명)');
 }
