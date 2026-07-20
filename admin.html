@@ -415,7 +415,8 @@
       <div class="tab-content active" id="admin-tab-records">
         <div class="subtabs">
           <button class="subtab active" id="recSub-all" onclick="showRecSub('all')">전체 캠페인</button>
-          <button class="subtab" id="recSub-completed" onclick="showRecSub('completed')">✅ 완료</button>
+          <button class="subtab" id="recSub-inprogress" onclick="showRecSub('inprogress')">▶ 진행중</button>
+          <button class="subtab" id="recSub-completed" onclick="showRecSub('completed')">✅ 진행완료</button>
           <button class="subtab" id="recSub-held" onclick="showRecSub('held')">⏸ 보류</button>
           <button class="subtab" id="recSub-deleted-tab" onclick="showRecSub('deleted')">🗑 삭제</button>
         </div>
@@ -1712,7 +1713,7 @@ function showRecSub(which){
   const isDeleted = which === 'deleted';
   document.getElementById('recSub-active').style.display = isDeleted ? 'none' : 'block';
   document.getElementById('recSub-deleted').style.display = isDeleted ? 'block' : 'none';
-  [['all','recSub-all'],['completed','recSub-completed'],['held','recSub-held'],['deleted','recSub-deleted-tab']].forEach(([v,id])=>{
+  [['all','recSub-all'],['inprogress','recSub-inprogress'],['completed','recSub-completed'],['held','recSub-held'],['deleted','recSub-deleted-tab']].forEach(([v,id])=>{
     const el = document.getElementById(id); if(el) el.className = 'subtab' + (v===which ? ' active' : '');
   });
   if(isDeleted) renderDeletedRecords(); else renderAdminRecords();
@@ -1761,12 +1762,14 @@ function renderAdminRecords(){
   tbody.innerHTML = '';
   const list = quotes
     .filter(q => !q.archived)
-    .filter(q => recView==='completed' ? q.completed : recView==='held' ? q.held : true)
+    .filter(q => recView==='completed' ? q.completed
+               : recView==='inprogress' ? (q.inProgress && !q.completed)   // 진행 시작했고 아직 작업완료 전
+               : recView==='held' ? q.held : true)
     .filter(q => !filter || (q.client||'').toLowerCase().includes(filter))
     .filter(q => matchStatusFilter(q, sf))
     .slice().reverse();
   const cnt = document.getElementById('recCount');
-  const viewLbl = recView==='completed' ? '완료 ' : recView==='held' ? '보류 ' : '';
+  const viewLbl = recView==='completed' ? '진행완료 ' : recView==='inprogress' ? '진행중 ' : recView==='held' ? '보류 ' : '';
   if(cnt) cnt.textContent = viewLbl + list.length + '건' + (sf || filter ? ' (필터 적용됨)' : '');
   if(!list.length){ tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
   list
@@ -1845,7 +1848,9 @@ function exportSettlementCsv(){
 }
 // 전체 기록(현재 탭 필터 반영) 내보내기
 function exportRecordsCsv(){
-  const list = quotes.filter(q=>!q.archived).filter(q=> recView==='completed'?q.completed : recView==='held'?q.held : true)
+  const list = quotes.filter(q=>!q.archived).filter(q=> recView==='completed'?q.completed
+      : recView==='inprogress' ? (q.inProgress && !q.completed)
+      : recView==='held'?q.held : true)
     .slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
   const rows = [['견적번호','날짜','고객사','품목','합계금액(원)','진행','입금','작업완료','보류']];
   list.forEach(q=> rows.push([q.quoteNo, q.date, q.client, quoteProductLabel(q), Number(q.total)||0,
