@@ -161,6 +161,7 @@
   .settle-toolbar input[type=month]{padding:6px 8px; border:1px solid #ccc; border-radius:6px; font-size:14px; margin-left:6px;}
   .settle-toolbar .scope-label{color:#a65b00; font-weight:bold;}
   .settle-toolbar .range-btn.on{background:var(--orange); color:#fff; border-color:var(--orange);}
+  .settle-toolbar .rec-range-btn.on{background:var(--orange); color:#fff; border-color:var(--orange);}
   tr.settle-month td{background:#fff2e6; color:#a65b00; font-weight:800; text-align:left;}
   tr.settle-subtotal td{background:#ffe4cc; font-weight:800; color:#a65b00;}
 
@@ -436,6 +437,14 @@
             <button class="btn" onclick="exportRecordsCsv()" style="margin-left:auto;">📥 엑셀 내보내기</button>
             <span id="recCount" style="font-size:13px; color:#888;"></span>
           </div>
+          <div class="settle-toolbar" style="margin:-2px 0 12px;">
+            <label>📅 월 선택 <input type="month" id="recMonth" onchange="onRecMonthChange()"></label>
+            <button class="btn rec-range-btn" data-months="1" onclick="setRecRange(1)">이번 달</button>
+            <button class="btn rec-range-btn" data-months="3" onclick="setRecRange(3)">최근 3개월</button>
+            <button class="btn rec-range-btn" data-months="6" onclick="setRecRange(6)">최근 6개월</button>
+            <button class="btn secondary" onclick="resetRecRange()">전체</button>
+            <span id="recScopeLabel" class="scope-label"></span>
+          </div>
           <div class="table-scroll">
           <table class="records" id="adminRecordsTable">
             <thead>
@@ -646,6 +655,7 @@ let role = null, displayName = '', rates = { reviewFeePerUnit:0, marginPercent:0
 let company = { bank:'', account:'', holder:'' };
 let quotes = [];
 let settleDays = 0; // 정산 탭 최근 N일 필터 (0=미사용)
+let recMonths = 0;  // 전체 기록 최근 N개월 필터 (0=전체 기간)
 let productRows = [];
 let clients = [];
 let deletedClients = [];
@@ -1767,10 +1777,16 @@ function renderAdminRecords(){
                : recView==='held' ? q.held : true)
     .filter(q => !filter || (q.client||'').toLowerCase().includes(filter))
     .filter(q => matchStatusFilter(q, sf))
-    .slice().reverse();
+    .filter(q => matchRecPeriod(q))
+    // 날짜 최신순(같은 날짜면 나중에 만든 것이 위로)
+    .slice().sort((a,b)=>{
+      const d = String(b.date||'').localeCompare(String(a.date||''));
+      return d !== 0 ? d : String(b.createdAt||b.id||'').localeCompare(String(a.createdAt||a.id||''));
+    });
   const cnt = document.getElementById('recCount');
   const viewLbl = recView==='completed' ? '진행완료 ' : recView==='inprogress' ? '진행중 ' : recView==='held' ? '보류 ' : '';
   if(cnt) cnt.textContent = viewLbl + list.length + '건' + (sf || filter ? ' (필터 적용됨)' : '');
+  updateRecScopeUI();
   if(!list.length){ tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
   list
     .forEach(q=>{
@@ -1813,6 +1829,36 @@ function renderAdminRecords(){
 }
 
 // ---------- 정산: 월 선택 + 견적별 세부 (관리자 전용) ----------
+// ---------- 전체 기록: 기간 필터 ----------
+// 견적이 현재 기간 필터에 들어가나? (월 선택이 우선, 없으면 최근 N개월, 둘 다 없으면 전체)
+function matchRecPeriod(q){
+  const sel = (document.getElementById('recMonth')||{}).value || '';
+  if(sel) return String(q.date||'').slice(0,7) === sel;
+  const cut = recCutoff();
+  return cut ? (String(q.date||'') >= cut) : true;
+}
+// 기간 버튼 활성표시 + 안내문구 갱신
+function updateRecScopeUI(){
+  const sel = (document.getElementById('recMonth')||{}).value || '';
+  document.querySelectorAll('.rec-range-btn').forEach(b=>
+    b.classList.toggle('on', !sel && Number(b.dataset.months) === recMonths));
+  const el = document.getElementById('recScopeLabel');
+  if(el) el.textContent = sel ? ('📌 ' + sel.replace('-','년 ') + '월')
+    : (recMonths === 1 ? '📌 이번 달'
+    : recMonths > 1 ? ('📌 최근 ' + recMonths + '개월 (' + recCutoff() + ' ~ 오늘)')
+    : '📌 전체 기간');
+}
+function onRecMonthChange(){ recMonths = 0; renderAdminRecords(); }
+function setRecRange(months){ recMonths = months; const m = document.getElementById('recMonth'); if(m) m.value = ''; renderAdminRecords(); }
+function resetRecRange(){ recMonths = 0; const m = document.getElementById('recMonth'); if(m) m.value = ''; renderAdminRecords(); }
+// 현재 기간 필터의 시작일('YYYY-MM-DD'). 이번 달=이번 달 1일, 최근 N개월=N-1개월 전 1일
+function recCutoff(){
+  if(recMonths <= 0) return '';
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - (recMonths - 1));
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-01';
+}
 function onSettleMonthChange(){ settleDays = 0; renderSettlement(); }
 function setSettleRange(days){ settleDays = days; const m = document.getElementById('settleMonth'); if(m) m.value = ''; renderSettlement(); }
 function resetSettleRange(){ settleDays = 0; const m = document.getElementById('settleMonth'); if(m) m.value = ''; renderSettlement(); }
@@ -1851,6 +1897,7 @@ function exportRecordsCsv(){
   const list = quotes.filter(q=>!q.archived).filter(q=> recView==='completed'?q.completed
       : recView==='inprogress' ? (q.inProgress && !q.completed)
       : recView==='held'?q.held : true)
+    .filter(q=> matchRecPeriod(q))
     .slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
   const rows = [['견적번호','날짜','고객사','품목','합계금액(원)','진행','입금','작업완료','보류']];
   list.forEach(q=> rows.push([q.quoteNo, q.date, q.client, quoteProductLabel(q), Number(q.total)||0,
