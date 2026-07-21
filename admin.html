@@ -564,9 +564,9 @@
           <button class="btn acc-range-btn" data-months="3" onclick="setAccRange(3)">최근 3개월</button>
           <button class="btn secondary" onclick="resetAccRange()">전체</button>
           <select class="filter" id="accFilter" onchange="renderAccounting()">
+            <option value="">전체 보기</option>
             <option value="notInvoiced">🧾 미발행만</option>
             <option value="invoiced">✅ 발행완료만</option>
-            <option value="">전체 보기</option>
           </select>
           <button class="btn" onclick="exportAccountingCsv()" style="margin-left:auto;">📥 회계용 엑셀</button>
           <span id="accScopeLabel" class="scope-label"></span>
@@ -577,7 +577,7 @@
           <div class="settle-card"><span class="lbl">부가세</span><span class="val" id="accVat">0원</span></div>
           <div class="settle-card total"><span class="lbl">합계금액</span><span class="val" id="accTotal">0원</span></div>
         </div>
-        <p class="muted" style="margin:4px 0 10px;">※ <b>계산서</b> 칸을 눌러 발행/미발행을 바꿉니다. 공급가액·부가세는 합계금액에서 자동 계산(합계 = 공급가액 + 10%)됩니다. 관리자만 볼 수 있습니다.</p>
+        <p class="muted" style="margin:4px 0 10px;">※ <b>계산서</b> 칸을 눌러 발행/미발행을 바꿉니다. <b>눌러도 목록에서 사라지지 않으니</b> 잘못 눌렀으면 다시 누르면 됩니다. (필터를 바꿀 때만 다시 걸러집니다) 공급가액·부가세는 합계금액에서 자동 계산(합계 = 공급가액 + 10%)됩니다. 관리자만 볼 수 있습니다.</p>
         <div class="table-scroll">
         <table class="records" id="accTable">
           <thead>
@@ -1939,17 +1939,26 @@ function renderAccounting(){
       <td>${won(t-s)}원</td>
       <td style="font-weight:bold;">${won(t)}원</td>
       <td><span class="status-badge ${q.deposited?'status-yes':'status-no'}">${q.deposited?'입금완료':'미입금'}</span></td>
-      <td><span class="status-badge ${q.invoiced?'status-inv':'status-inv-off'}" onclick="toggleInvoiced('${q.id}')" title="누르면 발행/미발행이 바뀝니다">${q.invoiced?'🧾 발행완료':'미발행'}</span></td>
+      <td><span class="status-badge ${q.invoiced?'status-inv':'status-inv-off'}" id="accInv-${q.id}" onclick="toggleInvoiced('${q.id}')" title="누르면 발행/미발행이 바뀝니다">${q.invoiced?'🧾 발행완료':'미발행'}</span></td>
     </tr>`;
   }).join('');
 }
-// 계산서 발행여부 토글 (회계 탭 전용 — 목록이 바로 다시 그려짐)
+// 배지 하나만 다시 칠하기 (행은 그대로 두어 목록에서 사라지지 않게)
+function paintInvoiceBadge(id){
+  const q = quotes.find(x=>x.id===id);
+  const el = document.getElementById('accInv-' + id);
+  if(!q || !el) return;
+  el.className = 'status-badge ' + (q.invoiced ? 'status-inv' : 'status-inv-off');
+  el.textContent = q.invoiced ? '🧾 발행완료' : '미발행';
+}
+// 계산서 발행여부 토글 — 눌러도 목록이 다시 그려지지 않으므로 행이 사라지지 않는다.
+// (필터를 바꾸거나 기간을 바꿀 때만 목록이 새로 걸러짐)
 async function toggleInvoiced(id){
   const q = quotes.find(x=>x.id===id); if(!q) return;
   q.invoiced = !q.invoiced;
-  renderAccounting();
+  paintInvoiceBadge(id);
   try{ await call('toggleField', token, id, 'invoiced'); }
-  catch(e){ q.invoiced = !q.invoiced; renderAccounting(); if(!handleSessionError(e)) alert('변경 실패: ' + e.message); }
+  catch(e){ q.invoiced = !q.invoiced; paintInvoiceBadge(id); if(!handleSessionError(e)) alert('변경 실패: ' + e.message); }
 }
 function exportAccountingCsv(){
   const rows = [['견적번호','날짜','고객사','공급가액(원)','부가세(원)','합계금액(원)','입금','계산서']];
