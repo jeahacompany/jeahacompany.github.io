@@ -2005,6 +2005,7 @@ function vendorMissing(v){
   if(!String(v.account||'').trim()) m.push('계좌번호');
   if(!String(v.holder||'').trim()) m.push('예금주');
   if(!String((free?v.resident_no:v.biz_no)||'').trim()) m.push(free?'주민번호':'사업자번호');
+  if(v.vtype==='세금계산서' && !String(v.tax_email||'').trim()) m.push('계산서 이메일');
   if(!free && !v.doc_bizreg) m.push('사업자등록증');
   if(!v.doc_bankbook) m.push('통장사본');
   if(free && !v.doc_id) m.push('신분증');
@@ -2026,6 +2027,7 @@ function vendorEmpty(v){
   if(v.vtype==='비용항목') return false; // 자체 비용은 채울 게 없음
   return !String(v.account||'').trim() && !String(v.holder||'').trim() &&
          !String(v.biz_no||'').trim() && !String(v.resident_no||'').trim() &&
+         !String(v.tax_email||'').trim() &&
          !v.doc_bizreg && !v.doc_bankbook && !v.doc_id;
 }
 // 검색 결과 목록만 다시 그림 — 검색창(input)은 건드리지 않아야 한글 조합이 안 깨짐
@@ -2040,7 +2042,7 @@ function vendCards(){
   var all=(DB.vendors||[]).slice().sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
   var q=String(VQ||'').trim().toLowerCase();
   var vs = !q ? all : all.filter(function(v){
-    return ['name','memo','holder','account','bank','biz_no','vtype'].some(function(k){
+    return ['name','memo','holder','account','bank','biz_no','vtype','tax_email'].some(function(k){
       return String(v[k]||'').toLowerCase().indexOf(q)>=0; });
   });
   var vf=function(v, field, ph, w){ return '<input value="'+esc(v[field]||'')+'" placeholder="'+ph+'" onchange="setVendorField(\''+v.ID+'\',\''+field+'\',this.value)" style="width:'+(w||120)+'px">'; };
@@ -2073,7 +2075,8 @@ function vendCards(){
         '<div class="vend-fields">'+
           vf(v, free?'resident_no':'biz_no', free?'주민번호':'사업자번호', 150)+
           vf(v,'bank','은행',72)+vf(v,'account','계좌번호',165)+vf(v,'holder','예금주',80)+
-          vf(v,'memo','메모(회사/실명)',170)+'</div>'+
+          vf(v,'memo','메모(회사/실명)',170)+
+          (v.vtype==='세금계산서' ? vf(v,'tax_email','계산서 발행 이메일',200) : '')+'</div>'+
         '<div class="vend-docs"><span class="vd-label">서류</span>'+
           (free?'':vdoc(v,'doc_bizreg','사업자등록증'))+
           vdoc(v,'doc_bankbook','통장사본')+
