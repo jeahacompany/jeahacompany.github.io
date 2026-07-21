@@ -753,7 +753,6 @@
   <div id="settleView" style="display:none">
     <div id="quoteSheet"></div>
     <div id="invoiceBox"></div>
-    <div class="cards" id="settlecards"></div>
     <div id="storeSum"></div>
   </div>
 
@@ -1415,10 +1414,10 @@ function renderSettleView() {
   var t입금 = cs.reduce(function(s,c){return s+paySum(c.ID);},0);
   var t실행 = cs.reduce(function(s,c){return s+totalExecOf(c.ID);},0);
   var t마진 = t입금 - t실행;
-  document.getElementById('settlecards').innerHTML =
+  var cardsHtml =
     card('총 계약', won(t계약)+'원') + card('총 입금', won(t입금)+'원') +
     card('총 실행비', won(t실행)+'원') + card('총 마진', won(t마진)+'원') +
-    card('평균 마진율', (t입금>0?Math.round(t마진/t입금*100):0)+'%');
+    card('평균 마진율', (t입금>0?Math.round(t마진/t입금*100):0)+'%');   // 카드는 매장별 합계 토글 안으로
 
   renderQuoteSheet(cs);
   renderInvoiceBox(cs);
@@ -1448,6 +1447,7 @@ function renderSettleView() {
       '<span class="qs-ok">마진 '+won(t마진)+'</span>'+
     '</div>'+
     (!so ? '' :
+      '<div class="cards" style="margin-top:14px">'+cardsHtml+'</div>'+
       '<table><thead><tr>'+
         '<th>매장명</th><th class="money">계약금액</th><th class="money">입금</th>'+
         '<th class="money">실행비</th><th class="money">마진</th><th class="money">마진율</th>'+
