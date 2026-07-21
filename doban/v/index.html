@@ -88,26 +88,32 @@ function upload(field, inp){
   var path='vendors/'+CODE+'/'+field+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext(f.name);
   var lbl=inp.parentNode; if(lbl){ lbl.textContent='⏳ 올리는 중…'; lbl.style.pointerEvents='none'; }
   fetch(SB_URL+'/storage/v1/object/'+BUCKET+'/'+encodeURI(path),{method:'POST',
-    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'x-upsert':'true'},body:f})
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:f})
    .then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); })
    .then(function(){ D[field]=path; return sbRpc('vendor_save',{p_code:CODE,p_field:field,p_val:path}); })
    .then(function(){ toast(); render(); })
    .catch(function(e){ alert('업로드 실패: '+((e&&e.message)||e)); render(); });
 }
-function viewDoc(path){
-  fetch(SB_URL+'/storage/v1/object/sign/'+BUCKET+'/'+encodeURI(path),{method:'POST',
+// 열람·삭제는 Edge Function 'doc' 을 거친다 (storage 에서 anon 읽기를 뺐기 때문).
+// 본인 링크 코드를 보내면 함수가 "본인 폴더가 맞는지" 확인하고 서명 URL 을 내준다.
+function docFn(action, path){
+  return fetch(SB_URL+'/functions/v1/doc',{method:'POST',
     headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
-    body:JSON.stringify({expiresIn:3600})})
-   .then(function(r){ return r.json(); })
-   .then(function(d){ if(d.signedURL) window.open(SB_URL+'/storage/v1'+d.signedURL,'_blank'); else alert('열기 실패'); })
-   .catch(function(){ alert('열기 실패'); });
+    body:JSON.stringify({action:action, kind:'vendor', auth:CODE, path:path})})
+   .then(function(r){ return r.json().then(function(j){
+       if(!r.ok || j.error) throw new Error(j.error||('('+r.status+')')); return j; }); });
+}
+function viewDoc(path){
+  docFn('sign', path)
+   .then(function(d){ window.open(d.url,'_blank'); })
+   .catch(function(e){ alert('열기 실패: '+((e&&e.message)||e)); });
 }
 function delDoc(field, path){
   if(!confirm('이 파일을 지우고 다시 올릴까요?')) return;
-  fetch(SB_URL+'/storage/v1/object/'+BUCKET+'/'+encodeURI(path),{method:'DELETE',
-    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}})
+  docFn('del', path)
    .then(function(){ D[field]=''; return sbRpc('vendor_save',{p_code:CODE,p_field:field,p_val:''}); })
-   .then(function(){ render(); });
+   .then(function(){ render(); })
+   .catch(function(e){ alert('삭제 실패: '+((e&&e.message)||e)); });
 }
 function docBox(field, name, hint){
   var p=D[field]||'';

@@ -462,24 +462,30 @@ function cUploadDoc(field, inp){
   var path=(CODE||'x')+'/'+field+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+cDocExt(f.name);
   var lbl=inp.parentNode; if(lbl){ lbl.textContent='⏳ 업로드 중…'; lbl.style.pointerEvents='none'; }
   fetch(SB_URL+'/storage/v1/object/'+CDOC_BUCKET+'/'+encodeURI(path), {
-    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'x-upsert':'true'}, body:f
+    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}, body:f
   }).then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); })
    .then(function(){ if(data) data[field]=path; return sbRpc('client_save_doc',{p_code:CODE,p_field:field,p_val:path}); })
    .then(function(){ refreshDocTab(); })
    .catch(function(e){ alert('업로드 실패: '+((e&&e.message)||e)); refreshDocTab(); });
 }
+// 열람·삭제는 Edge Function 'doc' 을 거친다 (storage 에서 anon 읽기를 뺐기 때문).
+// 공유코드를 보내면 함수가 "이 매장 폴더가 맞는지" 확인하고 서명 URL 을 내준다.
+function cDocFn(action, path){
+  return fetch(SB_URL+'/functions/v1/doc', {
+    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({action:action, kind:'client', auth:CODE, path:path})
+  }).then(function(r){ return r.json().then(function(j){
+      if(!r.ok || j.error) throw new Error(j.error||('('+r.status+')')); return j; }); });
+}
 function cViewDoc(path){
-  fetch(SB_URL+'/storage/v1/object/sign/'+CDOC_BUCKET+'/'+encodeURI(path), {
-    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}, body:JSON.stringify({expiresIn:3600})
-  }).then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); return r.json(); })
-   .then(function(d){ window.open(SB_URL+'/storage/v1'+d.signedURL,'_blank'); })
+  cDocFn('sign', path)
+   .then(function(d){ window.open(d.url,'_blank'); })
    .catch(function(e){ alert('열기 실패: '+((e&&e.message)||e)); });
 }
 function cDelDoc(field, path){
   if(!confirm('이 서류를 삭제할까요?')) return;
-  fetch(SB_URL+'/storage/v1/object/'+CDOC_BUCKET+'/'+encodeURI(path), {
-    method:'DELETE', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-  }).then(function(){ if(data) data[field]=''; return sbRpc('client_save_doc',{p_code:CODE,p_field:field,p_val:''}); })
+  cDocFn('del', path)
+   .then(function(){ if(data) data[field]=''; return sbRpc('client_save_doc',{p_code:CODE,p_field:field,p_val:''}); })
    .then(function(){ refreshDocTab(); })
    .catch(function(e){ alert('삭제 실패: '+((e&&e.message)||e)); });
 }

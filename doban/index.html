@@ -2521,14 +2521,14 @@ function uploadVendorDoc(id, field, inp){
   if(f.size>10*1024*1024){ toast('10MB 이하 파일만'); inp.value=''; return; }
   var path='vendors/'+id+'/'+field+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+docExt(f.name);
   toast('업로드 중…');
-  fetch(SB_URL+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'x-upsert':'true'},body:f})
+  fetch(SB_URL+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:f})
    .then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); })
    .then(function(){ var o={ID:id}; o[field]=path; patchLocal('vendors',id,o); return gs('updateVendor',o); })
    .then(function(){ toast('📎 서류 올렸어요'); render(); }).catch(function(e){ toast('업로드 실패: '+((e&&e.message)||e)); });
 }
 function delVendorDoc(id, field, path){
   if(!confirm('이 서류를 삭제할까요?')) return;
-  fetch(SB_URL+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}})
+  docFn('del', path)
    .then(function(){ var o={ID:id}; o[field]=''; patchLocal('vendors',id,o); return gs('updateVendor',o); })
    .then(function(){ render(); }).catch(function(e){ toast('삭제 실패: '+((e&&e.message)||e)); });
 }
@@ -2875,25 +2875,32 @@ function uploadDoc(clientId, field, inp){
   var path=clientId+'/'+field+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+docExt(f.name);
   toast('업로드 중…');
   fetch(SB_URL+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path), {
-    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'x-upsert':'true'}, body:f
+    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}, body:f
   }).then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); })
    .then(function(){ var o={ID:clientId}; o[field]=path; var c=DB.광고주.filter(function(x){return x.ID===clientId;})[0]; if(c) c[field]=path; return gs('updateClient',o); })
    .then(function(){ toast('📎 서류 올렸어요'); if(CUR===clientId) openClient(clientId); })
    .catch(function(e){ toast('업로드 실패: '+((e&&e.message)||e)); });
 }
+// 서류 열람·삭제는 Edge Function 'doc' 을 거친다.
+// storage 에서 anon 읽기 권한을 뺐기 때문에 브라우저가 직접 서명 URL 을 못 만든다.
+// 로그인 세션 토큰을 보내면 함수가 자격을 확인하고 대신 발급해 준다.
+function docFn(action, path){
+  return fetch(SB_URL+'/functions/v1/doc', {
+    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({action:action, kind:'staff', auth:TOKEN, path:path})
+  }).then(function(r){ return r.json().then(function(j){
+      if(!r.ok || j.error) throw new Error(j.error||('('+r.status+')')); return j; }); });
+}
 function viewDoc(path){
   toast('여는 중…');
-  fetch(SB_URL+'/storage/v1/object/sign/'+DOC_BUCKET+'/'+encodeURI(path), {
-    method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}, body:JSON.stringify({expiresIn:3600})
-  }).then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('('+r.status+') '+t);}); return r.json(); })
-   .then(function(d){ window.open(SB_URL+'/storage/v1'+d.signedURL,'_blank'); })
+  docFn('sign', path)
+   .then(function(d){ window.open(d.url,'_blank'); })
    .catch(function(e){ toast('열기 실패: '+((e&&e.message)||e)); });
 }
 function delDoc(clientId, field, path){
   if(!confirm('이 서류를 삭제할까요?')) return;
-  fetch(SB_URL+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path), {
-    method:'DELETE', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-  }).then(function(){ var o={ID:clientId}; o[field]=''; var c=DB.광고주.filter(function(x){return x.ID===clientId;})[0]; if(c) c[field]=''; return gs('updateClient',o); })
+  docFn('del', path)
+   .then(function(){ var o={ID:clientId}; o[field]=''; var c=DB.광고주.filter(function(x){return x.ID===clientId;})[0]; if(c) c[field]=''; return gs('updateClient',o); })
    .then(function(){ toast('🗑 삭제됨'); if(CUR===clientId) openClient(clientId); })
    .catch(function(e){ toast('삭제 실패: '+((e&&e.message)||e)); });
 }
