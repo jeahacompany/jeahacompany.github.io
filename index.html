@@ -112,6 +112,7 @@
   #adminRecordsTable th, #adminRecordsTable td{padding:8px 6px; font-size:12.5px;}
   /* 품목 칸: 길면 …으로 줄이고 마우스 올리면 전체 보임 */
   #adminRecordsTable .prod-cell{max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555; text-align:left;}
+  #adminRecordsTable .plat-cell{max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555;}
   #adminRecordsTable .status-badge{padding:3px 8px; font-size:11px;}
   .status-stack{display:flex; flex-direction:column; gap:3px; align-items:center;}
   .status-row{display:flex; flex-direction:row; flex-wrap:wrap; gap:4px; justify-content:center;}
@@ -145,6 +146,9 @@
   .status-no{background:#f8d7da; color:#a72031;}
   .status-hold{background:#fff0d4; color:#a15c00; border:1px solid #ffc966;}
   .status-hold-off{background:#eee; color:#888;}
+  /* 계산서 발행여부 (회계팀용) */
+  .status-inv{background:#e3f0ff; color:#14548f; border:1px solid #9dc6f5;}
+  .status-inv-off{background:#eee; color:#888;}
   .status-static{cursor:default;}
 
   .settle-cards{display:flex; gap:14px; flex-wrap:wrap; margin:6px 0 4px;}
@@ -433,6 +437,8 @@
               <option value="deposited">💳 입금완료만</option>
               <option value="inProgress">▶ 진행중만</option>
               <option value="notInProgress">⏸ 진행 전만</option>
+              <option value="notInvoiced">🧾 계산서 미발행만</option>
+              <option value="invoiced">🧾 계산서 발행완료만</option>
             </select>
             <button class="btn" onclick="exportRecordsCsv()" style="margin-left:auto;">📥 엑셀 내보내기</button>
             <span id="recCount" style="font-size:13px; color:#888;"></span>
@@ -448,7 +454,7 @@
           <div class="table-scroll">
           <table class="records" id="adminRecordsTable">
             <thead>
-              <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>품목</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>진행·입금·완료 상태</th><th>관리</th></tr>
+              <tr><th>견적번호</th><th>플랫폼</th><th>날짜</th><th>고객사</th><th>품목</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>진행·입금·완료·계산서</th><th>관리</th></tr>
             </thead>
             <tbody id="adminRecordsTbody"></tbody>
           </table>
@@ -860,6 +866,25 @@ function quoteProducts(q){
 function quoteProductLabel(q){
   const n = quoteProducts(q);
   return n.length ? n.join(', ') : '-';
+}
+// 고객사가 적은 플랫폼(쿠팡·스마트스토어·지마켓 등) 뽑기
+function quotePlatformLabel(q){
+  let names = [];
+  if(Array.isArray(q.campaigns) && q.campaigns.length){
+    names = q.campaigns.map(c=>{
+      if(!c) return '';
+      const p = String(c.platform||'').trim();
+      if(!p || p === '선택') return '';
+      return p === '기타' ? (String(c.platformOther||'').trim() || '기타') : p;
+    }).filter(Boolean);
+  }
+  if(!names.length && Array.isArray(q.items)){
+    // 캠페인 정보가 없는 옛 견적은 견적 항목의 '판매처'에서 가져옴
+    names = q.items.filter(x=>String(x.item||'').indexOf('리뷰어')===0)
+                   .map(x=>String(x.seller||'').trim()).filter(Boolean);
+  }
+  const uniq = Array.from(new Set(names));
+  return uniq.length ? uniq.join(', ') : '-';
 }
 function quoteTotalQty(items){
   const r = (items||[]).find(x=>String(x.item||'').indexOf('리뷰어')===0);
@@ -1762,6 +1787,8 @@ function matchStatusFilter(q, sf){
     case 'deposited': return !!q.deposited;
     case 'inProgress': return !!q.inProgress;
     case 'notInProgress': return !q.inProgress;
+    case 'invoiced': return !!q.invoiced;
+    case 'notInvoiced': return !q.invoiced;
     default: return true;
   }
 }
@@ -1787,7 +1814,7 @@ function renderAdminRecords(){
   const viewLbl = recView==='completed' ? '진행완료 ' : recView==='inprogress' ? '진행중 ' : recView==='held' ? '보류 ' : '';
   if(cnt) cnt.textContent = viewLbl + list.length + '건' + (sf || filter ? ' (필터 적용됨)' : '');
   updateRecScopeUI();
-  if(!list.length){ tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
+  if(!list.length){ tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
   list
     .forEach(q=>{
       const mg = quoteProfit(q);
@@ -1801,6 +1828,7 @@ function renderAdminRecords(){
       tr.id = 'mrow-' + q.id;
       tr.innerHTML = `
         <td>${q.quoteNo}</td>
+        <td class="plat-cell" title="${esc(quotePlatformLabel(q))}">${esc(quotePlatformLabel(q))}</td>
         <td>${q.date}${ddBadge}</td>
         <td>${esc(q.client)}</td>
         <td class="prod-cell" title="${esc(quoteProductLabel(q))}">${esc(quoteProductLabel(q))}</td>
@@ -1814,6 +1842,7 @@ function renderAdminRecords(){
             <span class="status-badge ${q.deposited?'status-yes':'status-no'}" onclick="toggleField('${q.id}','deposited')">${q.deposited?'입금완료':'미입금'}</span>
             <span class="status-badge ${q.completed?'status-yes':'status-no'}" onclick="toggleField('${q.id}','completed')">${q.completed?'완료':'미완료'}</span>
             <span class="status-badge ${q.held?'status-hold':'status-hold-off'}" onclick="toggleField('${q.id}','held')">${q.held?'⏸ 보류중':'보류'}</span>
+            <span class="status-badge ${q.invoiced?'status-inv':'status-inv-off'}" onclick="toggleField('${q.id}','invoiced')" title="세금계산서 발행 여부 (회계팀용)">${q.invoiced?'🧾 계산서 발행':'계산서 미발행'}</span>
           </div>
         </td>
         <td>
@@ -1899,9 +1928,10 @@ function exportRecordsCsv(){
       : recView==='held'?q.held : true)
     .filter(q=> matchRecPeriod(q))
     .slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
-  const rows = [['견적번호','날짜','고객사','품목','합계금액(원)','진행','입금','작업완료','보류']];
-  list.forEach(q=> rows.push([q.quoteNo, q.date, q.client, quoteProductLabel(q), Number(q.total)||0,
-    q.inProgress?'진행중':'진행전', q.deposited?'입금':'미입금', q.completed?'완료':'미완료', q.held?'보류':'']));
+  const rows = [['견적번호','플랫폼','날짜','고객사','품목','합계금액(원)','진행','입금','작업완료','보류','계산서']];
+  list.forEach(q=> rows.push([q.quoteNo, quotePlatformLabel(q), q.date, q.client, quoteProductLabel(q), Number(q.total)||0,
+    q.inProgress?'진행중':'진행전', q.deposited?'입금':'미입금', q.completed?'완료':'미완료', q.held?'보류':'',
+    q.invoiced?'발행':'미발행']));
   downloadCsv('전체기록_'+new Date().toISOString().slice(0,10)+'.csv', rows);
 }
 function renderSettlement(){
