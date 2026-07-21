@@ -111,8 +111,8 @@
   table.records th, table.records td{border-bottom:1px solid #eee; padding:9px 8px; font-size:13px; text-align:center; white-space:nowrap; vertical-align:middle;}
   #adminRecordsTable th, #adminRecordsTable td{padding:8px 6px; font-size:12.5px;}
   /* 품목 칸: 길면 …으로 줄이고 마우스 올리면 전체 보임 */
-  #adminRecordsTable .prod-cell{max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555; text-align:left;}
-  #adminRecordsTable .plat-cell{max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555;}
+  #adminRecordsTable .prod-cell{max-width:125px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555; text-align:left;}
+  #adminRecordsTable .plat-cell{max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555;}
   #adminRecordsTable .status-badge{padding:3px 8px; font-size:11px;}
   .status-stack{display:flex; flex-direction:column; gap:3px; align-items:center;}
   .status-row{display:flex; flex-direction:row; flex-wrap:wrap; gap:4px; justify-content:center;}
@@ -166,6 +166,7 @@
   .settle-toolbar .scope-label{color:#a65b00; font-weight:bold;}
   .settle-toolbar .range-btn.on{background:var(--orange); color:#fff; border-color:var(--orange);}
   .settle-toolbar .rec-range-btn.on{background:var(--orange); color:#fff; border-color:var(--orange);}
+  .settle-toolbar .acc-range-btn.on{background:var(--orange); color:#fff; border-color:var(--orange);}
   tr.settle-month td{background:#fff2e6; color:#a65b00; font-weight:800; text-align:left;}
   tr.settle-subtotal td{background:#ffe4cc; font-weight:800; color:#a65b00;}
 
@@ -413,6 +414,7 @@
       <button class="tab-btn active" data-view="admin" data-tab="records">전체 기록</button>
       <button class="tab-btn" data-view="admin" data-tab="clients">고객 관리</button>
       <button class="tab-btn" data-view="admin" data-tab="settlement">💰 정산</button>
+      <button class="tab-btn" data-view="admin" data-tab="accounting">🧾 회계</button>
       <button class="tab-btn" data-view="admin" data-tab="log">📋 접속·업데이트</button>
       <button class="tab-btn" data-view="admin" data-tab="company">회사 설정</button>
     </div>
@@ -437,8 +439,6 @@
               <option value="deposited">💳 입금완료만</option>
               <option value="inProgress">▶ 진행중만</option>
               <option value="notInProgress">⏸ 진행 전만</option>
-              <option value="notInvoiced">🧾 계산서 미발행만</option>
-              <option value="invoiced">🧾 계산서 발행완료만</option>
             </select>
             <button class="btn" onclick="exportRecordsCsv()" style="margin-left:auto;">📥 엑셀 내보내기</button>
             <span id="recCount" style="font-size:13px; color:#888;"></span>
@@ -454,7 +454,7 @@
           <div class="table-scroll">
           <table class="records" id="adminRecordsTable">
             <thead>
-              <tr><th>견적번호</th><th>플랫폼</th><th>날짜</th><th>고객사</th><th>품목</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>진행·입금·완료·계산서</th><th>관리</th></tr>
+              <tr><th>견적번호</th><th>플랫폼</th><th>날짜</th><th>고객사</th><th>품목</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>진행·입금·완료 상태</th><th>관리</th></tr>
             </thead>
             <tbody id="adminRecordsTbody"></tbody>
           </table>
@@ -552,6 +552,38 @@
             <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>수량</th><th>매출</th><th>이익</th><th>건당이익</th><th>세부</th></tr>
           </thead>
           <tbody id="settleTbody"></tbody>
+        </table>
+        </div>
+      </div>
+
+      <!-- ===== 회계 탭: 세금계산서 발행 관리 (회계팀 협업용) ===== -->
+      <div class="tab-content" id="admin-tab-accounting">
+        <div class="settle-toolbar">
+          <label>📅 월 선택 <input type="month" id="accMonth" onchange="onAccMonthChange()"></label>
+          <button class="btn acc-range-btn" data-months="1" onclick="setAccRange(1)">이번 달</button>
+          <button class="btn acc-range-btn" data-months="3" onclick="setAccRange(3)">최근 3개월</button>
+          <button class="btn secondary" onclick="resetAccRange()">전체</button>
+          <select class="filter" id="accFilter" onchange="renderAccounting()">
+            <option value="notInvoiced">🧾 미발행만</option>
+            <option value="invoiced">✅ 발행완료만</option>
+            <option value="">전체 보기</option>
+          </select>
+          <button class="btn" onclick="exportAccountingCsv()" style="margin-left:auto;">📥 회계용 엑셀</button>
+          <span id="accScopeLabel" class="scope-label"></span>
+        </div>
+        <div class="settle-cards">
+          <div class="settle-card"><span class="lbl">대상 건수</span><span class="val" id="accCount">0건</span></div>
+          <div class="settle-card"><span class="lbl">공급가액</span><span class="val" id="accSupply">0원</span></div>
+          <div class="settle-card"><span class="lbl">부가세</span><span class="val" id="accVat">0원</span></div>
+          <div class="settle-card total"><span class="lbl">합계금액</span><span class="val" id="accTotal">0원</span></div>
+        </div>
+        <p class="muted" style="margin:4px 0 10px;">※ <b>계산서</b> 칸을 눌러 발행/미발행을 바꿉니다. 공급가액·부가세는 합계금액에서 자동 계산(합계 = 공급가액 + 10%)됩니다. 관리자만 볼 수 있습니다.</p>
+        <div class="table-scroll">
+        <table class="records" id="accTable">
+          <thead>
+            <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>공급가액</th><th>부가세</th><th>합계금액</th><th>입금</th><th>계산서</th></tr>
+          </thead>
+          <tbody id="accTbody"></tbody>
         </table>
         </div>
       </div>
@@ -1067,6 +1099,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(view==='client' && btn.dataset.tab==='history') renderMyRecords();
     if(view==='admin' && btn.dataset.tab==='records') renderAdminRecords();
     if(view==='admin' && btn.dataset.tab==='settlement') renderSettlement();
+    if(view==='admin' && btn.dataset.tab==='accounting') renderAccounting();
     if(view==='admin' && btn.dataset.tab==='log'){ renderUpdateLog(); }
   });
 });
@@ -1842,7 +1875,6 @@ function renderAdminRecords(){
             <span class="status-badge ${q.deposited?'status-yes':'status-no'}" onclick="toggleField('${q.id}','deposited')">${q.deposited?'입금완료':'미입금'}</span>
             <span class="status-badge ${q.completed?'status-yes':'status-no'}" onclick="toggleField('${q.id}','completed')">${q.completed?'완료':'미완료'}</span>
             <span class="status-badge ${q.held?'status-hold':'status-hold-off'}" onclick="toggleField('${q.id}','held')">${q.held?'⏸ 보류중':'보류'}</span>
-            <span class="status-badge ${q.invoiced?'status-inv':'status-inv-off'}" onclick="toggleField('${q.id}','invoiced')" title="세금계산서 발행 여부 (회계팀용)">${q.invoiced?'🧾 계산서 발행':'계산서 미발행'}</span>
           </div>
         </td>
         <td>
@@ -1858,6 +1890,76 @@ function renderAdminRecords(){
 }
 
 // ---------- 정산: 월 선택 + 견적별 세부 (관리자 전용) ----------
+// ---------- 회계 탭: 세금계산서 발행 관리 ----------
+let accMonths = 0;  // 0=전체 기간
+function onAccMonthChange(){ accMonths = 0; renderAccounting(); }
+function setAccRange(m){ accMonths = m; const el = document.getElementById('accMonth'); if(el) el.value = ''; renderAccounting(); }
+function resetAccRange(){ accMonths = 0; const el = document.getElementById('accMonth'); if(el) el.value = ''; renderAccounting(); }
+function accCutoff(){
+  if(accMonths <= 0) return '';
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (accMonths - 1));
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-01';
+}
+// 현재 회계 탭 조건에 맞는 견적 목록 (날짜 최신순)
+function accList(){
+  const sel = (document.getElementById('accMonth')||{}).value || '';
+  const cut = accCutoff();
+  const f = (document.getElementById('accFilter')||{}).value;
+  return quotes.filter(q=>!q.archived)
+    .filter(q=> sel ? String(q.date||'').slice(0,7)===sel : (cut ? String(q.date||'') >= cut : true))
+    .filter(q=> f==='invoiced' ? !!q.invoiced : f==='notInvoiced' ? !q.invoiced : true)
+    .slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+}
+function renderAccounting(){
+  const sel = (document.getElementById('accMonth')||{}).value || '';
+  document.querySelectorAll('.acc-range-btn').forEach(b=>
+    b.classList.toggle('on', !sel && Number(b.dataset.months) === accMonths));
+  const lbl = document.getElementById('accScopeLabel');
+  if(lbl) lbl.textContent = sel ? ('📌 ' + sel.replace('-','년 ') + '월')
+    : (accMonths === 1 ? '📌 이번 달' : accMonths > 1 ? ('📌 최근 ' + accMonths + '개월') : '📌 전체 기간');
+
+  const list = accList();
+  let sumTotal = 0;
+  list.forEach(q=> sumTotal += Number(q.total)||0);
+  const supply = Math.round(sumTotal / 1.1);           // 합계 = 공급가액 + 부가세(10%)
+  document.getElementById('accCount').textContent  = list.length + '건';
+  document.getElementById('accSupply').textContent = won(supply) + '원';
+  document.getElementById('accVat').textContent    = won(sumTotal - supply) + '원';
+  document.getElementById('accTotal').textContent  = won(sumTotal) + '원';
+
+  const tbody = document.getElementById('accTbody');
+  if(!list.length){ tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
+  tbody.innerHTML = list.map(q=>{
+    const t = Number(q.total)||0, s = Math.round(t/1.1);
+    return `<tr>
+      <td>${esc(q.quoteNo)}</td>
+      <td>${q.date}</td>
+      <td>${esc(q.client)}</td>
+      <td>${won(s)}원</td>
+      <td>${won(t-s)}원</td>
+      <td style="font-weight:bold;">${won(t)}원</td>
+      <td><span class="status-badge ${q.deposited?'status-yes':'status-no'}">${q.deposited?'입금완료':'미입금'}</span></td>
+      <td><span class="status-badge ${q.invoiced?'status-inv':'status-inv-off'}" onclick="toggleInvoiced('${q.id}')" title="누르면 발행/미발행이 바뀝니다">${q.invoiced?'🧾 발행완료':'미발행'}</span></td>
+    </tr>`;
+  }).join('');
+}
+// 계산서 발행여부 토글 (회계 탭 전용 — 목록이 바로 다시 그려짐)
+async function toggleInvoiced(id){
+  const q = quotes.find(x=>x.id===id); if(!q) return;
+  q.invoiced = !q.invoiced;
+  renderAccounting();
+  try{ await call('toggleField', token, id, 'invoiced'); }
+  catch(e){ q.invoiced = !q.invoiced; renderAccounting(); if(!handleSessionError(e)) alert('변경 실패: ' + e.message); }
+}
+function exportAccountingCsv(){
+  const rows = [['견적번호','날짜','고객사','공급가액(원)','부가세(원)','합계금액(원)','입금','계산서']];
+  accList().forEach(q=>{
+    const t = Number(q.total)||0, s = Math.round(t/1.1);
+    rows.push([q.quoteNo, q.date, q.client, s, t-s, t, q.deposited?'입금':'미입금', q.invoiced?'발행':'미발행']);
+  });
+  downloadCsv('회계_계산서_'+new Date().toISOString().slice(0,10)+'.csv', rows);
+}
+
 // ---------- 전체 기록: 기간 필터 ----------
 // 견적이 현재 기간 필터에 들어가나? (월 선택이 우선, 없으면 최근 N개월, 둘 다 없으면 전체)
 function matchRecPeriod(q){
@@ -1928,10 +2030,9 @@ function exportRecordsCsv(){
       : recView==='held'?q.held : true)
     .filter(q=> matchRecPeriod(q))
     .slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
-  const rows = [['견적번호','플랫폼','날짜','고객사','품목','합계금액(원)','진행','입금','작업완료','보류','계산서']];
+  const rows = [['견적번호','플랫폼','날짜','고객사','품목','합계금액(원)','진행','입금','작업완료','보류']];
   list.forEach(q=> rows.push([q.quoteNo, quotePlatformLabel(q), q.date, q.client, quoteProductLabel(q), Number(q.total)||0,
-    q.inProgress?'진행중':'진행전', q.deposited?'입금':'미입금', q.completed?'완료':'미완료', q.held?'보류':'',
-    q.invoiced?'발행':'미발행']));
+    q.inProgress?'진행중':'진행전', q.deposited?'입금':'미입금', q.completed?'완료':'미완료', q.held?'보류':'']));
   downloadCsv('전체기록_'+new Date().toISOString().slice(0,10)+'.csv', rows);
 }
 function renderSettlement(){
