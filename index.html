@@ -111,12 +111,15 @@
   table.records th, table.records td{border-bottom:1px solid #eee; padding:9px 8px; font-size:13px; text-align:center; white-space:nowrap; vertical-align:middle;}
   #adminRecordsTable th, #adminRecordsTable td{padding:8px 6px; font-size:12.5px;}
   /* 품목 칸: 길면 …으로 줄이고 마우스 올리면 전체 보임 */
-  #adminRecordsTable .prod-cell{max-width:125px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555; text-align:left;}
+  /* 품목: 한 줄로 줄이고 마우스 올리면 전체 이름이 말풍선으로 뜸 */
+  #adminRecordsTable .prod-cell{max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555; text-align:left; cursor:help;}
+  #adminRecordsTable .prod-cell:hover{color:#a65b00; text-decoration:underline dotted;}
   #adminRecordsTable .plat-cell{max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555;}
   #adminRecordsTable .status-badge{padding:3px 8px; font-size:11px;}
   .status-stack{display:flex; flex-direction:column; gap:3px; align-items:center;}
-  .status-row{display:flex; flex-direction:row; flex-wrap:wrap; gap:4px; justify-content:center;}
-  #adminRecordsTable .status-row .status-badge{padding:5px 11px; font-size:12px;}
+  /* 상태 배지 4개를 2×2 격자로 가지런히 (줄바꿈으로 흩어지지 않게) */
+  .status-row{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:4px; min-width:150px;}
+  #adminRecordsTable .status-row .status-badge{padding:5px 4px; font-size:11px; text-align:center; white-space:nowrap;}
   .memo-btn.has-memo{background:var(--orange); color:#fff; border-color:var(--orange);}
   .margin-adjust{margin-top:14px; padding:14px 16px; background:#fff; border:1px solid #ffd9b3; border-radius:10px;}
   .margin-adjust .adj-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
@@ -454,7 +457,7 @@
           <div class="table-scroll">
           <table class="records" id="adminRecordsTable">
             <thead>
-              <tr><th>견적번호</th><th>플랫폼</th><th>날짜</th><th>고객사</th><th>품목</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>진행·입금·완료 상태</th><th>관리</th></tr>
+              <tr><th>견적번호</th><th>플랫폼</th><th>날짜</th><th>품목</th><th>합계금액</th><th>수량</th><th>이익</th><th>건당이익</th><th>진행·입금·완료 상태</th><th>관리</th></tr>
             </thead>
             <tbody id="adminRecordsTbody"></tbody>
           </table>
@@ -1847,7 +1850,7 @@ function renderAdminRecords(){
   const viewLbl = recView==='completed' ? '진행완료 ' : recView==='inprogress' ? '진행중 ' : recView==='held' ? '보류 ' : '';
   if(cnt) cnt.textContent = viewLbl + list.length + '건' + (sf || filter ? ' (필터 적용됨)' : '');
   updateRecScopeUI();
-  if(!list.length){ tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
+  if(!list.length){ tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#999; padding:20px;">해당 조건의 견적이 없습니다.</td></tr>'; return; }
   list
     .forEach(q=>{
       const mg = quoteProfit(q);
@@ -1863,8 +1866,7 @@ function renderAdminRecords(){
         <td>${q.quoteNo}</td>
         <td class="plat-cell" title="${esc(quotePlatformLabel(q))}">${esc(quotePlatformLabel(q))}</td>
         <td>${q.date}${ddBadge}</td>
-        <td>${esc(q.client)}</td>
-        <td class="prod-cell" title="${esc(quoteProductLabel(q))}">${esc(quoteProductLabel(q))}</td>
+        <td class="prod-cell" title="${esc(q.client)} — ${esc(quoteProductLabel(q))}">${esc(quoteProductLabel(q))}</td>
         <td>${won(q.total)}원</td>
         <td>${qy}건</td>
         <td class="margin-cell" title="클릭하면 항목별 세부 마진이 펼쳐집니다" onclick="toggleMarginRow('${q.id}','m')">+${won(mg)}원${isMarginOverridden(q)?' <span class="adj-tag">조정</span>':''} ▾</td>
