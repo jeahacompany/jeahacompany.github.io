@@ -941,6 +941,9 @@ var DB = null, ME = null, FILTER = '전체', CUR = null, VIEW = 'client', ASSIGN
 function canSeeMargin(){ return !!(ME && ME.마진보기 === 'Y'); }
 function isAdmin(){ return !!(ME && ME.역할 === 'admin'); }
 function isAccountant(){ return !!(ME && (ME.역할 === 'admin' || ME.역할 === '회계')); } // 지급예정·지급완료 처리 권한
+// 세팅팀: 플레이스 세팅·초반 기초작업만 담당. 계정정보·서류만 쓰면 되고
+// 견적·인스타·블로그·대행비·정산은 업무와 무관해서 화면에서 아예 뺀다.
+function isSetupTeam(){ return !!(ME && ME.역할 === '세팅'); }
 var STATUSES = ['상담','계약','진행중','완료','해지'];
 var TASK_FLOW = { '대기':'진행중', '진행중':'완료', '완료':'대기' };
 var CATALOG = [
@@ -1164,14 +1167,14 @@ function renderStaffView(){
         '<td><input value="'+esc(u.이름||'')+'" onchange="setStaff(\''+u.ID+'\',\'이름\',this.value)"></td>' +
         '<td><input value="'+esc(u.아이디||'')+'" onchange="setStaff(\''+u.ID+'\',\'아이디\',this.value)"></td>' +
         '<td><input value="'+esc(u.비밀번호||'')+'" onchange="setStaff(\''+u.ID+'\',\'비밀번호\',this.value)"></td>' +
-        '<td><select onchange="setStaff(\''+u.ID+'\',\'역할\',this.value)"><option value="admin"'+(u.역할==='admin'?' selected':'')+'>관리자</option><option value="회계"'+(u.역할==='회계'?' selected':'')+'>회계과장</option><option value="staff"'+(u.역할!=='admin'&&u.역할!=='회계'?' selected':'')+'>직원</option></select></td>' +
+        '<td><select onchange="setStaff(\''+u.ID+'\',\'역할\',this.value)"><option value="admin"'+(u.역할==='admin'?' selected':'')+'>관리자</option><option value="회계"'+(u.역할==='회계'?' selected':'')+'>회계과장</option><option value="세팅"'+(u.역할==='세팅'?' selected':'')+'>세팅팀 (계정·서류만)</option><option value="staff"'+(u.역할!=='admin'&&u.역할!=='회계'&&u.역할!=='세팅'?' selected':'')+'>직원</option></select></td>' +
         '<td style="text-align:center"><input type="checkbox" '+(u.마진보기==='Y'?'checked':'')+' onchange="setStaff(\''+u.ID+'\',\'마진보기\',this.checked?\'Y\':\'N\')"></td>' +
         '<td class="ss-act">'+(String(u.아이디)===String(ME&&ME.아이디)?'<span style="color:#bbb;font-size:11px">본인</span>':'<button class="del" onclick="del(\'직원\',\''+u.ID+'\')">삭제</button>')+'</td></tr>';
     }).join('') + '</tbody></table></div>' +
     '<div class="reg-section"><div class="rs-title">+ 직원 추가</div>' +
       '<div class="form-grid" style="grid-template-columns:1fr 1fr 1.2fr auto">' +
       '<input id="ns이름" placeholder="이름 (=아이디)"><input id="ns비번" placeholder="비밀번호" value="1234">' +
-      '<select id="ns역할"><option value="staff">직원 (마진 숨김)</option><option value="회계">회계과장 (지급 처리)</option><option value="admin">관리자 (마진 봄)</option></select>' +
+      '<select id="ns역할"><option value="staff">직원 (마진 숨김)</option><option value="세팅">세팅팀 (계정정보·서류만)</option><option value="회계">회계과장 (지급 처리)</option><option value="admin">관리자 (마진 봄)</option></select>' +
       '<button class="btn-primary" onclick="addStaff()">추가</button></div></div>' +
     '</div></div>';
 }
@@ -1313,6 +1316,8 @@ function costSum(id){ return DB.실행비.filter(function(r){return r.광고주I
 // ─── 메인 렌더 (뷰 디스패처) ───
 var VIEWS = [['today','📅 오늘'],['client','광고주별'],['task','작업 현황'],['influ','📷 인플루언서'],['vendor','🏭 대행비'],['settle','정산'],['register','+ 광고주 등록'],['staff','👥 직원'],['log','📋 로그'],['trash','🗑 삭제함']];
 function visibleViews(){
+  // 세팅팀은 '광고주별' 하나만 — 거기 계정정보·서류가 들어있다
+  if(isSetupTeam()) return VIEWS.filter(function(t){ return t[0]==='client'; });
   return VIEWS.filter(function(t){
     if(t[0]==='settle') return canSeeMargin();   // 정산(마진)은 권한 있는 사람만
     if(t[0]==='staff' || t[0]==='log' || t[0]==='trash') return isAdmin(); // 직원관리·로그·삭제함은 관리자만
@@ -1340,8 +1345,11 @@ function render() {
   var un = DB.작업.filter(function(t){ return !t.담당자 && t.상태!=='완료' && !isDeletedClient(t.광고주ID); }).length;
   var todayN = todayVisits().length;
   var alertHTML = '';
-  if(todayN>0 && VIEW!=='today') alertHTML += '<div class="alert" style="background:#e7f5ff;border-color:#a5d8ff;color:#1971c2" onclick="VIEW=\'today\';render()">📅 오늘 방문·촬영 <b>'+todayN+'건</b> — 눌러서 확인하세요</div>';
-  if(un>0 && VIEW!=='register') alertHTML += '<div class="alert" onclick="VIEW=\'task\';ASSIGNEE=\'미배정\';render()">⚠️ 담당자 미배정 작업 <b>'+un+'건</b> — 눌러서 배정하세요</div>';
+  // 세팅팀에겐 방문·촬영, 작업 배정이 업무가 아니라 알림도 띄우지 않는다 (눌러도 갈 곳이 없음)
+  if(!isSetupTeam()){
+    if(todayN>0 && VIEW!=='today') alertHTML += '<div class="alert" style="background:#e7f5ff;border-color:#a5d8ff;color:#1971c2" onclick="VIEW=\'today\';render()">📅 오늘 방문·촬영 <b>'+todayN+'건</b> — 눌러서 확인하세요</div>';
+    if(un>0 && VIEW!=='register') alertHTML += '<div class="alert" onclick="VIEW=\'task\';ASSIGNEE=\'미배정\';render()">⚠️ 담당자 미배정 작업 <b>'+un+'건</b> — 눌러서 배정하세요</div>';
+  }
   document.getElementById('alertBar').innerHTML = alertHTML;
   if (VIEW==='today') renderTodayView();
   else if (VIEW==='client') renderClientView();
@@ -3020,9 +3028,11 @@ function openClient(id) {
   var costs = DB.실행비.filter(function(r){return r.광고주ID===id;});
   var 입금 = paySum(id), 실행 = totalExecOf(id), 마진 = 입금-실행;
   var clientURL = location.origin + location.pathname.replace(/[^/]*$/,'') + 'client/';
-  var DTABLIST = [['info','🏪 업체정보'],['acct','📋 계정정보'],['docs','📄 서류'],['quote','📄 견적서'],['insta','📷 인스타'],['blog','✍️ 블로그']];
-  if(canSeeMargin()) DTABLIST.push(['settle','💰 정산']);
-  if(!DTABLIST.some(function(t){return t[0]===DTAB;})) DTAB='info';
+  var DTABLIST = isSetupTeam()
+    ? [['acct','📋 계정정보'],['docs','📄 서류']]   // 세팅팀은 이 둘만
+    : [['info','🏪 업체정보'],['acct','📋 계정정보'],['docs','📄 서류'],['quote','📄 견적서'],['insta','📷 인스타'],['blog','✍️ 블로그']];
+  if(canSeeMargin() && !isSetupTeam()) DTABLIST.push(['settle','💰 정산']);
+  if(!DTABLIST.some(function(t){return t[0]===DTAB;})) DTAB=DTABLIST[0][0];  // 없는 탭이면 첫 탭으로 (세팅팀엔 업체정보가 없음)
   var dtabBar = '<div class="dtabs">'+DTABLIST.map(function(t){return '<button class="dtab'+(DTAB===t[0]?' on':'')+'" data-dt="'+t[0]+'" onclick="showDTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
   function dp(tab){ return '<div class="dpane" data-dt="'+tab+'" style="display:'+(DTAB===tab?'':'none')+'">'; }
 
