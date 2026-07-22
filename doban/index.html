@@ -494,6 +494,22 @@
   .ab-ty.free { background:#fff0f6; color:#c2255c; }
   .ab-acct b { font-size:14px; color:#2b2b31; font-variant-numeric:tabular-nums; letter-spacing:.02em; }
   .ab-h { color:#888; }
+  /* 송금에 필요한 값들을 한 줄에 다 펼친다 — 각 칩을 누르면 그 값만 복사 */
+  .ab-chips { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .ab-chip { display:inline-flex; align-items:center; gap:5px; background:#fff; border:1px solid #ffd8a8;
+             border-radius:7px; padding:3px 7px; cursor:pointer; font-family:inherit; font-size:12px; line-height:1.5; }
+  .ab-chip:hover { background:#fff4e6; border-color:#ffa94d; }
+  .ab-chip:active { transform:translateY(1px); }
+  .abc-l { color:#a0724a; font-size:10.5px; font-weight:700; }
+  .abc-v { color:#2b2b31; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:.02em;
+           max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ab-chip.wide .abc-v { max-width:none; }
+  .abc-i { font-size:10px; opacity:.45; }
+  .ab-chip:hover .abc-i { opacity:1; }
+  .ab-miss { font-size:11px; font-weight:700; color:#c92a2a; background:#fff5f5; border-radius:6px; padding:3px 7px; }
+  .ab-docs { display:inline-flex; gap:5px; align-items:center; }
+  .ab-doc { font-size:10.5px; font-weight:700; color:#c92a2a; background:#fff5f5; border-radius:5px; padding:3px 6px; }
+  .ab-doc.ok { color:#2f9e44; background:#ebfbee; }
   .ab-amt { margin-left:auto; color:#888; }
   .ab-amt b { color:#e8590c; font-size:14px; font-variant-numeric:tabular-nums; }
   .sc-vat, .vat-i { font-size:10px; font-weight:800; background:#e7f5ff; color:#1971c2; border-radius:5px; padding:1px 5px; }
@@ -1733,19 +1749,59 @@ function acctBar(name, total){
   if(!v.account) return '<div class="acct-bar none">⚠ <b>'+esc(name)+'</b> 계좌가 아직 없어요 — 송금 불가'+
     '<button class="mini-btn" onclick="event.stopPropagation();copyVendorLink(\''+esc(v.share_code||'')+'\',\''+nm+'\')">📋 입력링크 복사</button>'+
     '<button class="mini-btn" onclick="event.stopPropagation();VIEW=\'vendor\';VQ=\''+nm+'\';render()">등록부에서 열기</button></div>';
-  var line=(v.bank||'')+' '+(v.account||'')+(v.holder?' ('+v.holder+')':'');
+  // 송금·계산서 발행에 필요한 값을 전부 펼쳐 보여준다.
+  // 마우스를 올리거나 등록부로 건너가지 않아도 여기서 바로 읽고 하나씩 복사할 수 있게.
+  var free=(v.vtype==='프리랜서');
+  var chips =
+    abChip('은행', v.bank) +
+    abChip('계좌번호', v.account, 'wide') +
+    abChip('예금주', v.holder) +
+    abChip(free?'주민번호':'사업자번호', free?v.resident_no:v.biz_no, 'wide') +
+    (v.vtype==='세금계산서' ? abChip('계산서 이메일', v.tax_email, 'wide') : '') +
+    abChip('메모', v.memo);
+  // 서류 첨부 여부 — 계산서 끊을 때 사업자등록증이 있는지 여기서 바로 보이게
+  var dot=function(l,p){ return '<span class="ab-doc'+(p?' ok':'')+'">'+(p?'✔':'✗')+' '+l+'</span>'; };
+  chips += '<span class="ab-docs">'+(free?'':dot('사업자등록증',v.doc_bizreg))+dot('통장사본',v.doc_bankbook)+
+           (free?dot('신분증',v.doc_id):'')+'</span>';
+  var missing=[];
+  if(!v.holder) missing.push('예금주');
+  if(!(free?v.resident_no:v.biz_no)) missing.push(free?'주민번호':'사업자번호');
+  if(v.vtype==='세금계산서' && !v.tax_email) missing.push('계산서 이메일');
   return '<div class="acct-bar" onclick="event.stopPropagation()">'+
-    '<span class="ab-ty'+(v.vtype==='프리랜서'?' free':'')+'">'+esc(v.vtype||'유형미정')+'</span>'+
-    '<span class="ab-acct">🏦 <b>'+esc(v.bank||'')+' '+esc(v.account)+'</b>'+(v.holder?' <span class="ab-h">'+esc(v.holder)+'</span>':'')+'</span>'+
+    '<span class="ab-ty'+(free?' free':'')+'">'+esc(v.vtype||'유형미정')+'</span>'+
+    '<div class="ab-chips">'+chips+
+      (missing.length?'<span class="ab-miss">⚠ '+esc(missing.join(', '))+' 없음</span>':'')+'</div>'+
     '<span class="ab-amt">보낼 금액 <b>'+won(total)+'</b>원</span>'+
-    '<button class="mini-btn" onclick="copyAcct(\''+esc(line).replace(/'/g,'')+'\')">📋 계좌 복사</button>'+
+    '<button class="mini-btn" onclick="copyVendorAll(\''+esc(String(name)).replace(/'/g,'')+'\','+total+')">📋 전체 복사</button>'+
   '</div>';
 }
-function copyAcct(t){
-  var done=function(){ toast('📋 계좌 복사됨'); };
+// 값 하나짜리 복사 칩 — 누르면 그 값만 복사된다
+function abChip(label, value, cls){
+  var s=String(value==null?'':value).trim();
+  if(!s) return '';
+  return '<button class="ab-chip'+(cls?' '+cls:'')+'" title="누르면 '+esc(label)+'만 복사돼요"'+
+    ' onclick="event.stopPropagation();copyField(\''+esc(s).replace(/'/g,'')+'\',\''+esc(label)+'\')">'+
+    '<span class="abc-l">'+esc(label)+'</span><span class="abc-v">'+esc(s)+'</span><span class="abc-i">📋</span></button>';
+}
+function copyField(t, label){
+  var done=function(){ toast('📋 '+(label||'')+' 복사됨'); };
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done).catch(function(){ prompt('복사하세요',t); });
   else prompt('복사하세요',t);
 }
+// 카톡 등에 그대로 붙여넣을 수 있게 한 덩어리로
+function copyVendorAll(name, total){
+  var v=findVendor(name); if(!v) return;
+  var free=(v.vtype==='프리랜서'), L=[];
+  L.push(String(name)+' ('+(v.vtype||'유형미정')+')');
+  if(v.bank||v.account) L.push('계좌: '+(v.bank||'')+' '+(v.account||''));
+  if(v.holder) L.push('예금주: '+v.holder);
+  if(free ? v.resident_no : v.biz_no) L.push((free?'주민번호: ':'사업자번호: ')+(free?v.resident_no:v.biz_no));
+  if(v.vtype==='세금계산서' && v.tax_email) L.push('계산서 이메일: '+v.tax_email);
+  if(v.memo) L.push('메모: '+v.memo);
+  if(total) L.push('보낼 금액: '+won(total)+'원');
+  copyField(L.join('\n'), '전체 정보');
+}
+function copyAcct(t){ copyField(t, '계좌'); }
 // 견적에 항목은 잡혔는데 아직 실행비(나갈 돈)가 안 정해진 것 — 잊지 않게 원장에 남긴다
 // ★ 견적서의 '실행' 칸과 똑같은 필드(작업.실행회사/실행비용)를 쓴다. 어느 쪽에 적든 같은 곳에 저장되고,
 //   값이 들어가는 순간 이 목록에서 빠지므로 이중 입력이 될 수 없다.
