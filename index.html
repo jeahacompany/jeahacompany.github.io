@@ -111,6 +111,10 @@
   table.records th, table.records td{border-bottom:1px solid #eee; padding:9px 8px; font-size:13px; text-align:center; white-space:nowrap; vertical-align:middle;}
   #adminRecordsTable th, #adminRecordsTable td{padding:8px 6px; font-size:12.5px;}
   /* 품목 칸: 길면 …으로 줄이고 마우스 올리면 전체 보임 */
+  /* 잘린 칸에 마우스 올리면 바로 뜨는 말풍선 (브라우저 기본 툴팁은 느려서 직접 만듦) */
+  #cellTip{position:fixed; z-index:9999; max-width:420px; background:#2c2c2a; color:#fff; padding:9px 12px;
+           border-radius:8px; font-size:12.5px; line-height:1.55; box-shadow:0 6px 18px rgba(0,0,0,0.25);
+           display:none; pointer-events:none; white-space:normal; word-break:break-all;}
   /* 품목: 한 줄로 줄이고 마우스 올리면 전체 이름이 말풍선으로 뜸 */
   #adminRecordsTable .prod-cell{max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#555; text-align:left; cursor:help;}
   #adminRecordsTable .prod-cell:hover{color:#a65b00; text-decoration:underline dotted;}
@@ -1864,9 +1868,9 @@ function renderAdminRecords(){
       tr.id = 'mrow-' + q.id;
       tr.innerHTML = `
         <td>${q.quoteNo}</td>
-        <td class="plat-cell" title="${esc(quotePlatformLabel(q))}">${esc(quotePlatformLabel(q))}</td>
+        <td class="plat-cell" data-full="${esc(quotePlatformLabel(q))}">${esc(quotePlatformLabel(q))}</td>
         <td>${q.date}${ddBadge}</td>
-        <td class="prod-cell" title="${esc(q.client)} — ${esc(quoteProductLabel(q))}">${esc(quoteProductLabel(q))}</td>
+        <td class="prod-cell" data-full="${esc(q.client)} — ${esc(quoteProductLabel(q))}">${esc(quoteProductLabel(q))}</td>
         <td>${won(q.total)}원</td>
         <td>${qy}건</td>
         <td class="margin-cell" title="클릭하면 항목별 세부 마진이 펼쳐집니다" onclick="toggleMarginRow('${q.id}','m')">+${won(mg)}원${isMarginOverridden(q)?' <span class="adj-tag">조정</span>':''} ▾</td>
@@ -2407,6 +2411,38 @@ document.getElementById('loginPass').addEventListener('keydown', e=>{ if(e.key==
 document.getElementById('quoteDate').valueAsDate = new Date();
 
 function getSavedLogin(){ try{ return JSON.parse(localStorage.getItem('qa_login') || 'null'); }catch(e){ return null; } }
+
+// ---------- 잘린 칸(품목·플랫폼) 전체 내용 말풍선 ----------
+// 브라우저 기본 title 툴팁은 1초 이상 기다려야 떠서, 즉시 뜨는 말풍선을 직접 만든다.
+(function(){
+  const tip = document.createElement('div');
+  tip.id = 'cellTip';
+  document.body.appendChild(tip);
+  const SEL = '.prod-cell, .plat-cell';
+  function place(e){
+    const pad = 14;
+    const r = tip.getBoundingClientRect();
+    let x = e.clientX + pad, y = e.clientY + pad;
+    if(x + r.width > window.innerWidth - 8) x = Math.max(8, window.innerWidth - r.width - 8);
+    if(y + r.height > window.innerHeight - 8) y = Math.max(8, e.clientY - r.height - pad);
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  document.addEventListener('mouseover', function(e){
+    const el = e.target.closest ? e.target.closest(SEL) : null;
+    if(!el) return;
+    const full = el.dataset.full || '';
+    // 잘리지 않은(다 보이는) 칸이면 굳이 안 띄움
+    if(!full || (el.scrollWidth <= el.clientWidth + 1 && full.indexOf('—') === -1)) return;
+    tip.textContent = full;
+    tip.style.display = 'block';
+    place(e);
+  });
+  document.addEventListener('mousemove', function(e){ if(tip.style.display === 'block') place(e); });
+  document.addEventListener('mouseout', function(e){
+    if(e.target.closest && e.target.closest(SEL)) tip.style.display = 'none';
+  });
+  document.addEventListener('scroll', function(){ tip.style.display = 'none'; }, true);
+})();
 
 // ---------- 버전 표기 + 전역 에러 자동기록 ----------
 const APP_VERSION = 'v2.0.0';
