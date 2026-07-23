@@ -104,6 +104,19 @@
   .log .d { color:#e8590c; font-size:12px; font-weight:600; }
   footer { text-align:center; color:#aaa; font-size:12px; margin-top:26px; line-height:1.7; }
   .none { text-align:center; color:#aaa; padding:20px; font-size:13px; }
+  /* 세팅 진행 스토리 (점주 읽기 전용) */
+  .su-c-row { display:flex; align-items:center; gap:11px; padding:11px 2px; border-bottom:1px solid #f4f4f4; }
+  .su-c-row:last-child { border-bottom:none; }
+  .su-c-dot { width:11px; height:11px; border-radius:50%; flex:none; background:#dee2e6; }
+  .su-c-dot.prog { background:#f59f00; box-shadow:0 0 0 3px #fff3bf; }
+  .su-c-dot.done { background:#2f9e44; box-shadow:0 0 0 3px #d3f9d8; }
+  .su-c-body { flex:1; min-width:0; }
+  .su-c-body b { font-size:14px; font-weight:700; color:#333; }
+  .su-c-body small { display:block; font-size:11.5px; color:#999; margin-top:2px; }
+  .su-c-badge { font-size:11.5px; font-weight:800; border-radius:8px; padding:4px 9px; flex:none; }
+  .su-c-badge.wait { background:#f1f3f5; color:#868e96; }
+  .su-c-badge.prog { background:#fff3bf; color:#b8860b; }
+  .su-c-badge.done { background:#2f9e44; color:#fff; }
   .cc-group { margin-bottom:14px; }
   .cc-group:last-child { margin-bottom:0; }
   .rgroup { margin-bottom:12px; }
@@ -455,6 +468,29 @@ function docTabHTML(){
   '</div>';
 }
 function refreshDocTab(){ var e=document.getElementById('tab-doc'); if(e) e.innerHTML=docTabHTML(); }
+// 세팅 진행 — 점주에게는 읽기 전용 스토리 (관리자·세팅팀이 기록한 것)
+function setupTabHTML(){
+  var arr=[];
+  try{ if(data&&data.setup_steps){ var a=JSON.parse(data.setup_steps); if(Array.isArray(a)) arr=a; } }catch(e){}
+  if(!arr.length) return '<div class="sec"><h3>🛠 세팅 진행</h3><div class="none">아직 세팅 진행 내역이 없어요.</div></div>';
+  var doneN=arr.filter(function(s){return s.status==='완료';}).length;
+  var pct=arr.length?Math.round(doneN/arr.length*100):0;
+  var rows=arr.map(function(s){
+    var cls=s.status==='완료'?'done':(s.status==='진행중'?'prog':'wait');
+    var when;
+    if(s.status==='완료') when=(s.started||'')+((s.done&&s.done!==s.started)?' ~ '+s.done:'')+' · 완료';
+    else if(s.status==='진행중') when=(s.started?s.started+' 시작 · 진행중':'진행중');
+    else when='대기 중';
+    return '<div class="su-c-row"><span class="su-c-dot '+cls+'"></span>'+
+      '<div class="su-c-body"><b>'+esc(s.item||'')+'</b><small>'+esc(when)+'</small></div>'+
+      '<span class="su-c-badge '+cls+'">'+esc(s.status||'대기')+'</span></div>';
+  }).join('');
+  return '<div class="bar-wrap"><div class="bar-top"><b>세팅 진행률</b><span>'+doneN+'/'+arr.length+' 완료 ('+pct+'%)</span></div>'+
+    '<div class="bar"><div style="width:'+pct+'%"></div></div></div>'+
+    '<div class="sec"><h3>🛠 세팅 진행</h3>'+
+    '<div style="font-size:12px;color:#999;margin-bottom:10px">플레이스·기초 세팅 작업의 진행 상황이에요.</div>'+
+    rows+'</div>';
+}
 function saveDocEmail(v){ if(data) data.tax_email=v; clearTimeout(window._deT); window._deT=setTimeout(function(){ if(CODE) sbRpc('client_save_doc',{p_code:CODE,p_field:'tax_email',p_val:v}).catch(function(){}); },600); }
 function cUploadDoc(field, inp){
   var f=inp.files&&inp.files[0]; if(!f) return;
@@ -545,6 +581,7 @@ function renderApp() {
     todayBanner +
     '<div id="tab-today" class="tabpane">'+todayTabHTML()+'</div>' +
     '<div id="tab-home" class="tabpane" style="display:none">'+homeTab+'</div>' +
+    '<div id="tab-setup" class="tabpane" style="display:none">'+setupTabHTML()+'</div>' +
     '<div id="tab-insta" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [], 'insta')+'</div>' +
     '<div id="tab-blog" class="tabpane" style="display:none">'+contentSection(data.콘텐츠 || [], 'blog')+'</div>' +
     '<div id="tab-info" class="tabpane" style="display:none">'+infoTab+'</div>' +
@@ -553,6 +590,7 @@ function renderApp() {
     '<nav class="tabbar">' +
       '<button class="on" onclick="showTab(\'today\',this)"><span class="ic">📅</span>오늘</button>' +
       '<button onclick="showTab(\'home\',this)"><span class="ic">📊</span>진행현황</button>' +
+      '<button onclick="showTab(\'setup\',this)"><span class="ic">🛠</span>세팅</button>' +
       '<button onclick="showTab(\'insta\',this)"><span class="ic">📷</span>인스타</button>' +
       '<button onclick="showTab(\'blog\',this)"><span class="ic">✍️</span>블로그</button>' +
       '<button onclick="showTab(\'info\',this)"><span class="ic">📋</span>내정보</button>' +

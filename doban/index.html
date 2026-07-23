@@ -272,6 +272,22 @@
   .dtab.on { background:#e8590c; color:#fff; border-color:#e8590c; }
   .dtab:hover:not(.on) { background:#fff4ec; }
   .round-date { border:1px solid #e3e3e3; border-radius:7px; padding:5px 8px; font-size:12px; margin:0 8px; }
+  /* 세팅 진행 표 */
+  .su-tbl { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .su-tbl th { text-align:left; color:#999; font-size:11.5px; font-weight:700; padding:6px 8px; border-bottom:1px solid #eee; }
+  .su-tbl td { padding:6px 8px; border-bottom:1px solid #f4f4f4; vertical-align:middle; }
+  .su-item { width:100%; min-width:120px; border:1px solid transparent; border-radius:7px; padding:7px 8px; font-size:13.5px; font-weight:600; background:transparent; }
+  .su-item:hover, .su-item:focus { border-color:#e5e5e5; background:#fff; outline:none; }
+  .su-st { border:none; border-radius:8px; padding:6px 10px; font-size:12.5px; font-weight:800; cursor:pointer; -webkit-appearance:none; appearance:none; text-align:center; }
+  .su-st.wait { background:#f1f3f5; color:#868e96; }
+  .su-st.prog { background:#fff3bf; color:#b8860b; }
+  .su-st.done { background:#2f9e44; color:#fff; }
+  .su-date { border:1px solid #e5e5e5; border-radius:7px; padding:6px 7px; font-size:12.5px; color:#555; }
+  .su-del { border:none; background:#fff5f5; color:#e03131; border-radius:7px; width:26px; height:26px; cursor:pointer; font-weight:700; }
+  .su-del:hover { background:#ffe3e3; }
+  .su-add { display:flex; gap:7px; margin-top:12px; }
+  .su-add input { flex:1; border:1.5px solid #ffd8a8; border-radius:9px; padding:9px 11px; font-size:13.5px; }
+  .su-add button { border:none; background:#e8590c; color:#fff; border-radius:9px; padding:0 16px; font-size:13.5px; font-weight:700; cursor:pointer; }
   .panel h2 { font-size:19px; margin-bottom:2px; }
   .panel .sub { font-size:13px; color:#888; margin-bottom:12px; }
   .sec { background:#fff; border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
@@ -2923,6 +2939,75 @@ function renderTodayView(){
 // ── 서류 업로드 (Supabase Storage, 비공개 버킷) ──
 var DOC_BUCKET='docs';
 function docExt(name){ var m=/\.([a-zA-Z0-9]+)$/.exec(name||''); return m?m[1].toLowerCase():'dat'; }
+// ─── 세팅 진행 (플레이스·기초작업 체크리스트) ───
+// 각 매장의 초반 세팅 항목을 상태·시작일·완료일로 기록한다.
+// 저장은 광고주.setup_steps 에 JSON 문자열. 관리자·세팅팀·직원이 편집, 점주는 읽기.
+var SETUP_DEFAULTS = ['네이버 아이디 가입','인스타 가입','구글 아이디 가입','카카오 아이디 가입',
+  '메타광고 셋팅','플레이스 셋팅','SEO 최적화','카카오맵 등록','구글맵 등록','티맵 등록',
+  '네이버 검색광고 등록','플레이스 컨셉촬영','블로그 체험단','당근 아이디 생성',
+  '인스타 맛집 광고','메타 카드뉴스 제작','현수막 셋팅'];
+var SETUP_STATES = ['대기','진행중','완료'];
+function setupOf(c){
+  var raw=c&&c.setup_steps;
+  if(raw){ try{ var a=JSON.parse(raw); if(Array.isArray(a)) return a; }catch(e){} }
+  return SETUP_DEFAULTS.map(function(it){ return {item:it, status:'대기', started:'', done:''}; });
+}
+function saveSetup(id, arr){
+  var s=JSON.stringify(arr);
+  var c=DB.광고주.filter(function(x){return x.ID===id;})[0]; if(c) c.setup_steps=s;
+  bg(gs('updateClient',{ID:id, setup_steps:s}));
+}
+function setSetupStatus(id, idx, status){
+  var c=DB.광고주.filter(function(x){return x.ID===id;})[0]; var arr=setupOf(c);
+  var st=arr[idx]; if(!st) return;
+  st.status=status; var t=todayISO();
+  if(status==='진행중' && !st.started) st.started=t;         // 시작하면 시작일 자동
+  if(status==='완료'){ if(!st.started) st.started=t; if(!st.done) st.done=t; }  // 끝나면 완료일 자동
+  saveSetup(id, arr);
+  if(CUR===id) openClient(id);   // 배지 색·요약 갱신
+}
+function setSetupDate(id, idx, field, val){   // 날짜 직접 수정 — 저장만 (input 커서 유지)
+  var c=DB.광고주.filter(function(x){return x.ID===id;})[0]; var arr=setupOf(c);
+  if(!arr[idx]) return; arr[idx][field]=val; saveSetup(id, arr);
+}
+function addSetupItem(id){
+  var inp=document.getElementById('suNew'); var name=inp?String(inp.value).trim():''; if(!name) return;
+  var c=DB.광고주.filter(function(x){return x.ID===id;})[0]; var arr=setupOf(c);
+  arr.push({item:name, status:'대기', started:'', done:''}); saveSetup(id, arr);
+  if(CUR===id) openClient(id);
+}
+function renameSetupItem(id, idx, name){
+  var c=DB.광고주.filter(function(x){return x.ID===id;})[0]; var arr=setupOf(c);
+  if(!arr[idx]) return; arr[idx].item=String(name).trim()||arr[idx].item; saveSetup(id, arr);
+}
+function delSetupItem(id, idx){
+  var c=DB.광고주.filter(function(x){return x.ID===id;})[0]; var arr=setupOf(c);
+  if(!arr[idx]) return;
+  if(!confirm('“'+(arr[idx].item||'')+'” 항목을 지울까요?')) return;
+  arr.splice(idx,1); saveSetup(id, arr);
+  if(CUR===id) openClient(id);
+}
+function setupPaneHTML(id){
+  var c=DB.광고주.filter(function(x){return x.ID===id;})[0]; var arr=setupOf(c);
+  var doneN=arr.filter(function(s){return s.status==='완료';}).length;
+  var progN=arr.filter(function(s){return s.status==='진행중';}).length;
+  var rows=arr.map(function(st,i){
+    var cls=st.status==='완료'?'done':(st.status==='진행중'?'prog':'wait');
+    return '<tr>'+
+      '<td><input class="su-item" value="'+esc(st.item||'')+'" onchange="renameSetupItem(\''+id+'\','+i+',this.value)"></td>'+
+      '<td><select class="su-st '+cls+'" onchange="setSetupStatus(\''+id+'\','+i+',this.value)">'+
+        SETUP_STATES.map(function(s){return '<option'+(st.status===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></td>'+
+      '<td><input type="date" class="su-date" value="'+esc(st.started||'')+'" onchange="setSetupDate(\''+id+'\','+i+',\'started\',this.value)"></td>'+
+      '<td><input type="date" class="su-date" value="'+esc(st.done||'')+'" onchange="setSetupDate(\''+id+'\','+i+',\'done\',this.value)"></td>'+
+      '<td><button class="su-del" title="이 항목 삭제" onclick="delSetupItem(\''+id+'\','+i+')">✕</button></td>'+
+    '</tr>';
+  }).join('');
+  return '<div class="sec"><h3>🛠 세팅 진행 <span style="font-size:11px;color:#999;font-weight:400">· 플레이스·초반 기초작업 · 완료 '+doneN+' / 진행중 '+progN+' / 전체 '+arr.length+'</span></h3>'+
+    '<table class="su-tbl"><thead><tr><th>항목</th><th>상태</th><th>시작일</th><th>완료일</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="su-add"><input id="suNew" placeholder="+ 항목 추가 (예: 배달앱 등록)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addSetupItem(\''+id+'\');}"><button onclick="addSetupItem(\''+id+'\')">추가</button></div>'+
+    '<p style="font-size:12px;color:#aaa;margin-top:8px">상태를 <b>진행중</b>·<b>완료</b>로 바꾸면 날짜가 자동으로 채워져요(직접 수정도 됩니다). 이 진행 상황은 <b>점주 화면</b>에도 그대로 보입니다.</p>'+
+  '</div>';
+}
 function docRow(label, field, c, id){
   var path=c[field]||'', fname=path?path.split('/').pop():'';
   return '<div class="docrow"><span class="doclabel">'+label+'</span>'+
@@ -3029,8 +3114,8 @@ function openClient(id) {
   var 입금 = paySum(id), 실행 = totalExecOf(id), 마진 = 입금-실행;
   var clientURL = location.origin + location.pathname.replace(/[^/]*$/,'') + 'client/';
   var DTABLIST = isSetupTeam()
-    ? [['acct','📋 계정정보'],['docs','📄 서류']]   // 세팅팀은 이 둘만
-    : [['info','🏪 업체정보'],['acct','📋 계정정보'],['docs','📄 서류'],['quote','📄 견적서'],['insta','📷 인스타'],['blog','✍️ 블로그']];
+    ? [['setup','🛠 세팅 진행'],['acct','📋 계정정보'],['docs','📄 서류']]   // 세팅팀: 세팅이 주업무
+    : [['info','🏪 업체정보'],['setup','🛠 세팅 진행'],['acct','📋 계정정보'],['docs','📄 서류'],['quote','📄 견적서'],['insta','📷 인스타'],['blog','✍️ 블로그']];
   if(canSeeMargin() && !isSetupTeam()) DTABLIST.push(['settle','💰 정산']);
   if(!DTABLIST.some(function(t){return t[0]===DTAB;})) DTAB=DTABLIST[0][0];  // 없는 탭이면 첫 탭으로 (세팅팀엔 업체정보가 없음)
   var dtabBar = '<div class="dtabs">'+DTABLIST.map(function(t){return '<button class="dtab'+(DTAB===t[0]?' on':'')+'" data-dt="'+t[0]+'" onclick="showDTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
@@ -3084,6 +3169,8 @@ function openClient(id) {
     docRow('대표자 신분증','doc_idcard',c,id) +
     '<small style="color:#999;display:block;margin-top:8px">파일을 올리면 [보기]로 언제든 열 수 있어요 (이미지·PDF, 10MB 이하). 보안상 비공개 저장돼요.</small>' +
   '</div>' +
+  '</div>' + dp('setup') +
+  setupPaneHTML(id) +
   '</div>' + dp('quote') +
   '<div class="sec"><h3>견적·작업 · 계약 총액 '+won(contractOf(id))+'원 ' +
       (canSeeMargin()?'<button class="mg-toggle" onclick="SHOWMARGIN=!SHOWMARGIN;openClient(\''+id+'\')">'+(SHOWMARGIN?'원가·마진 숨기기':'원가·마진 보기')+'</button>':'')+'</h3>' +
