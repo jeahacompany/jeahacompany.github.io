@@ -3695,7 +3695,8 @@ function seedTableHTML(id, groups){
       var _bud=budgetOf(id,g[0],r), _used=feeSumOf(id,g[0],r), _left=_bud-_used;
       var _bt=budgetTaskOf(id,g[0],r), _set=hasSetBudget(id,g[0],r), _q=quoteOf(id,g[0],r);
       // 예산은 관리자만 잡을 수 있음. 실무자는 잡힌 금액만 보고 그 안에서 움직임.
-      var budCell = (canSeeMargin() && _bt && g[0]==='인플루언서')   // 인스타(인플루언서)만 예산을 따로 잡음
+      // 인스타(인플루언서)·블로그 둘 다 예산을 따로 잡을 수 있다.
+      var budCell = (canSeeMargin() && _bt)
         ? '<input class="sc-bud'+(_set?' set':'')+'" inputmode="numeric" value="'+(_bud?_bud.toLocaleString('ko-KR'):'')+'"'+
           ' placeholder="'+(_q?_q.toLocaleString('ko-KR'):'0')+'" title="실무자가 쓸 수 있는 한도예요.\n비우면 견적 금액('+won(_q)+'원)을 그대로 씁니다."'+
           ' oninput="fmtNum(this)" onchange="fmtNum(this);setExecBudget(\''+_bt.ID+'\',this.value)">'
@@ -3703,7 +3704,7 @@ function seedTableHTML(id, groups){
       var calc='<div class="seed-calc'+(_left<0?' over':'')+'">'+
         '<span class="sc-vat" title="예산·대행비 모두 부가세 포함 기준입니다">VAT 포함</span>'+
         '<span class="sc-i">예산 '+budCell+'</span>'+
-        (_set&&SHOWMARGIN?'<span class="sc-q" title="고객 견적 금액">견적 '+won(_q)+'</span>':'')+
+        (canSeeMargin() && _q ? '<span class="sc-q" title="고객에게 청구한 견적 금액">청구견적 '+won(_q)+'</span>':'')+
         '<span class="sc-op">−</span>'+
         '<span class="sc-i">진행 실행비 <b>'+won(_used)+'</b></span>'+
         '<span class="sc-op">=</span>'+
