@@ -52,6 +52,19 @@
   .saved.on { opacity:1; }
   footer { text-align:center; color:#999; font-size:12.5px; margin-top:22px; line-height:1.9; background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
   footer b { color:#555; }
+  /* 우리(도반글로벌) 사업자 안내 — 세금계산서 발행용 */
+  .biz-sec { border:1.5px solid #ffd8a8; }
+  .biz-info { border:1px solid #f0ece6; border-radius:11px; overflow:hidden; margin:4px 0 12px; }
+  .biz-row { display:flex; font-size:13.5px; border-top:1px solid #f4f0ea; }
+  .biz-row:first-child { border-top:none; }
+  .biz-row .bl { width:112px; flex:none; background:#fff9f2; color:#a0724a; font-weight:700; padding:9px 11px; font-size:12.5px; }
+  .biz-row .bv { padding:9px 11px; color:#2b2b31; font-weight:600; word-break:break-all; }
+  .biz-btns { display:flex; gap:8px; margin-bottom:12px; }
+  .biz-btns button, .biz-btns a { flex:1; text-align:center; border:1.5px solid #ffc999; background:#fff7f0; color:#e8590c;
+    border-radius:11px; padding:12px; font-size:14px; font-weight:800; cursor:pointer; text-decoration:none; }
+  .biz-btns button:active, .biz-btns a:active { background:#ffeede; }
+  .biz-img { width:100%; border:1px solid #eee; border-radius:11px; display:block; }
+  .biz-imgcap { text-align:center; font-size:11.5px; color:#bbb; margin-top:6px; }
 </style>
 </head>
 <body>
@@ -63,6 +76,19 @@ var SB_KEY='sb_publishable_KxsYIOy5d4i7TR5PVBExLg_8UvNz6v9';
 var BUCKET='docs';
 var CODE=(new URLSearchParams(location.search)).get('c')||'';
 var D=null;
+// 우리(도반글로벌) 사업자 — 세금계산서를 이 사업자로 발행받는다. 거래처에 공유하는 공개 서류.
+var COMPANY={
+  name:'도반글로벌 유한회사', bizno:'283-81-04124', ceo:'정시헌',
+  addr:'광주광역시 광산구 왕버들로 101, 2층(수완동)', email:'doban2026@gmail.com',
+  img:'doban_bizreg.jpg'   // 같은 폴더의 정적 이미지
+};
+function copyCompany(){
+  var t=COMPANY.name+'\n등록번호: '+COMPANY.bizno+'\n대표자: '+COMPANY.ceo+
+        '\n주소: '+COMPANY.addr+'\n전자세금계산서 이메일: '+COMPANY.email;
+  var done=function(){ toast(); };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done).catch(function(){ prompt('복사하세요',t); });
+  else prompt('복사하세요',t);
+}
 function sbRpc(fn,args){
   return fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',
     headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
@@ -175,6 +201,28 @@ function render(){
       '<span class="g-sub">사업자가 있으신 분은 사업자등록증 + 통장사본만 올려주세요.</span></div>'+
       docs+
       '<div class="note">📎 휴대폰으로 찍은 사진도 괜찮아요. 안전하게 <b>비공개</b>로 보관되며 도반글로벌 담당자만 확인합니다.</div></div>'+
+
+    // 세금계산서로 받는 분에게는 우리 사업자를 안내 — 이 사업자로 계산서를 끊어주셔야 함
+    (D.vtype==='세금계산서'
+      ? '<div class="sec biz-sec"><h3>🧾 세금계산서는 이 사업자로 발행해 주세요</h3>'+
+          '<div class="note" style="color:#7a3708;font-size:13px;margin:0 0 12px">'+
+            '세금계산서를 <b>아래 도반글로벌 유한회사</b> 사업자로 발행해 주세요. 사업자등록증을 함께 올려두었으니 '+
+            '<b>정보 복사</b>하거나 <b>이미지를 저장</b>해서 쓰시면 됩니다. 계산서는 <b>'+esc(COMPANY.email)+'</b> 로 보내주세요.</div>'+
+          '<div class="biz-info">'+
+            '<div class="biz-row"><span class="bl">상호</span><span class="bv">'+esc(COMPANY.name)+'</span></div>'+
+            '<div class="biz-row"><span class="bl">등록번호</span><span class="bv">'+esc(COMPANY.bizno)+'</span></div>'+
+            '<div class="biz-row"><span class="bl">대표자</span><span class="bv">'+esc(COMPANY.ceo)+'</span></div>'+
+            '<div class="biz-row"><span class="bl">주소</span><span class="bv">'+esc(COMPANY.addr)+'</span></div>'+
+            '<div class="biz-row"><span class="bl">계산서 이메일</span><span class="bv">'+esc(COMPANY.email)+'</span></div>'+
+          '</div>'+
+          '<div class="biz-btns">'+
+            '<button onclick="copyCompany()">📋 사업자 정보 복사</button>'+
+            '<a href="'+esc(COMPANY.img)+'" download="도반글로벌_사업자등록증.jpg">⬇️ 이미지 저장</a>'+
+          '</div>'+
+          '<a href="'+esc(COMPANY.img)+'" target="_blank" rel="noopener"><img class="biz-img" src="'+esc(COMPANY.img)+'" alt="도반글로벌 사업자등록증"></a>'+
+          '<div class="biz-imgcap">👆 눌러서 크게 보기 · 위 버튼으로 저장</div>'+
+        '</div>'
+      : '')+
 
     '<div class="chk"><h3>✅ 진행 상황</h3>'+
       need.map(function(n){ return '<div class="ci '+(n[1]?'done':'miss')+'"><span class="ic">'+(n[1]?'✔':'○')+'</span>'+esc(n[0])+'</div>'; }).join('')+
