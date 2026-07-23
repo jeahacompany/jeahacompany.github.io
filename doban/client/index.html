@@ -469,10 +469,16 @@ function docTabHTML(){
 }
 function refreshDocTab(){ var e=document.getElementById('tab-doc'); if(e) e.innerHTML=docTabHTML(); }
 // 세팅 진행 — 점주에게는 읽기 전용 스토리 (관리자·세팅팀이 기록한 것)
+// 관리자 화면(index.html)의 SETUP_DEFAULTS 와 같은 기본 목록 — 저장 전이면 '대기'로 보여준다
+var CLIENT_SETUP_DEFAULTS = ['네이버 아이디 가입','인스타 가입','구글 아이디 가입','카카오 아이디 가입',
+  '메타광고 셋팅','플레이스 셋팅','SEO 최적화','카카오맵 등록','구글맵 등록','티맵 등록',
+  '네이버 검색광고 등록','플레이스 컨셉촬영','블로그 체험단','당근 아이디 생성',
+  '인스타 맛집 광고','메타 카드뉴스 제작','현수막 셋팅'];
 function setupTabHTML(){
   var arr=[];
   try{ if(data&&data.setup_steps){ var a=JSON.parse(data.setup_steps); if(Array.isArray(a)) arr=a; } }catch(e){}
-  if(!arr.length) return '<div class="sec"><h3>🛠 세팅 진행</h3><div class="none">아직 세팅 진행 내역이 없어요.</div></div>';
+  // 아직 아무것도 입력 안 한 매장도 점주에게 목록을 보여준다 (관리자 화면과 동일하게, 다 '대기')
+  if(!arr.length) arr = CLIENT_SETUP_DEFAULTS.map(function(it){ return {item:it, status:'대기', started:'', done:''}; });
   var doneN=arr.filter(function(s){return s.status==='완료';}).length;
   var pct=arr.length?Math.round(doneN/arr.length*100):0;
   var rows=arr.map(function(s){
