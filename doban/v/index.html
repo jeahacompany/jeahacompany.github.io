@@ -205,16 +205,17 @@ function render(){
       docs+
       '<div class="note">📎 휴대폰으로 찍은 사진도 괜찮아요. 안전하게 <b>비공개</b>로 보관되며 도반글로벌 담당자만 확인합니다.</div></div>'+
 
-    // 세금계산서로 받는 분에게는 우리 사업자를 안내 — 이 사업자로 계산서를 끊어주셔야 함
-    (D.vtype==='세금계산서'
-      ? '<div class="sec biz-sec">'+
-          '<h3 class="biz-h" onclick="BIZOPEN=!BIZOPEN;render()">🧾 세금계산서는 이 사업자로 발행해 주세요'+
-            '<span class="biz-arw">'+(BIZOPEN?'접기 ▲':'열기 ▼')+'</span></h3>'+
-          (!BIZOPEN
-            ? '<div class="note" style="margin:0">세금계산서 발행에 필요한 <b>우리 회사 사업자등록증</b>이에요. 눌러서 정보 복사·이미지 저장하세요.</div>'
-            : '<div class="note" style="color:#7a3708;font-size:13px;margin:0 0 12px">'+
-            '세금계산서를 <b>아래 도반글로벌 유한회사</b> 사업자로 발행해 주세요. 사업자등록증을 함께 올려두었으니 '+
-            '<b>정보 복사</b>하거나 <b>이미지를 저장</b>해서 쓰시면 됩니다. 계산서는 <b>'+esc(COMPANY.email)+'</b> 로 보내주세요.</div>'+
+    // 세금계산서·현금영수증으로 받는 분에게 우리 사업자를 안내 — 이 사업자로 발행해 주셔야 함 (프리랜서 제외)
+    ((D.vtype==='세금계산서' || D.vtype==='현금영수증')
+      ? (function(){
+          var w=(D.vtype==='현금영수증')?'현금영수증':'세금계산서';
+          var neun=(D.vtype==='현금영수증')?'은':'는', eul=(D.vtype==='현금영수증')?'을':'를';
+          return '<div class="sec biz-sec">'+
+          '<h3>🧾 '+w+neun+' 이 사업자로 발행해 주세요</h3>'+
+          '<div class="note" style="color:#7a3708;font-size:13px;margin:0 0 12px">'+
+            w+eul+' <b>아래 도반글로벌 유한회사</b> 사업자로 발행해 주세요. 사업자등록증을 함께 올려두었으니 '+
+            '<b>정보 복사</b>하거나 <b>이미지를 저장</b>해서 쓰시면 됩니다.'+
+            (D.vtype==='세금계산서'?' 계산서는 <b>'+esc(COMPANY.email)+'</b> 로 보내주세요.':'')+'</div>'+
           '<div class="biz-info">'+
             '<div class="biz-row"><span class="bl">상호</span><span class="bv">'+esc(COMPANY.name)+'</span></div>'+
             '<div class="biz-row"><span class="bl">등록번호</span><span class="bv">'+esc(COMPANY.bizno)+'</span></div>'+
@@ -227,8 +228,9 @@ function render(){
             '<a href="'+esc(COMPANY.img)+'" download="도반글로벌_사업자등록증.jpg">⬇️ 이미지 저장</a>'+
           '</div>'+
           '<a href="'+esc(COMPANY.img)+'" target="_blank" rel="noopener"><img class="biz-img" src="'+esc(COMPANY.img)+'" alt="도반글로벌 사업자등록증"></a>'+
-          '<div class="biz-imgcap">👆 눌러서 크게 보기 · 위 버튼으로 저장</div>')+
-        '</div>'
+          '<div class="biz-imgcap">👆 눌러서 크게 보기 · 위 버튼으로 저장</div>'+
+        '</div>';
+        })()
       : '')+
 
     '<div class="chk"><h3>✅ 진행 상황</h3>'+
