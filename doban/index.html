@@ -2961,8 +2961,9 @@ function setSetupStatus(id, idx, status){
   var c=DB.광고주.filter(function(x){return x.ID===id;})[0]; var arr=setupOf(c);
   var st=arr[idx]; if(!st) return;
   st.status=status; var t=todayISO();
-  if(status==='진행중' && !st.started) st.started=t;         // 시작하면 시작일 자동
-  if(status==='완료'){ if(!st.started) st.started=t; if(!st.done) st.done=t; }  // 끝나면 완료일 자동
+  if(status==='진행중'){ if(!st.started) st.started=t; st.done=''; }  // 시작일 자동 · 완료일은 비움(아직 진행중)
+  else if(status==='완료'){ if(!st.started) st.started=t; st.done=t; } // 완료일 자동
+  else { st.started=''; st.done=''; }                                 // 대기로 되돌리면 날짜 초기화(잘못 눌렀을 때)
   saveSetup(id, arr);
   if(CUR===id) openClient(id);   // 배지 색·요약 갱신
 }
@@ -2997,8 +2998,8 @@ function setupPaneHTML(id){
       '<td><input class="su-item" value="'+esc(st.item||'')+'" onchange="renameSetupItem(\''+id+'\','+i+',this.value)"></td>'+
       '<td><select class="su-st '+cls+'" onchange="setSetupStatus(\''+id+'\','+i+',this.value)">'+
         SETUP_STATES.map(function(s){return '<option'+(st.status===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></td>'+
-      '<td><input type="date" class="su-date" value="'+esc(st.started||'')+'" onchange="setSetupDate(\''+id+'\','+i+',\'started\',this.value)"></td>'+
-      '<td><input type="date" class="su-date" value="'+esc(st.done||'')+'" onchange="setSetupDate(\''+id+'\','+i+',\'done\',this.value)"></td>'+
+      '<td><input type="date" class="su-date" value="'+esc(st.started||'')+'" onclick="try{this.showPicker()}catch(e){}" onchange="setSetupDate(\''+id+'\','+i+',\'started\',this.value)"></td>'+
+      '<td><input type="date" class="su-date" value="'+esc(st.done||'')+'" onclick="try{this.showPicker()}catch(e){}" onchange="setSetupDate(\''+id+'\','+i+',\'done\',this.value)"></td>'+
       '<td><button class="su-del" title="이 항목 삭제" onclick="delSetupItem(\''+id+'\','+i+')">✕</button></td>'+
     '</tr>';
   }).join('');
