@@ -65,6 +65,8 @@
   .biz-btns button:active, .biz-btns a:active { background:#ffeede; }
   .biz-img { width:100%; border:1px solid #eee; border-radius:11px; display:block; }
   .biz-imgcap { text-align:center; font-size:11.5px; color:#bbb; margin-top:6px; }
+  .biz-h { cursor:pointer; display:flex; justify-content:space-between; align-items:center; margin-bottom:0; }
+  .biz-arw { font-size:12px; color:#e8590c; font-weight:700; background:#fff7f0; border:1px solid #ffd8a8; border-radius:8px; padding:3px 9px; }
 </style>
 </head>
 <body>
@@ -76,6 +78,7 @@ var SB_KEY='sb_publishable_KxsYIOy5d4i7TR5PVBExLg_8UvNz6v9';
 var BUCKET='docs';
 var CODE=(new URLSearchParams(location.search)).get('c')||'';
 var D=null;
+var BIZOPEN=false;   // 세금계산서 사업자 카드 — 기본 접힘, 눌러야 펴짐
 // 우리(도반글로벌) 사업자 — 세금계산서를 이 사업자로 발행받는다. 거래처에 공유하는 공개 서류.
 var COMPANY={
   name:'도반글로벌 유한회사', bizno:'283-81-04124', ceo:'정시헌',
@@ -204,8 +207,12 @@ function render(){
 
     // 세금계산서로 받는 분에게는 우리 사업자를 안내 — 이 사업자로 계산서를 끊어주셔야 함
     (D.vtype==='세금계산서'
-      ? '<div class="sec biz-sec"><h3>🧾 세금계산서는 이 사업자로 발행해 주세요</h3>'+
-          '<div class="note" style="color:#7a3708;font-size:13px;margin:0 0 12px">'+
+      ? '<div class="sec biz-sec">'+
+          '<h3 class="biz-h" onclick="BIZOPEN=!BIZOPEN;render()">🧾 세금계산서는 이 사업자로 발행해 주세요'+
+            '<span class="biz-arw">'+(BIZOPEN?'접기 ▲':'열기 ▼')+'</span></h3>'+
+          (!BIZOPEN
+            ? '<div class="note" style="margin:0">세금계산서 발행에 필요한 <b>우리 회사 사업자등록증</b>이에요. 눌러서 정보 복사·이미지 저장하세요.</div>'
+            : '<div class="note" style="color:#7a3708;font-size:13px;margin:0 0 12px">'+
             '세금계산서를 <b>아래 도반글로벌 유한회사</b> 사업자로 발행해 주세요. 사업자등록증을 함께 올려두었으니 '+
             '<b>정보 복사</b>하거나 <b>이미지를 저장</b>해서 쓰시면 됩니다. 계산서는 <b>'+esc(COMPANY.email)+'</b> 로 보내주세요.</div>'+
           '<div class="biz-info">'+
@@ -220,7 +227,7 @@ function render(){
             '<a href="'+esc(COMPANY.img)+'" download="도반글로벌_사업자등록증.jpg">⬇️ 이미지 저장</a>'+
           '</div>'+
           '<a href="'+esc(COMPANY.img)+'" target="_blank" rel="noopener"><img class="biz-img" src="'+esc(COMPANY.img)+'" alt="도반글로벌 사업자등록증"></a>'+
-          '<div class="biz-imgcap">👆 눌러서 크게 보기 · 위 버튼으로 저장</div>'+
+          '<div class="biz-imgcap">👆 눌러서 크게 보기 · 위 버튼으로 저장</div>')+
         '</div>'
       : '')+
 
