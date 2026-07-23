@@ -556,7 +556,7 @@ function renderApp() {
   var infoTab = (function(){
     var infos=(data.정보||[]).slice().sort(function(a,b){return (Number(a.순서)||0)-(Number(b.순서)||0);});
     if(!infos.length) return '<div class="sec"><h3>내 계정 정보</h3><div class="none">정보 항목이 아직 없어요.</div></div>';
-    var ICON={'네이버':'🟢','인스타':'📷','구글':'🔵','카카오':'🟡','당근':'🥕'};
+    var ICON={'네이버':'🟢','인스타':'📷','구글':'🔵','카카오':'🟡','당근':'🥕','티맵':'🗺️'};
     function pk(항목){var s=String(항목).replace(/\s+/g,'');if(/(비밀번호|비번)$/.test(s))return{p:s.replace(/(비밀번호|비번)$/,''),k:'pw'};if(/아이디$/.test(s))return{p:s.replace(/아이디$/,''),k:'id'};return null;}
     function row(f, sub){ return '<div class="ci-row"><label>'+esc(sub||f.항목)+'</label>' +
       '<input value="'+esc(f.값||'')+'" placeholder="입력" onchange="saveInfo(\''+f.ID+'\',\'값\',this.value)"></div>'; }
