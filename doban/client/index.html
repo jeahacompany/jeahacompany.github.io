@@ -190,6 +190,12 @@ function saveInfo(id, field, val){
       p_val:(field==='값'?val:null), p_link:(field==='링크'?val:null) })
     .then(function(d){ if(!d||d.ok===false) alert('저장 실패'); });
 }
+// 상호명·주소·대표자·연락처 — 관리자 업체정보와 같은 광고주 컬럼에 저장 (양쪽 동기화)
+function saveBasic(field, val){
+  if(data) data[field]=val;
+  sbRpc('client_save_basic', { p_code:CODE, p_field:field, p_val:val })
+    .then(function(d){ if(!d||d.ok===false) alert('저장 실패'); });
+}
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
 function contentSection(list, only){
@@ -555,14 +561,19 @@ function renderApp() {
 
   var infoTab = (function(){
     var infos=(data.정보||[]).slice().sort(function(a,b){return (Number(a.순서)||0)-(Number(b.순서)||0);});
-    if(!infos.length) return '<div class="sec"><h3>내 계정 정보</h3><div class="none">정보 항목이 아직 없어요.</div></div>';
     var ICON={'네이버':'🟢','인스타':'📷','구글':'🔵','카카오':'🟡','당근':'🥕','티맵':'🗺️'};
     function pk(항목){var s=String(항목).replace(/\s+/g,'');if(/(비밀번호|비번)$/.test(s))return{p:s.replace(/(비밀번호|비번)$/,''),k:'pw'};if(/아이디$/.test(s))return{p:s.replace(/아이디$/,''),k:'id'};return null;}
     function row(f, sub){ return '<div class="ci-row"><label>'+esc(sub||f.항목)+'</label>' +
       '<input value="'+esc(f.값||'')+'" placeholder="입력" onchange="saveInfo(\''+f.ID+'\',\'값\',this.value)"></div>'; }
-    var used={}, basic='', order=[], groups={};
+    // 상호명·주소·대표자·대표자연락처는 관리자 업체정보(광고주 컬럼)와 같은 값 — 한쪽에서 고치면 양쪽 반영
+    function crowC(label, field){ return '<div class="ci-row"><label>'+label+'</label>' +
+      '<input value="'+esc(data[field]||'')+'" placeholder="입력" onchange="saveBasic(\''+field+'\',this.value)"></div>'; }
+    // 위 4개는 정보 테이블에 중복으로 있던 항목 — 여기선 광고주 컬럼으로 대체하므로 정보 항목은 숨긴다
+    var HIDE=['상호명','주소','대표자','대표자 연락처'];
+    var used={}, order=[], groups={};
+    var basic = crowC('상호명','매장명')+crowC('주소','주소')+crowC('대표자','대표자')+crowC('대표자 연락처','연락처');
     infos.forEach(function(f){ var k=pk(f.항목); if(k){ used[f.ID]=1; if(!groups[k.p]){groups[k.p]={id:null,pw:null};order.push(k.p);} groups[k.p][k.k]=f; } });
-    infos.forEach(function(f){ if(!used[f.ID]) basic+=row(f); });
+    infos.forEach(function(f){ if(!used[f.ID] && HIDE.indexOf(f.항목)<0) basic+=row(f); });
     var plat=order.map(function(p){ var g=groups[p], lr=g.id||g.pw, link=(lr&&lr.링크)||'';
       return '<div class="ci-plat"><div class="ci-ph">'+(ICON[p]||'🔗')+' '+esc(p)+(link?' <a class="cc-link" href="'+esc(link)+'" target="_blank" style="padding:4px 10px">→ 바로가기</a>':'')+'</div>' +
         (g.id?row(g.id,'아이디'):'')+(g.pw?row(g.pw,'비밀번호'):'')+'</div>'; }).join('');
