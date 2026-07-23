@@ -282,7 +282,7 @@ function contentSection(list, only){
 }
 
 function showTab(n, btn){
-  ['today','home','insta','blog','info','doc'].forEach(function(t){ var e=document.getElementById('tab-'+t); if(e) e.style.display = t===n?'':'none'; });
+  ['today','home','setup','insta','blog','info','doc'].forEach(function(t){ var e=document.getElementById('tab-'+t); if(e) e.style.display = t===n?'':'none'; });
   Array.from(document.querySelectorAll('.tabbar button')).forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on'); window.scrollTo(0,0);
 }
