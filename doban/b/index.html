@@ -41,6 +41,18 @@
   .link-row a{ color:var(--brand); font-size:13px; white-space:nowrap; text-decoration:none; }
   .toast{ position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#222; color:#fff; padding:12px 20px; border-radius:24px; font-size:14px; font-weight:600; opacity:0; transition:opacity .25s; pointer-events:none; z-index:9; }
   .toast.show{ opacity:.95; }
+  /* 이용 방법 (접이식) */
+  .howto{ background:#fff; border-radius:14px; box-shadow:0 1px 4px rgba(0,0,0,.06); margin-bottom:14px; overflow:hidden; }
+  .howto summary{ list-style:none; cursor:pointer; padding:15px 16px; font-size:14px; font-weight:800; color:var(--brand); display:flex; align-items:center; justify-content:space-between; }
+  .howto summary::-webkit-details-marker{ display:none; }
+  .howto summary::after{ content:'▾'; color:#bbb; font-size:12px; }
+  .howto[open] summary{ border-bottom:1px solid var(--line); }
+  .howto[open] summary::after{ content:'▴'; }
+  .howto-body{ padding:6px 16px 14px; }
+  .hstep{ padding:11px 0; border-bottom:1px solid #f4f4f4; }
+  .hstep:last-child{ border-bottom:none; }
+  .hstep b{ font-size:13.5px; color:#333; }
+  .hstep p{ font-size:13px; color:#666; margin:4px 0 0; line-height:1.6; }
 </style>
 </head>
 <body>
@@ -74,8 +86,25 @@ function api(body){
     body: JSON.stringify(args) }).then(function(r){ return r.json(); });
 }
 
+// 이용 방법 안내 — 로그인 화면엔 펼쳐서, 제출 화면엔 접어서 보여준다
+function howtoCard(open){
+  return '<details class="howto"'+(open?' open':'')+'>'+
+    '<summary>📖 이용 방법 · 처음이시면 꼭 읽어주세요</summary>'+
+    '<div class="howto-body">'+
+      '<div class="hstep"><b>1️⃣ 닉네임으로 들어오기</b>'+
+        '<p>담당자가 안내한 <b>블로그 닉네임</b>을 글자·띄어쓰기까지 똑같이 입력하세요. 그래야 내 제출칸이 열려요.</p></div>'+
+      '<div class="hstep"><b>2️⃣ 방문 예약 (1차 등록)</b>'+
+        '<p>매장 <b>사장님과 방문 날짜·시간을 먼저 정한 뒤</b>, 여기서 예약을 저장하세요. 혼자 시간을 정하시면 안 됩니다.</p></div>'+
+      '<div class="hstep"><b>3️⃣ 후기 URL 등록 (제일 중요!)</b>'+
+        '<p>방문하고 후기를 작성한 뒤 <b>이 링크로 다시 들어와</b> 블로그 URL을 꼭 올려주세요. URL까지 등록해야 완료됩니다.</p></div>'+
+      '<div class="hstep"><b>💬 문제가 있으면</b>'+
+        '<p>진행 중 막히거나 궁금한 점이 있으면 언제든 담당자에게 연락 주세요.</p></div>'+
+    '</div>'+
+  '</details>';
+}
 function renderLogin(msg){
   document.getElementById('app').innerHTML =
+    howtoCard(true)+
     '<div class="card">'+
       '<h2>내 닉네임으로 들어가기</h2>'+
       '<p class="hint">담당자가 안내한 <b>블로그 닉네임</b>을 그대로 입력하세요. 내 제출칸만 열리고, 다른 사람 것은 보이지 않아요.</p>'+
@@ -107,6 +136,7 @@ function renderForm(){
   setStoreTitle(d.매장명); // 로그인 후엔 서버가 준 실제 업체명으로
   document.getElementById('storeSub').textContent = d.닉네임+'님, 안녕하세요';
   document.getElementById('app').innerHTML =
+    howtoCard(false)+
     '<div class="card">'+
       '<h2>내 제출칸 '+badge+'</h2>'+
       '<p class="hint"><b>①</b> 점주님과 정한 <b>방문 날짜·시간</b>을 먼저 저장(예약)하세요.<br>'+
