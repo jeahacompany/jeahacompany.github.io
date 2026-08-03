@@ -85,9 +85,14 @@ async function load() {
       const last = list[list.length-1];
       if (last.checked_at > latestAll) latestAll = last.checked_at;
 
-      // 날짜별 마지막 값
+      // 날짜별 마지막 값 (한국시간 기준 날짜로 묶기)
       const byDay = {};
-      for (const r of list) byDay[r.checked_at.slice(0,10)] = r;
+      const p2 = n => String(n).padStart(2,"0");
+      for (const r of list) {
+        const d = new Date(r.checked_at);
+        const key = d.getFullYear() + "-" + p2(d.getMonth()+1) + "-" + p2(d.getDate());
+        byDay[key] = r;
+      }
       const days = Object.keys(byDay).sort().slice(-14).reverse();
       const first = byDay[Object.keys(byDay).sort()[0]];
       const dScore = (last.score - first.score).toFixed(2);
