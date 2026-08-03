@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>리뷰 리포트</title>
+<style>
+  :root {
+    --ground:#F6F8F6; --card:#FFFFFF; --ink:#1B2620; --ink-2:#52615A; --ink-3:#8A968F;
+    --line:#E2E8E3; --accent:#0B7A45; --accent-soft:#E4F2EA; --bad:#B3372B; --bad-soft:#F8E7E4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ground:#121815; --card:#1B2420; --ink:#E6EDE8; --ink-2:#A7B4AC; --ink-3:#6E7B74;
+      --line:#2A362F; --accent:#4CC38A; --accent-soft:#1D3328; --bad:#E06A5C; --bad-soft:#3A1F1B; }
+  }
+  html { background:var(--ground); }
+  body { font-family:"Pretendard","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
+    color:var(--ink); background:var(--ground); margin:0; padding:28px 16px 48px; line-height:1.6; }
+  .wrap { max-width:680px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  .eyebrow { font-size:12px; letter-spacing:.12em; color:var(--accent); font-weight:700; }
+  h1 { font-size:24px; margin:2px 0 0; }
+  .sub { color:var(--ink-2); font-size:13px; margin-top:4px; }
+  .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 16px 14px; }
+  .tile .l { font-size:12px; color:var(--ink-2); }
+  .tile .v { font-size:30px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:2px; }
+  .tile .u { font-size:14px; color:var(--ink-3); font-weight:400; }
+  .tile .d { font-size:12px; color:var(--accent); font-weight:700; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px; overflow-x:auto; }
+  .card h2 { font-size:15px; margin:0 0 10px; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th { text-align:left; color:var(--ink-2); font-size:12px; font-weight:600; padding:6px 8px; border-bottom:1px solid var(--line); }
+  td { padding:8px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  tr:last-child td { border-bottom:none; }
+  .err { background:var(--bad-soft); color:var(--bad); border-radius:10px; padding:14px 16px; font-size:14px; }
+  .loading { color:var(--ink-3); font-size:14px; padding:24px; text-align:center; }
+  .note { font-size:12px; color:var(--ink-3); }
+  @media (max-width:480px) { .tile .v { font-size:22px; } h1 { font-size:20px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">리뷰 리포트 · 네이버 플레이스</div>
+    <h1 id="store">불러오는 중...</h1>
+    <div class="sub" id="asof"></div>
+  </header>
+  <div id="app"><div class="loading">데이터를 불러오는 중입니다...</div></div>
+  <p class="note">네이버 플레이스 공개 데이터 기준 · 도반글로벌 리뷰 모니터링</p>
+</div>
+<script>
+const URL_RPC = "https://bgkdkfmdndhqgfdygmfm.supabase.co/rest/v1/rpc/review_feed_code";
+const KEY = "sb_publishable_KxsYIOy5d4i7TR5PVBExLg_8UvNz6v9";
+const p2 = n => String(n).padStart(2,"0");
+const WD = ["일","월","화","수","목","금","토"];
+function fmtDay(iso){ const d=new Date(iso); return (d.getMonth()+1)+"/"+d.getDate()+"("+WD[d.getDay()]+")"; }
+function fmtTime(iso){ const d=new Date(iso); return (d.getMonth()+1)+"/"+d.getDate()+" "+p2(d.getHours())+":"+p2(d.getMinutes()); }
+
+async function load() {
+  const app = document.getElementById("app");
+  const code = new URLSearchParams(location.search).get("c");
+  if (!code) { app.innerHTML = '<div class="err">잘못된 주소입니다. 전달받은 링크로 접속해 주세요.</div>'; document.getElementById("store").textContent = "리뷰 리포트"; return; }
+  try {
+    const res = await fetch(URL_RPC, { method:"POST",
+      headers:{ apikey:KEY, "Content-Type":"application/json" },
+      body: JSON.stringify({ p_code: code }) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const rows = await res.json();
+    if (!rows || !rows.length) { app.innerHTML = '<div class="err">아직 수집된 데이터가 없습니다. 곧 준비됩니다!</div>'; document.getElementById("store").textContent = "리뷰 리포트"; return; }
+
+    rows.sort((a,b) => a.checked_at < b.checked_at ? -1 : 1);
+    const last = rows[rows.length-1];
+    document.getElementById("store").textContent = last.store_name;
+    document.getElementById("asof").textContent = "마지막 수집 " + fmtTime(last.checked_at);
+
+    const byDay = {};
+    for (const r of rows) {
+      const d = new Date(r.checked_at);
+      byDay[d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())] = r;
+    }
+    const dayKeys = Object.keys(byDay).sort();
+    const first = byDay[dayKeys[0]];
+    const dScore = (last.score - first.score).toFixed(2);
+    const dVisit = last.visitor_cnt - first.visitor_cnt;
+    const dBlog = last.blog_cnt - first.blog_cnt;
+
+    let trs = "";
+    for (const k of dayKeys.slice(-21).reverse()) {
+      const r = byDay[k];
+      trs += "<tr><td>" + fmtDay(r.checked_at) + "</td><td>" + Number(r.score).toFixed(2)
+           + "</td><td>" + r.visitor_cnt + "</td><td>" + r.blog_cnt + "</td></tr>";
+    }
+    app.innerHTML =
+      '<section class="tiles">'
+      + '<div class="tile"><div class="l">평점 ' + (dScore > 0 ? '<span class="d">▲' + dScore + '</span>' : '') + '</div><div class="v">' + Number(last.score).toFixed(2) + '<span class="u"> /5</span></div></div>'
+      + '<div class="tile"><div class="l">방문자 리뷰 ' + (dVisit > 0 ? '<span class="d">▲' + dVisit + '</span>' : '') + '</div><div class="v">' + last.visitor_cnt + '<span class="u">개</span></div></div>'
+      + '<div class="tile"><div class="l">블로그 리뷰 ' + (dBlog > 0 ? '<span class="d">▲' + dBlog + '</span>' : '') + '</div><div class="v">' + last.blog_cnt + '<span class="u">개</span></div></div>'
+      + '</section>'
+      + '<section class="card"><h2>날짜별 변화</h2><table><thead><tr><th>날짜</th><th>평점</th><th>방문자</th><th>블로그</th></tr></thead><tbody>'
+      + trs + '</tbody></table></section>';
+  } catch (e) {
+    app.innerHTML = '<div class="err">데이터를 불러오지 못했습니다. 잠시 후 새로고침 해주세요.</div>';
+  }
+}
+load();
+</script>
+</body>
+</html>
