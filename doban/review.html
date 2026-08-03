@@ -34,6 +34,10 @@
   td { padding:8px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
   tr:last-child td { border-bottom:none; }
   .err { background:var(--bad-soft); color:var(--bad); border-radius:10px; padding:14px 16px; font-size:14px; }
+  .kakao { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; color:var(--ink-2);
+    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; }
+  .kakao .tag { font-size:11.5px; font-weight:700; background:#FEE500; color:#3C1E1E; border-radius:6px; padding:2px 8px; }
+  .kakao .sep { color:var(--ink-3); }
   .bars { display:flex; flex-direction:column; gap:7px; }
   .bar { display:grid; grid-template-columns:56px 1fr 78px; align-items:center; gap:10px; font-size:12.5px; }
   .bar .t { color:var(--ink-2); font-variant-numeric:tabular-nums; }
@@ -79,10 +83,13 @@ async function load() {
       headers:{ apikey:KEY, "Content-Type":"application/json" },
       body: JSON.stringify({ p_code: code }) });
     if (!res.ok) throw new Error("HTTP " + res.status);
-    const rows = await res.json();
+    let rows = await res.json();
     if (!rows || !rows.length) { app.innerHTML = '<div class="err">아직 수집된 데이터가 없습니다. 곧 준비됩니다!</div>'; document.getElementById("store").textContent = "리뷰 리포트"; return; }
-
     rows.sort((a,b) => a.checked_at < b.checked_at ? -1 : 1);
+    const kakaoRows = rows.filter(r => r.platform === "kakao");
+    const kLast = kakaoRows.length ? kakaoRows[kakaoRows.length-1] : null;
+    rows = rows.filter(r => r.platform !== "kakao");
+    if (!rows.length) { app.innerHTML = '<div class="err">아직 수집된 데이터가 없습니다. 곧 준비됩니다!</div>'; document.getElementById("store").textContent = "리뷰 리포트"; return; }
     const last = rows[rows.length-1];
     document.getElementById("store").textContent = last.store_name;
     document.getElementById("asof").textContent = "마지막 수집 " + fmtTime(last.checked_at);
@@ -110,6 +117,10 @@ async function load() {
       + '<div class="tile"><div class="l">방문자 리뷰 ' + (dVisit > 0 ? '<span class="d">▲' + dVisit + '</span>' : '') + '</div><div class="v">' + last.visitor_cnt + '<span class="u">개</span></div></div>'
       + '<div class="tile"><div class="l">블로그 리뷰 ' + (dBlog > 0 ? '<span class="d">▲' + dBlog + '</span>' : '') + '</div><div class="v">' + last.blog_cnt + '<span class="u">개</span></div></div>'
       + '</section>'
+      + (kLast ? '<div class="kakao"><span class="tag">카카오맵</span><span>'
+          + ((kLast.score === null || kLast.score === "" || Number(kLast.score) === 0)
+              ? '리뷰 없음' : Number(kLast.score).toFixed(1) + '점 · ' + kLast.visitor_cnt + '개')
+          + '</span><span class="sep">·</span><span>블로그 리뷰 ' + kLast.blog_cnt + '개</span></div>' : '')
       + '<section class="card"><h2>날짜별 변화</h2><table><thead><tr><th>날짜</th><th>평점</th><th>방문자</th><th>블로그</th></tr></thead><tbody>'
       + trs + '</tbody></table></section>';
     renderHistory(code);
