@@ -34,6 +34,16 @@
   td { padding:8px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
   tr:last-child td { border-bottom:none; }
   .err { background:var(--bad-soft); color:var(--bad); border-radius:10px; padding:14px 16px; font-size:14px; }
+  .bars { display:flex; flex-direction:column; gap:7px; }
+  .bar { display:grid; grid-template-columns:56px 1fr 78px; align-items:center; gap:10px; font-size:12.5px; }
+  .bar .t { color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .bar .track { background:var(--line); border-radius:99px; height:16px; overflow:hidden; }
+  .bar .fill { background:var(--accent); height:100%; border-radius:99px; }
+  .bar .n { color:var(--ink-3); text-align:right; font-variant-numeric:tabular-nums; }
+  .stars { display:flex; flex-direction:column; gap:6px; }
+  .srow { display:grid; grid-template-columns:44px 1fr 44px; align-items:center; gap:10px; font-size:12.5px; }
+  .srow .track { background:var(--line); border-radius:99px; height:14px; overflow:hidden; }
+  .srow .fill { height:100%; border-radius:99px; }
   .loading { color:var(--ink-3); font-size:14px; padding:24px; text-align:center; }
   .note { font-size:12px; color:var(--ink-3); }
   @media (max-width:480px) { .tile .v { font-size:22px; } h1 { font-size:20px; } }
@@ -47,6 +57,7 @@
     <div class="sub" id="asof"></div>
   </header>
   <div id="app"><div class="loading">데이터를 불러오는 중입니다...</div></div>
+  <div id="hist"></div>
   <p class="note">네이버 플레이스 공개 데이터 기준 · 도반글로벌 리뷰 모니터링</p>
 </div>
 <script>
@@ -99,9 +110,49 @@ async function load() {
       + '</section>'
       + '<section class="card"><h2>날짜별 변화</h2><table><thead><tr><th>날짜</th><th>평점</th><th>방문자</th><th>블로그</th></tr></thead><tbody>'
       + trs + '</tbody></table></section>';
+    renderHistory(code);
   } catch (e) {
     app.innerHTML = '<div class="err">데이터를 불러오지 못했습니다. 잠시 후 새로고침 해주세요.</div>';
   }
+}
+
+// 리뷰 본문에서 뽑은 과거 추이 (수집 시점 스냅샷)
+const HIST = {
+  "qptq6sxa": {
+    asof: "8/3", scope: "최근 리뷰 50건 (6/14~8/2)",
+    weeks: [["6/14",10,3.35],["6/21",6,4.92],["6/28",8,4.31],["7/5",3,4.67],["7/12",5,3.20],["7/19",9,4.83],["7/26",8,4.69]],
+    stars: [["5점",35],["4점대",6],["3점대",2],["2점 이하",7]]
+  },
+  "auau454x": {
+    asof: "8/3", scope: "최근 리뷰 50건 (7/5~8/2)",
+    weeks: [["7/5",8,4.81],["7/12",4,4.88],["7/19",22,4.84],["7/26",13,4.77]],
+    stars: [["5점",38],["4점대",12],["3점대",0],["2점 이하",0]]
+  }
+};
+
+function renderHistory(code) {
+  const h = HIST[code];
+  if (!h) return;
+  const maxCnt = Math.max(...h.weeks.map(w => w[1]));
+  let bars = "";
+  for (const [wk, cnt, avg] of h.weeks) {
+    bars += '<div class="bar"><span class="t">' + wk + ' 주</span>'
+      + '<span class="track"><span class="fill" style="width:' + Math.round(cnt/maxCnt*100) + '%"></span></span>'
+      + '<span class="n">' + cnt + '건 · ' + avg.toFixed(2) + '점</span></div>';
+  }
+  const totalStars = h.stars.reduce((a,s) => a + s[1], 0);
+  const colors = ["var(--accent)","var(--accent)","#B7791F","var(--bad)"];
+  let srows = "";
+  h.stars.forEach(([label, n], i) => {
+    srows += '<div class="srow"><span class="t">' + label + '</span>'
+      + '<span class="track"><span class="fill" style="width:' + Math.round(n/totalStars*100) + '%;background:' + colors[i] + '"></span></span>'
+      + '<span class="n">' + n + '건</span></div>';
+  });
+  document.getElementById("hist").innerHTML =
+    '<section class="card"><h2>주별 리뷰 수와 평균 별점</h2>'
+    + '<p style="font-size:12.5px;color:var(--ink-3);margin:0 0 12px;">' + h.scope + ' 기준 · ' + h.asof + ' 수집</p>'
+    + '<div class="bars">' + bars + '</div></section>'
+    + '<section class="card"><h2>별점 분포</h2><div class="stars">' + srows + '</div></section>';
 }
 load();
 </script>
