@@ -452,7 +452,8 @@
   .pay-act { display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
   table.vg-tbl { min-width:0; width:100%; table-layout:fixed; }
   table.vg-tbl .c-store { width:22%; }
-  table.vg-tbl .c-item { width:30%; overflow:hidden; text-overflow:ellipsis; }
+  table.vg-tbl .c-item { width:30%; }
+  .c-shoot { display:inline-block; font-size:11px; font-weight:700; color:#7048e8; background:#f4f1ff; border-radius:6px; padding:2px 7px; margin-top:4px; white-space:nowrap; }
   table.vg-tbl .c-amt { width:100px; white-space:nowrap; }
   table.vg-tbl .c-act { width:auto; }
   table.vg-tbl th.c-act { text-align:right; }
@@ -1872,10 +1873,12 @@ function renderVendorLedger(cs){
     return idset[s.광고주ID] && String(s.계정명||'').trim()!=='' && (Number(s.fee)||0)>0;
   }).map(function(s){
     var ty=seedTypeNorm(s.종류);
+    var isBlog=(s.종류==='블로그'||s.종류==='체험단');
     return { id:s.ID, src:'seed', store:storeName(s.광고주ID), round:roundLabel(s.광고주ID, Number(s.차수)||1),
-             item:ty+' '+(s.종류==='블로그'||s.종류==='체험단' ? '방문' : '촬영'), vendor:String(s.계정명).trim(),
+             item:ty+' '+(isBlog ? '방문' : '촬영'), vendor:String(s.계정명).trim(),
              cost:Number(s.fee)||0, st:payStateOf(s), due:s.pay_due||'', tax:s.tax_status||'',
-             date:s.pay_date|| (s.종류==='블로그'||s.종류==='체험단' ? s.방문일정 : s.촬영일정) || '' };
+             date:s.pay_date|| (isBlog ? s.방문일정 : s.촬영일정) || '',
+             shoot:(isBlog ? s.방문일정 : s.촬영일정) || '', shootLb:(isBlog?'방문':'촬영') };
   }));
   // ② 실행비(견적 밖 대행비·추가 지출)
   // 자체집행도 실제로 나간 돈이라 원장에 올림 → 원장 총액 = 정산 총 실행비 (항상 일치해야 함)
@@ -1927,7 +1930,7 @@ function renderVendorLedger(cs){
           '<span class="vg-amt">'+won(sum(g[v]))+'원</span></div>'+
         (vo && pend ? acctBar(v, sum(g[v])) : '')+
         (vo ? '<div class="ss-wrap"><table class="qsheet-tbl vg-tbl"><thead><tr><th class="c-store">매장</th><th class="c-item">내역</th><th class="c-amt money">대행비</th><th class="c-act">지급 처리</th></tr></thead><tbody>'+
-          g[v].map(function(r){ return '<tr><td class="c-store">'+esc(r.store)+'</td><td class="c-item">'+esc(r.item)+'</td>'+
+          g[v].map(function(r){ return '<tr><td class="c-store">'+esc(r.store)+'</td><td class="c-item">'+esc(r.item)+(r.shoot?' <span class="c-shoot">📅 '+esc(r.shootLb)+' '+esc(r.shoot)+'</span>':'')+'</td>'+
             '<td class="c-amt money"><b>'+won(r.cost)+'</b></td><td class="c-act"><div class="pay-act">'+actions(r)+'</div>'+
             (function(){ var tb=taxBtns(r,acc); return tb?'<div class="tax-act">'+tb+'</div>':''; })()+'</td></tr>'; }).join('')+
           '</tbody></table></div>' : '')+
