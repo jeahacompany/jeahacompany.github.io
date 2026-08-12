@@ -89,6 +89,9 @@
   td { padding:9px 6px; border-bottom:1px solid var(--line-2); font-variant-numeric:tabular-nums; }
   tr:last-child td { border-bottom:none; }
   .up { color:var(--accent); font-weight:700; }
+  .down { color:var(--bad); font-weight:700; }
+  .zero { color:var(--ink-3); }
+  .sm { font-size:11px; }
 
   /* 별점 분포 · 주별 추이 */
   .bars { display:flex; flex-direction:column; gap:7px; background:var(--card);
@@ -209,11 +212,25 @@ function renderDetail(name) {
   document.getElementById("title").textContent = s.name;
   document.getElementById("sub").textContent = "마지막 수집 " + fmtTime(s.last.checked_at);
 
+  // 날짜별 변화 + 전일 대비 증감
   let trs = "";
-  for (const k of s.dayKeys.slice(-30).reverse()) {
-    const r = s.days[k];
-    trs += "<tr><td>" + fmtDay(r.checked_at) + "</td><td>" + (Number(r.score) > 0 ? Number(r.score).toFixed(2) : "–")
-      + "</td><td>" + r.visitor_cnt + "</td><td>" + r.blog_cnt + "</td></tr>";
+  const keys = s.dayKeys;
+  const start = Math.max(0, keys.length - 30);
+  for (let i = keys.length - 1; i >= start; i--) {
+    const r = s.days[keys[i]];
+    const pv = i > 0 ? s.days[keys[i-1]] : null;
+    const dv = pv ? r.visitor_cnt - pv.visitor_cnt : null;
+    const db = pv ? r.blog_cnt - pv.blog_cnt : null;
+    const ds = pv ? +(r.score - pv.score).toFixed(2) : null;
+    const chg = dv === null ? '<span class="zero">·</span>'
+      : dv > 0 ? '<span class="up">+' + dv + '</span>'
+      : dv < 0 ? '<span class="down">' + dv + '</span>'
+      : '<span class="zero">·</span>';
+    trs += "<tr><td>" + fmtDay(r.checked_at) + "</td>"
+      + "<td>" + (Number(r.score) > 0 ? Number(r.score).toFixed(2) : "–")
+      + (ds > 0 ? ' <span class="up sm">▲' + ds.toFixed(2) + '</span>' : ds < 0 ? ' <span class="down sm">▼' + Math.abs(ds).toFixed(2) + '</span>' : '')
+      + "</td><td>" + r.visitor_cnt + "</td><td>" + chg + "</td>"
+      + "<td>" + r.blog_cnt + (db > 0 ? ' <span class="up sm">+' + db + '</span>' : '') + "</td></tr>";
   }
   const sc = Number(s.last.score);
   const kb = s.kakao
@@ -290,7 +307,7 @@ function renderDetail(name) {
     + distHtml
     + wkHtml
     + '<div class="plat">날짜별 변화 (네이버)</div>'
-    + '<div class="card"><table><thead><tr><th>날짜</th><th>평점</th><th>방문자</th><th>블로그</th></tr></thead>'
+    + '<div class="card"><table><thead><tr><th>날짜</th><th>평점</th><th>방문자</th><th>증감</th><th>블로그</th></tr></thead>'
     + '<tbody>' + trs + '</tbody></table></div>';
 
   document.getElementById("note").innerHTML =
@@ -316,6 +333,18 @@ function buildReport(s, dg) {
   L.push("· 방문자 리뷰 " + n(s.last.visitor_cnt) + "개" + (s.dVisit > 0 ? "  (▲" + n(s.dVisit) + ")" : ""));
   L.push("· 블로그 리뷰 " + n(s.last.blog_cnt) + "개" + (s.dBlog > 0 ? "  (▲" + n(s.dBlog) + ")" : ""));
   if (s.dVisit > 0 || s.dScore > 0) L.push("  ※ ▲는 " + sinceTxt + " 이후 증가분");
+
+  // 직전 수집일 대비
+  if (s.dayKeys.length >= 2) {
+    const cur = s.days[s.dayKeys[s.dayKeys.length-1]];
+    const prv = s.days[s.dayKeys[s.dayKeys.length-2]];
+    const dv = cur.visitor_cnt - prv.visitor_cnt;
+    const pd = new Date(prv.checked_at);
+    if (dv !== 0) {
+      L.push("· 직전(" + (pd.getMonth()+1) + "/" + pd.getDate() + ") 대비 방문자 리뷰 "
+        + (dv > 0 ? "+" + n(dv) : n(dv)) + "개");
+    }
+  }
 
   if (s.kakao) {
     L.push("");

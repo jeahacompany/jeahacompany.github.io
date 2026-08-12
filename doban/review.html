@@ -48,6 +48,10 @@
   .rev.bad p { color:var(--ink); }
   .clean { background:var(--accent-soft); color:var(--accent); border-radius:10px; padding:12px 14px;
     font-size:13.5px; font-weight:700; }
+  .up { color:var(--accent); font-weight:700; }
+  .down { color:var(--bad); font-weight:700; }
+  .zero { color:var(--ink-3); }
+  .sm { font-size:11px; }
   .bars { display:flex; flex-direction:column; gap:7px; }
   .bar { display:grid; grid-template-columns:56px 1fr 78px; align-items:center; gap:10px; font-size:12.5px; }
   .bar .t { color:var(--ink-2); font-variant-numeric:tabular-nums; }
@@ -116,10 +120,20 @@ async function load() {
     const dBlog = last.blog_cnt - first.blog_cnt;
 
     let trs = "";
-    for (const k of dayKeys.slice(-21).reverse()) {
-      const r = byDay[k];
-      trs += "<tr><td>" + fmtDay(r.checked_at) + "</td><td>" + Number(r.score).toFixed(2)
-           + "</td><td>" + r.visitor_cnt + "</td><td>" + r.blog_cnt + "</td></tr>";
+    const startIdx = Math.max(0, dayKeys.length - 21);
+    for (let i = dayKeys.length - 1; i >= startIdx; i--) {
+      const r = byDay[dayKeys[i]];
+      const pv = i > 0 ? byDay[dayKeys[i-1]] : null;
+      const dv = pv ? r.visitor_cnt - pv.visitor_cnt : null;
+      const db = pv ? r.blog_cnt - pv.blog_cnt : null;
+      const chg = dv === null ? '<span class="zero">·</span>'
+        : dv > 0 ? '<span class="up">+' + dv + '</span>'
+        : dv < 0 ? '<span class="down">' + dv + '</span>'
+        : '<span class="zero">·</span>';
+      trs += "<tr><td>" + fmtDay(r.checked_at) + "</td><td>"
+           + (Number(r.score) > 0 ? Number(r.score).toFixed(2) : "–")
+           + "</td><td>" + r.visitor_cnt + "</td><td>" + chg + "</td><td>"
+           + r.blog_cnt + (db > 0 ? ' <span class="up sm">+' + db + '</span>' : '') + "</td></tr>";
     }
     app.innerHTML =
       '<section class="tiles">'
@@ -131,7 +145,7 @@ async function load() {
           + ((kLast.score === null || kLast.score === "" || Number(kLast.score) === 0)
               ? '리뷰 없음' : Number(kLast.score).toFixed(1) + '점 · ' + kLast.visitor_cnt + '개')
           + '</span><span class="sep">·</span><span>블로그 리뷰 ' + kLast.blog_cnt + '개</span></div>' : '')
-      + '<section class="card"><h2>날짜별 변화</h2><table><thead><tr><th>날짜</th><th>평점</th><th>방문자</th><th>블로그</th></tr></thead><tbody>'
+      + '<section class="card"><h2>날짜별 변화</h2><table><thead><tr><th>날짜</th><th>평점</th><th>방문자</th><th>증감</th><th>블로그</th></tr></thead><tbody>'
       + trs + '</tbody></table></section>';
     renderHistory(code);
   } catch (e) {
