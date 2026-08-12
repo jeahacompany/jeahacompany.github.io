@@ -67,6 +67,12 @@
   .copy:hover { opacity:.88; }
   .copy:active { transform:scale(.97); }
   .copy:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+  .acts { display:inline-flex; align-items:center; gap:8px; }
+  .copy2 { font:inherit; font-size:12.5px; font-weight:700; color:var(--ink-2);
+    background:var(--card); border:1px solid var(--line); border-radius:9px;
+    padding:7px 11px; cursor:pointer; }
+  .copy2:hover { border-color:var(--ink-3); }
+  .copy2:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .toast { position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(12px);
     background:var(--ink); color:var(--ground); font-size:13.5px; font-weight:700;
     padding:11px 18px; border-radius:99px; opacity:0; pointer-events:none;
@@ -292,7 +298,8 @@ function renderDetail(name) {
 
   document.getElementById("app").innerHTML =
     '<div class="toolbar"><button class="back" id="back">← 전체 매장</button>'
-    + '<button class="copy" id="copy">📋 리포트 복사</button></div>'
+    + '<span class="acts"><button class="copy2" id="copytxt">텍스트</button>'
+    + '<button class="copy" id="copy">🖼 이미지 복사</button></span></div>'
     + '<div class="plat">네이버 플레이스</div>'
     + '<div class="tiles">'
     + '<div class="tile"><div class="l">평점' + (s.dScore > 0 ? ' <span class="d">▲' + s.dScore.toFixed(2) + '</span>' : '') + '</div>'
@@ -313,7 +320,8 @@ function renderDetail(name) {
   document.getElementById("note").innerHTML =
     s.dayKeys.length + '일치 기록 · 숫자가 그대로면 새 리뷰가 없다는 뜻입니다';
   document.getElementById("back").addEventListener("click", () => { location.hash = ""; });
-  document.getElementById("copy").addEventListener("click", () => copyReport(s, dg));
+  document.getElementById("copy").addEventListener("click", () => copyImage(s, dg));
+  document.getElementById("copytxt").addEventListener("click", () => copyReport(s, dg));
   window.scrollTo({ top:0, behavior:"instant" });
 }
 
@@ -383,6 +391,199 @@ function toast(msg) {
   el.classList.add("on");
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove("on"), 2200);
+}
+
+/* ── 리포트를 이미지(PNG)로 그려서 복사/공유 ── */
+const IMG = { w:1080, pad:64,
+  bg:"#FFFFFF", ink:"#18231D", ink2:"#51605A", ink3:"#8A968F", line:"#E3E9E4",
+  accent:"#0B7A45", accentSoft:"#E4F2EA", warn:"#A9690F", warnSoft:"#FBF0DC",
+  bad:"#AE3325", badSoft:"#FAE8E5", kakao:"#FEE500" };
+const F = (w, sz) => w + " " + sz + 'px "Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+
+function rrect(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
+  else {
+    ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+    ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+    ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y); ctx.closePath();
+  }
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
+}
+
+function wrapText(ctx, text, maxW) {
+  const words = String(text).split(/\s+/), lines = []; let cur = "";
+  for (const w of words) {
+    const t = cur ? cur + " " + w : w;
+    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function drawReportImage(s, dg) {
+  const W = IMG.w, P = IMG.pad, CW = W - P*2;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = 3400;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = IMG.bg; ctx.fillRect(0, 0, W, cv.height);
+  ctx.textBaseline = "alphabetic";
+  const n = v => (v ?? 0).toLocaleString("ko-KR");
+  let y = P + 16;
+
+  // 헤더
+  ctx.fillStyle = IMG.accent; ctx.font = F("bold", 22);
+  ctx.fillText("도반글로벌 · 리뷰 모니터링", P, y);
+  y += 46;
+  ctx.fillStyle = IMG.ink; ctx.font = F("bold", 52);
+  ctx.fillText(s.name, P, y);
+  y += 40;
+  const d = new Date(s.last.checked_at);
+  ctx.fillStyle = IMG.ink3; ctx.font = F("", 25);
+  ctx.fillText(d.getFullYear() + "년 " + (d.getMonth()+1) + "월 " + d.getDate() + "일 기준", P, y);
+  y += 34;
+  ctx.strokeStyle = IMG.line; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(P, y); ctx.lineTo(W-P, y); ctx.stroke();
+  y += 44;
+
+  // 섹션 라벨
+  const label = (t) => { ctx.fillStyle = IMG.ink3; ctx.font = F("bold", 21); ctx.fillText(t, P, y); y += 28; };
+
+  // 네이버 지표 3칸
+  label("네이버 플레이스");
+  const bw = (CW - 24) / 3, bh = 132;
+  const tiles = [
+    ["평점", Number(s.last.score) > 0 ? Number(s.last.score).toFixed(2) : "–", s.dScore > 0 ? "▲" + s.dScore.toFixed(2) : ""],
+    ["방문자 리뷰", n(s.last.visitor_cnt), s.dVisit > 0 ? "▲" + n(s.dVisit) : ""],
+    ["블로그 리뷰", n(s.last.blog_cnt), s.dBlog > 0 ? "▲" + n(s.dBlog) : ""]
+  ];
+  tiles.forEach(([lb, val, dl], i) => {
+    const x = P + i * (bw + 12);
+    rrect(ctx, x, y, bw, bh, 18, "#FBFDFB", IMG.line);
+    ctx.fillStyle = IMG.ink2; ctx.font = F("", 22);
+    ctx.fillText(lb, x + 22, y + 40);
+    if (dl) { ctx.fillStyle = IMG.accent; ctx.font = F("bold", 21);
+      ctx.fillText(dl, x + 22 + ctx.measureText(lb).width + 44, y + 40); }
+    ctx.fillStyle = IMG.ink; ctx.font = F("bold", 50);
+    ctx.fillText(val, x + 22, y + 100);
+  });
+  y += bh + 18;
+  if (s.dVisit > 0 || s.dScore > 0) {
+    const sd = new Date(s.first.checked_at);
+    ctx.fillStyle = IMG.ink3; ctx.font = F("", 20);
+    ctx.fillText("▲는 " + (sd.getMonth()+1) + "/" + sd.getDate() + " 이후 증가분", P, y + 8);
+    y += 26;
+  }
+  y += 22;
+
+  // 카카오
+  if (s.kakao) {
+    label("카카오맵");
+    const kh = 76;
+    rrect(ctx, P, y, CW, kh, 16, "#FBFDFB", IMG.line);
+    rrect(ctx, P + 20, y + 22, 108, 34, 8, IMG.kakao, null);
+    ctx.fillStyle = "#3B1E1E"; ctx.font = F("bold", 20);
+    ctx.fillText("카카오맵", P + 34, y + 46);
+    ctx.fillStyle = IMG.ink2; ctx.font = F("", 24);
+    const ktxt = (hasK(s.kakao) ? "평점 " + Number(s.kakao.score).toFixed(1) + " · 리뷰 " + n(s.kakao.visitor_cnt) + "개"
+                                : "리뷰 없음") + "   ·   블로그 리뷰 " + n(s.kakao.blog_cnt) + "개";
+    ctx.fillText(ktxt, P + 148, y + 48);
+    y += kh + 34;
+  }
+
+  if (dg && dg.total > 0) {
+    const lows = dg.lows || [];
+    // 부정 리뷰
+    if (lows.length) {
+      label("확인이 필요한 리뷰 " + lows.length + "건");
+      lows.forEach(r => {
+        const rt = Number(r.rating);
+        ctx.font = F("", 24);
+        const lines = wrapText(ctx, "“" + String(r.body || "").trim() + "”", CW - 56);
+        const h = 58 + lines.length * 34 + 16;
+        rrect(ctx, P, y, CW, h, 14, rt <= 2 ? IMG.badSoft : IMG.warnSoft, null);
+        rrect(ctx, P, y, 6, h, 3, rt <= 2 ? IMG.bad : IMG.warn, null);
+        ctx.fillStyle = rt <= 2 ? IMG.bad : IMG.warn; ctx.font = F("bold", 23);
+        ctx.fillText(rt.toFixed(1) + "점", P + 28, y + 38);
+        ctx.fillStyle = IMG.ink3; ctx.font = F("", 21);
+        ctx.fillText((r.visited || "") + " 방문", P + 28 + 76, y + 38);
+        ctx.fillStyle = IMG.ink; ctx.font = F("", 24);
+        lines.forEach((ln, i) => ctx.fillText(ln, P + 28, y + 76 + i * 34));
+        y += h + 12;
+      });
+      y += 22;
+    } else {
+      const h = 70;
+      rrect(ctx, P, y, CW, h, 14, IMG.accentSoft, null);
+      ctx.fillStyle = IMG.accent; ctx.font = F("bold", 25);
+      ctx.fillText("✓ 최근 리뷰 " + dg.total + "건 중 3점 이하 없음 — 깨끗합니다", P + 28, y + 45);
+      y += h + 34;
+    }
+
+    // 별점 분포
+    label("별점 분포   최근 리뷰 " + dg.total + "건" + (dg.avg ? " · 평균 " + dg.avg + "점" : ""));
+    const rows = [["5점", dg.dist.five, IMG.accent], ["4점대", dg.dist.four, IMG.accent],
+                  ["3점대", dg.dist.three, IMG.warn], ["2점 이하", dg.dist.low, IMG.bad]];
+    const boxH = rows.length * 46 + 28;
+    rrect(ctx, P, y, CW, boxH, 16, "#FBFDFB", IMG.line);
+    let by = y + 44;
+    rows.forEach(([lb, cnt, col]) => {
+      ctx.fillStyle = IMG.ink2; ctx.font = F("", 22);
+      ctx.fillText(lb, P + 24, by);
+      const tx = P + 140, tw = CW - 140 - 120;
+      rrect(ctx, tx, by - 20, tw, 22, 11, "#EFF3F0", null);
+      const fw = Math.max(0, Math.round((cnt || 0) / dg.total * tw));
+      if (fw > 0) rrect(ctx, tx, by - 20, fw, 22, 11, col, null);
+      ctx.fillStyle = IMG.ink3; ctx.font = F("", 21);
+      ctx.textAlign = "right"; ctx.fillText((cnt || 0) + "건", W - P - 24, by); ctx.textAlign = "left";
+      by += 46;
+    });
+    y += boxH + 34;
+  }
+
+  // 푸터
+  ctx.strokeStyle = IMG.line; ctx.beginPath(); ctx.moveTo(P, y); ctx.lineTo(W-P, y); ctx.stroke();
+  y += 34;
+  ctx.fillStyle = IMG.ink3; ctx.font = F("", 20);
+  ctx.fillText("네이버 · 카카오맵 공개 데이터 기준 · 도반글로벌 리뷰 모니터링", P, y);
+  y += P;
+
+  // 사용한 높이만큼 잘라내기
+  const out = document.createElement("canvas");
+  out.width = W; out.height = y;
+  const o = out.getContext("2d");
+  o.fillStyle = IMG.bg; o.fillRect(0, 0, W, y);
+  o.drawImage(cv, 0, 0);
+  return out;
+}
+
+async function copyImage(s, dg) {
+  let blob;
+  try {
+    const cv = drawReportImage(s, dg);
+    blob = await new Promise(r => cv.toBlob(r, "image/png"));
+  } catch (e) { toast("이미지를 만들지 못했어요"); return; }
+  const file = new File([blob], (s.name + "_리뷰리포트.png"), { type: "image/png" });
+
+  // 핸드폰: 공유 시트로 카톡에 바로 보내기
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return; } catch (_) { /* 취소 시 아래로 */ }
+  }
+  // PC: 클립보드에 이미지 복사
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    toast("이미지 복사됐어요 · 붙여넣기 하세요");
+    return;
+  } catch (_) {}
+  // 그래도 안 되면 파일로 저장
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = s.name + "_리뷰리포트.png";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast("이미지로 저장했어요");
 }
 
 async function copyReport(s, dg) {
