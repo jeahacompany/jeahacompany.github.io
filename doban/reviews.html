@@ -393,183 +393,79 @@ function toast(msg) {
   el._t = setTimeout(() => el.classList.remove("on"), 2200);
 }
 
-/* ── 리포트를 이미지(PNG)로 그려서 복사/공유 ── */
-const IMG = { w:1080, pad:64,
-  bg:"#FFFFFF", ink:"#18231D", ink2:"#51605A", ink3:"#8A968F", line:"#E3E9E4",
-  accent:"#0B7A45", accentSoft:"#E4F2EA", warn:"#A9690F", warnSoft:"#FBF0DC",
-  bad:"#AE3325", badSoft:"#FAE8E5", kakao:"#FEE500" };
-const F = (w, sz) => w + " " + sz + 'px "Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+/* ── 화면을 그대로 이미지로 캡처해서 복사/공유 ── */
+async function captureImage(s) {
+  const wrap = document.querySelector(".wrap");
+  const clone = wrap.cloneNode(true);
+  clone.querySelectorAll(".toolbar").forEach(n => n.remove());   // 버튼은 캡처에서 제외
 
-function rrect(ctx, x, y, w, h, r, fill, stroke) {
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
-  else {
-    ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
-    ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
-    ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
-    ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y); ctx.closePath();
-  }
-  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
-}
+  const W = Math.ceil(wrap.getBoundingClientRect().width);
+  const PAD = 22;
+  const rootCS = getComputedStyle(document.documentElement);
+  const bg = (rootCS.backgroundColor && rootCS.backgroundColor !== "rgba(0, 0, 0, 0)")
+    ? rootCS.backgroundColor : "#111713";
+  const theme = document.documentElement.dataset.theme
+    || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 
-function wrapText(ctx, text, maxW) {
-  const words = String(text).split(/\s+/), lines = []; let cur = "";
-  for (const w of words) {
-    const t = cur ? cur + " " + w : w;
-    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
-  }
-  if (cur) lines.push(cur);
-  return lines;
-}
+  // 페이지 CSS를 그대로 재사용 (:root / html / body 는 캡처용 컨테이너로 치환)
+  const css = Array.from(document.querySelectorAll("style"))
+    .map(el => el.textContent).join("\n")
+    .replace(/:root/g, ".__cap")
+    .replace(/(^|\})\s*html\s*\{/g, "$1 .__cap {")
+    .replace(/(^|\})\s*body\s*\{/g, "$1 .__cap {");
 
-function drawReportImage(s, dg) {
-  const W = IMG.w, P = IMG.pad, CW = W - P*2;
-  const cv = document.createElement("canvas");
-  cv.width = W; cv.height = 3400;
-  const ctx = cv.getContext("2d");
-  ctx.fillStyle = IMG.bg; ctx.fillRect(0, 0, W, cv.height);
-  ctx.textBaseline = "alphabetic";
-  const n = v => (v ?? 0).toLocaleString("ko-KR");
-  let y = P + 16;
+  const holder = document.createElement("div");
+  holder.className = "__cap";
+  holder.setAttribute("data-theme", theme);
+  holder.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+  holder.style.cssText = "width:" + (W + PAD * 2) + "px;padding:" + PAD + "px;background:" + bg + ";box-sizing:border-box;";
+  const st = document.createElement("style");
+  st.textContent = css;
+  holder.appendChild(st);
+  holder.appendChild(clone);
 
-  // 헤더
-  ctx.fillStyle = IMG.accent; ctx.font = F("bold", 22);
-  ctx.fillText("도반글로벌 · 리뷰 모니터링", P, y);
-  y += 46;
-  ctx.fillStyle = IMG.ink; ctx.font = F("bold", 52);
-  ctx.fillText(s.name, P, y);
-  y += 40;
-  const d = new Date(s.last.checked_at);
-  ctx.fillStyle = IMG.ink3; ctx.font = F("", 25);
-  ctx.fillText(d.getFullYear() + "년 " + (d.getMonth()+1) + "월 " + d.getDate() + "일 기준", P, y);
-  y += 34;
-  ctx.strokeStyle = IMG.line; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(P, y); ctx.lineTo(W-P, y); ctx.stroke();
-  y += 44;
+  // 실제 높이를 재기 위해 화면 밖에 잠깐 붙인다
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;left:-99999px;top:0;";
+  probe.appendChild(holder);
+  document.body.appendChild(probe);
+  const H = Math.ceil(holder.getBoundingClientRect().height);
+  document.body.removeChild(probe);
 
-  // 섹션 라벨
-  const label = (t) => { ctx.fillStyle = IMG.ink3; ctx.font = F("bold", 21); ctx.fillText(t, P, y); y += 28; };
+  const xml = new XMLSerializer().serializeToString(holder);
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + (W + PAD * 2) + '" height="' + H + '">'
+    + '<foreignObject x="0" y="0" width="100%" height="100%">' + xml + '</foreignObject></svg>';
 
-  // 네이버 지표 3칸
-  label("네이버 플레이스");
-  const bw = (CW - 24) / 3, bh = 132;
-  const tiles = [
-    ["평점", Number(s.last.score) > 0 ? Number(s.last.score).toFixed(2) : "–", s.dScore > 0 ? "▲" + s.dScore.toFixed(2) : ""],
-    ["방문자 리뷰", n(s.last.visitor_cnt), s.dVisit > 0 ? "▲" + n(s.dVisit) : ""],
-    ["블로그 리뷰", n(s.last.blog_cnt), s.dBlog > 0 ? "▲" + n(s.dBlog) : ""]
-  ];
-  tiles.forEach(([lb, val, dl], i) => {
-    const x = P + i * (bw + 12);
-    rrect(ctx, x, y, bw, bh, 18, "#FBFDFB", IMG.line);
-    ctx.fillStyle = IMG.ink2; ctx.font = F("", 22);
-    ctx.fillText(lb, x + 22, y + 40);
-    if (dl) { ctx.fillStyle = IMG.accent; ctx.font = F("bold", 21);
-      ctx.fillText(dl, x + 22 + ctx.measureText(lb).width + 44, y + 40); }
-    ctx.fillStyle = IMG.ink; ctx.font = F("bold", 50);
-    ctx.fillText(val, x + 22, y + 100);
+  // blob: URL 대신 data: URL — 캔버스가 오염되지 않아 어디서든 내보낼 수 있다
+  const dataUrl = "data:image/svg+xml;base64," +
+    btoa(String.fromCharCode(...new TextEncoder().encode(svg)));
+  const img = await new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error("svg load fail"));
+    im.src = dataUrl;
   });
-  y += bh + 18;
-  if (s.dVisit > 0 || s.dScore > 0) {
-    const sd = new Date(s.first.checked_at);
-    ctx.fillStyle = IMG.ink3; ctx.font = F("", 20);
-    ctx.fillText("▲는 " + (sd.getMonth()+1) + "/" + sd.getDate() + " 이후 증가분", P, y + 10);
-    y += 30;
-  }
-  y += 30;
-
-  // 카카오
-  if (s.kakao) {
-    label("카카오맵");
-    const kh = 76;
-    rrect(ctx, P, y, CW, kh, 16, "#FBFDFB", IMG.line);
-    rrect(ctx, P + 20, y + 22, 108, 34, 8, IMG.kakao, null);
-    ctx.fillStyle = "#3B1E1E"; ctx.font = F("bold", 20);
-    ctx.fillText("카카오맵", P + 34, y + 46);
-    ctx.fillStyle = IMG.ink2; ctx.font = F("", 24);
-    const ktxt = (hasK(s.kakao) ? "평점 " + Number(s.kakao.score).toFixed(1) + " · 리뷰 " + n(s.kakao.visitor_cnt) + "개"
-                                : "리뷰 없음") + "   ·   블로그 리뷰 " + n(s.kakao.blog_cnt) + "개";
-    ctx.fillText(ktxt, P + 148, y + 48);
-    y += kh + 34;
-  }
-
-  if (dg && dg.total > 0) {
-    const lows = dg.lows || [];
-    // 부정 리뷰
-    if (lows.length) {
-      label("확인이 필요한 리뷰 " + lows.length + "건");
-      lows.forEach(r => {
-        const rt = Number(r.rating);
-        ctx.font = F("", 24);
-        const lines = wrapText(ctx, "“" + String(r.body || "").trim() + "”", CW - 56);
-        const h = 58 + lines.length * 34 + 16;
-        rrect(ctx, P, y, CW, h, 14, rt <= 2 ? IMG.badSoft : IMG.warnSoft, null);
-        rrect(ctx, P, y, 6, h, 3, rt <= 2 ? IMG.bad : IMG.warn, null);
-        ctx.fillStyle = rt <= 2 ? IMG.bad : IMG.warn; ctx.font = F("bold", 23);
-        ctx.fillText(rt.toFixed(1) + "점", P + 28, y + 38);
-        ctx.fillStyle = IMG.ink3; ctx.font = F("", 21);
-        ctx.fillText((r.visited || "") + " 방문", P + 28 + 76, y + 38);
-        ctx.fillStyle = IMG.ink; ctx.font = F("", 24);
-        lines.forEach((ln, i) => ctx.fillText(ln, P + 28, y + 76 + i * 34));
-        y += h + 12;
-      });
-      y += 22;
-    } else {
-      const h = 70;
-      rrect(ctx, P, y, CW, h, 14, IMG.accentSoft, null);
-      ctx.fillStyle = IMG.accent; ctx.font = F("bold", 25);
-      ctx.fillText("✓ 최근 리뷰 " + dg.total + "건 중 3점 이하 없음 — 깨끗합니다", P + 28, y + 45);
-      y += h + 34;
-    }
-
-    // 별점 분포
-    label("별점 분포   최근 리뷰 " + dg.total + "건" + (dg.avg ? " · 평균 " + dg.avg + "점" : ""));
-    const rows = [["5점", dg.dist.five, IMG.accent], ["4점대", dg.dist.four, IMG.accent],
-                  ["3점대", dg.dist.three, IMG.warn], ["2점 이하", dg.dist.low, IMG.bad]];
-    const boxH = rows.length * 46 + 28;
-    rrect(ctx, P, y, CW, boxH, 16, "#FBFDFB", IMG.line);
-    let by = y + 44;
-    rows.forEach(([lb, cnt, col]) => {
-      ctx.fillStyle = IMG.ink2; ctx.font = F("", 22);
-      ctx.fillText(lb, P + 24, by);
-      const tx = P + 140, tw = CW - 140 - 120;
-      rrect(ctx, tx, by - 20, tw, 22, 11, "#EFF3F0", null);
-      const fw = Math.max(0, Math.round((cnt || 0) / dg.total * tw));
-      if (fw > 0) rrect(ctx, tx, by - 20, fw, 22, 11, col, null);
-      ctx.fillStyle = IMG.ink3; ctx.font = F("", 21);
-      ctx.textAlign = "right"; ctx.fillText((cnt || 0) + "건", W - P - 24, by); ctx.textAlign = "left";
-      by += 46;
-    });
-    y += boxH + 34;
-  }
-
-  // 푸터
-  ctx.strokeStyle = IMG.line; ctx.beginPath(); ctx.moveTo(P, y); ctx.lineTo(W-P, y); ctx.stroke();
-  y += 34;
-  ctx.fillStyle = IMG.ink3; ctx.font = F("", 20);
-  ctx.fillText("네이버 · 카카오맵 공개 데이터 기준 · 도반글로벌 리뷰 모니터링", P, y);
-  y += P;
-
-  // 사용한 높이만큼 잘라내기
-  const out = document.createElement("canvas");
-  out.width = W; out.height = y;
-  const o = out.getContext("2d");
-  o.fillStyle = IMG.bg; o.fillRect(0, 0, W, y);
-  o.drawImage(cv, 0, 0);
-  return out;
+  const SC = 2;   // 2배로 그려 선명하게
+  const cv = document.createElement("canvas");
+  cv.width = (W + PAD * 2) * SC; cv.height = H * SC;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(SC, 0, 0, SC, 0, 0);
+  ctx.drawImage(img, 0, 0);
+  return await new Promise(r => cv.toBlob(r, "image/png"));
 }
 
 async function copyImage(s, dg) {
+  toast("이미지 만드는 중...");
   let blob;
-  try {
-    const cv = drawReportImage(s, dg);
-    blob = await new Promise(r => cv.toBlob(r, "image/png"));
-  } catch (e) { toast("이미지를 만들지 못했어요"); return; }
-  const file = new File([blob], (s.name + "_리뷰리포트.png"), { type: "image/png" });
+  try { blob = await captureImage(s); }
+  catch (e) { toast("이미지를 만들지 못했어요 — 텍스트 버튼을 써주세요"); return; }
+  if (!blob) { toast("이미지를 만들지 못했어요 — 텍스트 버튼을 써주세요"); return; }
 
+  const file = new File([blob], s.name + "_리뷰리포트.png", { type: "image/png" });
   // 핸드폰: 공유 시트로 카톡에 바로 보내기
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file] }); return; } catch (_) { /* 취소 시 아래로 */ }
+    try { await navigator.share({ files: [file] }); return; } catch (_) {}
   }
   // PC: 클립보드에 이미지 복사
   try {
