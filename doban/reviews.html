@@ -473,10 +473,10 @@ function drawReportImage(s, dg) {
   if (s.dVisit > 0 || s.dScore > 0) {
     const sd = new Date(s.first.checked_at);
     ctx.fillStyle = IMG.ink3; ctx.font = F("", 20);
-    ctx.fillText("▲는 " + (sd.getMonth()+1) + "/" + sd.getDate() + " 이후 증가분", P, y + 8);
-    y += 26;
+    ctx.fillText("▲는 " + (sd.getMonth()+1) + "/" + sd.getDate() + " 이후 증가분", P, y + 10);
+    y += 30;
   }
-  y += 22;
+  y += 30;
 
   // 카카오
   if (s.kakao) {
