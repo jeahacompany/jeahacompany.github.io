@@ -56,10 +56,22 @@
   .chip.bad  { background:var(--bad-soft); color:var(--bad); }
 
   /* ── 상세 ── */
+  .toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
   .back { display:inline-flex; align-items:center; gap:6px; background:none; border:none;
     color:var(--accent); font:inherit; font-weight:700; font-size:13.5px; cursor:pointer;
-    padding:6px 0; margin-bottom:8px; }
+    padding:6px 0; }
   .back:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+  .copy { display:inline-flex; align-items:center; gap:6px; font:inherit; font-size:13px; font-weight:700;
+    color:#fff; background:var(--accent); border:none; border-radius:9px; padding:8px 14px; cursor:pointer;
+    transition:opacity .12s; }
+  .copy:hover { opacity:.88; }
+  .copy:active { transform:scale(.97); }
+  .copy:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+  .toast { position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(12px);
+    background:var(--ink); color:var(--ground); font-size:13.5px; font-weight:700;
+    padding:11px 18px; border-radius:99px; opacity:0; pointer-events:none;
+    transition:opacity .2s, transform .2s; z-index:50; }
+  .toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
   .plat { font-size:11px; font-weight:800; letter-spacing:.1em; color:var(--ink-3); margin:16px 0 7px; }
   .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
   .tile { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 13px; }
@@ -262,7 +274,8 @@ function renderDetail(name) {
   }
 
   document.getElementById("app").innerHTML =
-    '<button class="back" id="back">← 전체 매장</button>'
+    '<div class="toolbar"><button class="back" id="back">← 전체 매장</button>'
+    + '<button class="copy" id="copy">📋 리포트 복사</button></div>'
     + '<div class="plat">네이버 플레이스</div>'
     + '<div class="tiles">'
     + '<div class="tile"><div class="l">평점' + (s.dScore > 0 ? ' <span class="d">▲' + s.dScore.toFixed(2) + '</span>' : '') + '</div>'
@@ -283,7 +296,81 @@ function renderDetail(name) {
   document.getElementById("note").innerHTML =
     s.dayKeys.length + '일치 기록 · 숫자가 그대로면 새 리뷰가 없다는 뜻입니다';
   document.getElementById("back").addEventListener("click", () => { location.hash = ""; });
+  document.getElementById("copy").addEventListener("click", () => copyReport(s, dg));
   window.scrollTo({ top:0, behavior:"instant" });
+}
+
+/* ── 카톡·메일로 바로 보낼 수 있는 텍스트 리포트 ── */
+function buildReport(s, dg) {
+  const n = v => (v ?? 0).toLocaleString("ko-KR");
+  const d = new Date(s.last.checked_at);
+  const L = [];
+  L.push("📊 " + s.name + " 리뷰 리포트");
+  L.push(d.getFullYear() + "년 " + (d.getMonth()+1) + "월 " + d.getDate() + "일 기준");
+  const since = new Date(s.first.checked_at);
+  const sinceTxt = (since.getMonth()+1) + "/" + since.getDate();
+  L.push("");
+  L.push("■ 네이버 플레이스");
+  L.push("· 평점 " + (Number(s.last.score) > 0 ? Number(s.last.score).toFixed(2) : "집계 전")
+    + (s.dScore > 0 ? "  (▲" + s.dScore.toFixed(2) + ")" : ""));
+  L.push("· 방문자 리뷰 " + n(s.last.visitor_cnt) + "개" + (s.dVisit > 0 ? "  (▲" + n(s.dVisit) + ")" : ""));
+  L.push("· 블로그 리뷰 " + n(s.last.blog_cnt) + "개" + (s.dBlog > 0 ? "  (▲" + n(s.dBlog) + ")" : ""));
+  if (s.dVisit > 0 || s.dScore > 0) L.push("  ※ ▲는 " + sinceTxt + " 이후 증가분");
+
+  if (s.kakao) {
+    L.push("");
+    L.push("■ 카카오맵");
+    L.push("· " + (hasK(s.kakao) ? "평점 " + Number(s.kakao.score).toFixed(1) + " (리뷰 " + n(s.kakao.visitor_cnt) + "개)" : "리뷰 없음"));
+    L.push("· 블로그 리뷰 " + n(s.kakao.blog_cnt) + "개");
+  }
+
+  if (dg && dg.total > 0) {
+    L.push("");
+    L.push("■ 최근 리뷰 " + dg.total + "건 분석");
+    if (dg.avg) L.push("· 평균 " + dg.avg + "점");
+    const t = dg.dist;
+    L.push("· 5점 " + (t.five||0) + "건 / 4점대 " + (t.four||0) + "건 / 3점대 " + (t.three||0) + "건 / 2점 이하 " + (t.low||0) + "건");
+    const lows = dg.lows || [];
+    if (!lows.length) {
+      L.push("· 3점 이하 리뷰 없음 — 깨끗합니다 ✓");
+    } else {
+      L.push("");
+      L.push("■ 확인이 필요한 리뷰 " + lows.length + "건");
+      lows.forEach(r => {
+        L.push("· " + Number(r.rating).toFixed(1) + "점 (" + (r.visited || "") + " 방문)");
+        L.push("  “" + String(r.body || "").trim() + "”");
+      });
+    }
+  }
+  L.push("");
+  L.push("— 도반글로벌 리뷰 모니터링");
+  return L.join("\n");
+}
+
+function toast(msg) {
+  let el = document.getElementById("toast");
+  if (!el) { el = document.createElement("div"); el.id = "toast"; el.className = "toast"; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.classList.add("on");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("on"), 2200);
+}
+
+async function copyReport(s, dg) {
+  const text = buildReport(s, dg);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("복사됐어요 · 붙여넣기 하세요");
+  } catch (_) {
+    // 클립보드 권한이 막힌 환경 대비
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed"; ta.style.top = "-1000px";
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    toast(ok ? "복사됐어요 · 붙여넣기 하세요" : "복사 실패 — 길게 눌러 직접 복사해 주세요");
+  }
 }
 
 function route() {
