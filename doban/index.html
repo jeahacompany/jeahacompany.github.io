@@ -3675,7 +3675,8 @@ function seedTableHTML(id, groups){
     tasksOf(id).forEach(function(t){ if(seedTypeOf(t.품목)===g[0]){ var r=roundOf(t); if(rk.indexOf(r)<0) rk.push(r); } });
     rk.sort(function(a,b){return a-b;});
     var visible=rk.reduce(function(acc,r){ return acc.concat(byR[r]||[]); }, []);
-    var typeHead='<div class="seed-type"><div class="seed-th">'+g[1]+' '+g[0]+' <span>총 '+visible.filter(seedDone).length+'/'+visible.length+'</span></div>';
+    var _named=visible.filter(function(s){ return String(s.계정명||'').trim()!==''; }).length;   // 이름 채워진 수
+    var typeHead='<div class="seed-type"><div class="seed-th">'+g[1]+' '+g[0]+' <span>등록 '+_named+'/'+visible.length+' · 완료 '+visible.filter(seedDone).length+'</span></div>';
     // 블로그: 블로거에게 보낼 링크를 항상 표시 (버튼 뒤에 숨기지 않음)
     var linkCard='';
     if(g[0]==='블로그'){
