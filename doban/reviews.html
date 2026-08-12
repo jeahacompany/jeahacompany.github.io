@@ -53,6 +53,7 @@
   .chip.warn { background:var(--warn-soft); color:var(--warn); }
   .chip.new  { background:var(--line-2); color:var(--ink-2); }
   .chip.k    { background:var(--kakao); color:#3B1E1E; }
+  .chip.bad  { background:var(--bad-soft); color:var(--bad); }
 
   /* ── 상세 ── */
   .back { display:inline-flex; align-items:center; gap:6px; background:none; border:none;
@@ -77,6 +78,27 @@
   tr:last-child td { border-bottom:none; }
   .up { color:var(--accent); font-weight:700; }
 
+  /* 별점 분포 · 주별 추이 */
+  .bars { display:flex; flex-direction:column; gap:7px; background:var(--card);
+    border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .bar { display:grid; grid-template-columns:62px 1fr 84px; align-items:center; gap:10px; font-size:12.5px; }
+  .bar .t { color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .bar .track { display:block; background:var(--line-2); border-radius:99px; height:15px; overflow:hidden; }
+  .bar .fill { display:block; height:100%; border-radius:99px; background:var(--accent); }
+  .bar .n { color:var(--ink-3); text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+  /* 부정 리뷰 */
+  .rev { border:1px solid var(--line); border-left:3px solid var(--warn); background:var(--card);
+    border-radius:10px; padding:11px 13px; }
+  .rev.bad { border-left-color:var(--bad); background:var(--bad-soft); }
+  .rev .hd { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:5px; }
+  .rev .st { font-size:12px; font-weight:800; }
+  .rev .dt { font-size:11.5px; color:var(--ink-3); }
+  .rev p { margin:0; font-size:13px; color:var(--ink-2); }
+  .rev.bad p { color:var(--ink); }
+  .revs { display:flex; flex-direction:column; gap:8px; }
+  .clean { background:var(--accent-soft); color:var(--accent); border-radius:12px; padding:13px 15px;
+    font-size:13.5px; font-weight:700; }
   .err { background:var(--bad-soft); color:var(--bad); border-radius:12px; padding:14px 16px; font-size:14px; }
   .loading { color:var(--ink-3); font-size:14px; padding:28px; text-align:center; }
   .note { font-size:12px; color:var(--ink-3); margin-top:18px; }
@@ -99,7 +121,9 @@
 </div>
 <script>
 const URL_RPC = "https://bgkdkfmdndhqgfdygmfm.supabase.co/rest/v1/rpc/review_feed";
+const URL_DIG = "https://bgkdkfmdndhqgfdygmfm.supabase.co/rest/v1/rpc/review_digest_all";
 const KEY = "sb_publishable_KxsYIOy5d4i7TR5PVBExLg_8UvNz6v9";
+let DIGEST = {};
 const p2 = n => String(n).padStart(2,"0");
 const WD = ["일","월","화","수","목","금","토"];
 const dayKey = iso => { const d=new Date(iso); return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate()); };
@@ -130,6 +154,7 @@ function build(rows) {
     s.dScore = +(s.last.score - s.first.score).toFixed(2);
     s.dVisit = s.last.visitor_cnt - s.first.visitor_cnt;
     s.dBlog  = s.last.blog_cnt - s.first.blog_cnt;
+    s.cid = s.last.cid;
     return s;
   }).sort((a,b) => (b.last.visitor_cnt||0) - (a.last.visitor_cnt||0));
 }
@@ -149,6 +174,8 @@ function renderList() {
     else if (sc > 0 && sc < 4.0) chips.push('<span class="chip warn">평점 확인</span>');
     if (hasK(s.kakao) && Number(s.kakao.score) < 4.0) chips.push('<span class="chip warn">카카오 ' + Number(s.kakao.score).toFixed(1) + '</span>');
     else if (hasK(s.kakao)) chips.push('<span class="chip k">카카오 ' + Number(s.kakao.score).toFixed(1) + '</span>');
+    const dg = DIGEST[s.cid];
+    if (dg && dg.lows && dg.lows.length) chips.push('<span class="chip bad">부정 ' + dg.lows.length + '건</span>');
 
     html += '<button class="row" data-i="' + i + '">'
       + '<span><span class="nm">' + esc(s.name) + '</span>'
@@ -184,6 +211,56 @@ function renderDetail(name) {
         + '</span><span class="sep">·</span><span>블로그 리뷰 ' + s.kakao.blog_cnt + '개</span></div>'
     : '';
 
+  const dg = DIGEST[s.cid] || null;
+
+  // 별점 분포
+  let distHtml = "";
+  if (dg && dg.total > 0) {
+    const d = dg.dist, tot = dg.total;
+    const rows = [["5점", d.five, "var(--accent)"], ["4점대", d.four, "var(--accent)"],
+                  ["3점대", d.three, "var(--warn)"], ["2점 이하", d.low, "var(--bad)"]];
+    distHtml = '<div class="plat">별점 분포 <span style="color:var(--ink-3);font-weight:600">'
+      + '최근 리뷰 ' + tot + '건' + (dg.avg ? ' · 평균 ' + dg.avg + '점' : '') + '</span></div><div class="bars">'
+      + rows.map(([lb, n, col]) => '<div class="bar"><span class="t">' + lb + '</span>'
+          + '<span class="track"><span class="fill" style="width:' + Math.round((n||0)/tot*100) + '%;background:' + col + '"></span></span>'
+          + '<span class="n">' + (n||0) + '건</span></div>').join('')
+      + '</div>';
+  }
+
+  // 주별 리뷰 추이
+  let wkHtml = "";
+  if (dg && dg.weeks && dg.weeks.length) {
+    const wks = dg.weeks.slice().reverse();
+    const mx = Math.max(...wks.map(w => w.cnt));
+    wkHtml = '<div class="plat">주별 리뷰 수와 평균 별점</div><div class="bars">'
+      + wks.map(w => '<div class="bar"><span class="t">' + w.wk + ' 주</span>'
+          + '<span class="track"><span class="fill" style="width:' + Math.round(w.cnt/mx*100) + '%"></span></span>'
+          + '<span class="n">' + w.cnt + '건 · ' + (w.avg ?? '-') + '점</span></div>').join('')
+      + '</div>';
+  }
+
+  // 악성 · 부정 리뷰
+  let lowHtml = "";
+  if (dg && dg.total > 0) {
+    const lows = dg.lows || [];
+    if (!lows.length) {
+      lowHtml = '<div class="plat">부정 리뷰</div>'
+        + '<div class="clean">✓ 최근 리뷰 ' + dg.total + '건 중 3점 이하 없음 — 깨끗합니다</div>';
+    } else {
+      lowHtml = '<div class="plat">부정 리뷰 <span style="color:var(--bad);font-weight:800">'
+        + lows.length + '건</span></div><div class="revs">'
+        + lows.map(r => {
+            const rt = Number(r.rating);
+            return '<div class="rev' + (rt <= 2 ? ' bad' : '') + '">'
+              + '<div class="hd"><span class="st" style="color:' + (rt <= 2 ? 'var(--bad)' : 'var(--warn)') + '">'
+              + (rt <= 2 ? '⚠️ ' : '') + rt.toFixed(1) + '점</span>'
+              + '<span class="dt">' + esc(r.visited || '') + ' 방문</span></div>'
+              + '<p>' + esc(r.body || '') + '</p></div>';
+          }).join('')
+        + '</div>';
+    }
+  }
+
   document.getElementById("app").innerHTML =
     '<button class="back" id="back">← 전체 매장</button>'
     + '<div class="plat">네이버 플레이스</div>'
@@ -196,6 +273,9 @@ function renderDetail(name) {
     + '<div class="v">' + s.last.blog_cnt + '<span class="u">개</span></div></div>'
     + '</div>'
     + kb
+    + lowHtml
+    + distHtml
+    + wkHtml
     + '<div class="plat">날짜별 변화 (네이버)</div>'
     + '<div class="card"><table><thead><tr><th>날짜</th><th>평점</th><th>방문자</th><th>블로그</th></tr></thead>'
     + '<tbody>' + trs + '</tbody></table></div>';
@@ -214,9 +294,13 @@ function route() {
 
 (async function load() {
   try {
-    const res = await fetch(URL_RPC, { method:"POST",
-      headers:{ apikey:KEY, "Content-Type":"application/json" }, body:"{}" });
+    const [res, dgRes] = await Promise.all([
+      fetch(URL_RPC, { method:"POST", headers:{ apikey:KEY, "Content-Type":"application/json" }, body:"{}" }),
+      fetch(URL_DIG, { method:"POST", headers:{ apikey:KEY, "Content-Type":"application/json" }, body:"{}" })
+        .catch(() => null)
+    ]);
     if (!res.ok) throw new Error("HTTP " + res.status);
+    if (dgRes && dgRes.ok) { try { DIGEST = await dgRes.json() || {}; } catch (_) { DIGEST = {}; } }
     const rows = await res.json();
     if (!rows || !rows.length) {
       document.getElementById("app").innerHTML = '<div class="err">아직 수집된 데이터가 없습니다.</div>';
