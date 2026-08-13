@@ -1241,6 +1241,15 @@ function infosOf(id){ return (DB.정보||[]).filter(function(s){return s.광고�
 var INFO_HIDE = ['상호명','주소','대표자','대표자 연락처']; // 업체정보에서 관리 → 계정정보에선 숨김
 var INFO_BASIC = ['담당자','담당자 연락처','플레이스 번호'];
 var PLAT_ICON = {'네이버':'🟢','인스타':'📷','구글':'🔵','카카오':'🟡','당근':'🥕','티맵':'🗺️'};
+// 플랫폼별 기본 바로가기 링크(로그인·관리 페이지) — 매장별 링크가 없으면 이 고정값을 쓴다. 신규도 자동.
+var PLAT_LINK = {
+  '네이버':'https://new.smartplace.naver.com/',
+  '인스타':'https://www.instagram.com/',
+  '구글':'https://business.google.com/kr/business-profile/',
+  '카카오':'https://center-pf.kakao.com/',
+  '당근':'https://www.daangn.com/kr/business/',
+  '티맵':'https://tmapmobility.com/'
+};
 function platKey(항목){ var s=String(항목).replace(/\s+/g,''); if(/(비밀번호|비번)$/.test(s)) return {p:s.replace(/(비밀번호|비번)$/,''), kind:'pw'}; if(/아이디$/.test(s)) return {p:s.replace(/아이디$/,''), kind:'id'}; return null; }
 function infValRow(f, sub, delable){
   return '<div class="inf-line">' +
@@ -1263,7 +1272,7 @@ function infoGroupHTML(id){
     groups[k.p][k.kind]=f;
   });
   var plat = order.map(function(p){
-    var g=groups[p], linkRow=g.id||g.pw, link=(linkRow&&linkRow.링크)||'';
+    var g=groups[p], linkRow=g.id||g.pw, link=(linkRow&&linkRow.링크) || PLAT_LINK[p] || '';
     var isCustom = !PLAT_ICON[p];
     var delIds = [g.id&&g.id.ID, g.pw&&g.pw.ID].filter(Boolean);
     // 아이디·비밀번호 중 없는 칸은 빈 입력칸으로 띄워두고, 값을 넣는 순간 만들어짐
