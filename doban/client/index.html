@@ -99,6 +99,9 @@
   .st-완료 { background:#d3f9d8; color:#237a3b; }
   .st-진행중 { background:#fff3cd; color:#9a6700; }
   .st-대기 { background:#e9ecef; color:#666; }
+  .mini-bar { height:5px; background:#f1f3f5; border-radius:3px; margin-top:7px; overflow:hidden; }
+  .mini-bar > div { height:100%; background:#e8590c; border-radius:3px; transition:width .3s; }
+  .row small b { color:#e8590c; }
   .log { padding:9px 0; border-bottom:1px solid #f4f4f4; font-size:14px; }
   .log:last-child { border-bottom:none; }
   .log .d { color:#e8590c; font-size:12px; font-weight:600; }
@@ -537,16 +540,37 @@ function cDelDoc(field, path){
    .then(function(){ refreshDocTab(); })
    .catch(function(e){ alert('삭제 실패: '+((e&&e.message)||e)); });
 }
+// 작업 품목이 명단(인플루언서/블로그)이면, 실제 명단에서 등록·게시 수를 끌어온다
+function taskProg(t){
+  var ty = /인플루언서/.test(t.품목) ? '인플루언서' : (/블로그|체험단/.test(t.품목) ? '블로그' : null);
+  if(!ty) return null;
+  var list=(data.콘텐츠||[]).filter(function(s){ var st=(s.종류==='체험단'?'블로그':s.종류); return st===ty; });
+  if(!list.length) return null;
+  return { total:list.length,
+    reg:list.filter(function(s){return String(s.계정명||'').trim()!=='';}).length,
+    pub:list.filter(function(s){return !!s.완료;}).length };
+}
+// 작업 한 건의 완료도(0~1) — 명단은 게시율, 나머지는 상태 기준
+function taskRatio(t){ var p=taskProg(t); if(p) return p.total?p.pub/p.total:0; return t.상태==='완료'?1:(t.상태==='진행중'?0.3:0); }
 function renderApp() {
-  var done = data.작업.filter(function(t){return t.상태==='완료';}).length;
-  var total = data.작업.length;
-  var pct = total ? Math.round(done/total*100) : 0;
+  var ratios = data.작업.map(taskRatio);
+  var pct = ratios.length ? Math.round(ratios.reduce(function(a,b){return a+b;},0)/ratios.length*100) : 0;
+  var doneN = data.작업.filter(function(t){ var p=taskProg(t); return p ? (p.total>0&&p.pub>=p.total) : t.상태==='완료'; }).length;
 
   var homeTab =
-    '<div class="bar-wrap"><div class="bar-top"><b>전체 진행률</b><span>'+done+'/'+total+' 완료 ('+pct+'%)</span></div>' +
+    '<div class="bar-wrap"><div class="bar-top"><b>전체 진행률</b><span>'+doneN+'/'+data.작업.length+' 완료 ('+pct+'%)</span></div>' +
     '<div class="bar"><div style="width:'+pct+'%"></div></div></div>' +
     '<div class="sec"><h3>작업 항목</h3>' +
     (data.작업.map(function (t) {
+      var p=taskProg(t);
+      if(p){
+        var pp = p.total?Math.round(p.pub/p.total*100):0;
+        var st = (p.total>0 && p.pub>=p.total) ? '완료' : (p.reg>0 ? '진행중' : '대기');
+        return '<div class="row"><div class="grow">'+esc(t.품목)+
+          '<small>섭외 <b>'+p.reg+'</b> · 게시 <b>'+p.pub+'</b> / '+p.total+'건</small>'+
+          '<div class="mini-bar"><div style="width:'+pp+'%"></div></div></div>'+
+          '<span class="st st-'+st+'">'+st+'</span></div>';
+      }
       return '<div class="row"><div class="grow">'+esc(t.품목)+
         '<small>'+esc(t.세부내용)+(t.완료일?' · 완료일 '+esc(t.완료일):'')+'</small></div>' +
         '<span class="st st-'+esc(t.상태)+'">'+esc(t.상태)+'</span></div>';
