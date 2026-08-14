@@ -564,7 +564,7 @@
         <div class="settle-cards">
           <div class="settle-card"><span class="lbl">총 매출</span><span class="val" id="settleTotalSales">0원</span></div>
           <div class="settle-card"><span class="lbl">건수</span><span class="val" id="settleTotalCount">0건</span><span class="val-sub" id="settleTotalQty" style="font-size:13px; color:#888; font-weight:700; margin-top:2px;">수량 0건</span></div>
-          <div class="settle-card total"><span class="lbl">총 이익</span><span class="val" id="settleTotalProfit">0원</span></div>
+          <div class="settle-card total"><span class="lbl">총 이익</span><span class="val" id="settleTotalProfit">0원</span><span class="val-sub" id="settleProfitRate" style="font-size:13px; color:#FFE2CC; font-weight:700; margin-top:2px;">이익율 0%</span></div>
           <div class="settle-card"><span class="lbl">건당이익</span><span class="val" id="settleAvgPer">0원</span></div>
         </div>
         <p class="muted" style="margin:4px 0 10px;">※ 이익 = (리뷰어·택배·결제대행·+500원 수익) − 원가. 제품값은 통과. <b>이익이 0원인 건은 목록엔 표시되지만 매출·건수·이익 집계에서 자동 제외</b>됩니다. 견적의 <b>세부</b>를 누르면 항목별 마진이 펼쳐집니다. 관리자만 볼 수 있습니다.</p>
@@ -2090,6 +2090,7 @@ function renderSettlement(){
   document.getElementById('settleTotalSales').textContent = won(totalSales) + '원';
   document.getElementById('settleTotalCount').textContent = countedNum + '건';
   document.getElementById('settleTotalQty').textContent = '수량 ' + won(countedQty) + '건';
+  document.getElementById('settleProfitRate').textContent = '이익율 ' + (totalSales ? (totalProfit/totalSales*100).toFixed(1) : '0') + '%';
   document.getElementById('settleAvgPer').textContent = won(avgPer) + '원';
   document.getElementById('settleScopeLabel').textContent = sel ? ('📌 ' + sel.replace('-','년 ') + '월 기준') : (settleDays ? ('📌 최근 ' + settleDays + '일 (' + cutoff + ' ~ 오늘)') : '📌 전체 기간');
   const tbody = document.getElementById('settleTbody');
@@ -2245,8 +2246,9 @@ function renderClients(){
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><b>${esc(c.displayName)}</b><br><button class="btn secondary" style="padding:2px 7px; font-size:11px; margin-top:4px;" onclick="changeClientUsername('${esc(c.username)}','${esc(c.displayName)}')">✏️ 아이디 변경</button></td>
-      <td title="비밀번호는 암호화되어 저장되며, 관리자도 원래 값을 볼 수 없습니다. 잊었으면 오른쪽 '초기화'로 새로 설정하세요.">
-        <span style="color:#8B95A1; font-size:12.5px; white-space:nowrap;"><i class="lockdot">🔒</i> 암호화됨</span>
+      <td>
+        <span id="pw-${idx}" style="font-variant-numeric:tabular-nums; font-size:13px;">••••••</span>
+        <button class="btn secondary" style="padding:3px 8px; font-size:11px;" onclick="togglePassword(${idx})" id="pwBtn-${idx}">보기</button>
       </td>
       <td><input type="checkbox" ${c.active?'checked':''} onchange="updateClientField(${idx},'active',this.checked)"></td>
       <td>
@@ -2296,6 +2298,21 @@ async function restoreClient(username, displayName){
   if(!confirm(displayName + ' 고객사를 복원할까요?')) return;
   try{ await call('adminRestoreClient', token, username); await loadClients(); showClientSub('active'); }
   catch(e){ if(!handleSessionError(e)) alert('복원 실패: ' + e.message); }
+}
+function togglePassword(idx){
+  const span = document.getElementById('pw-'+idx);
+  const btn = document.getElementById('pwBtn-'+idx);
+  if(span.textContent === '••••••'){
+    const pw = clients[idx].password || '';
+    // 암호화(해시)로 남아 바뀐 계정은 원래 비번을 알 수 없음 → 초기화 안내
+    span.textContent = /^\$2[aby]?\$/.test(pw) ? '🔒 초기화 필요' : (pw || '(없음)');
+    span.style.color = /^\$2[aby]?\$/.test(pw) ? '#8B95A1' : '';
+    btn.textContent = '숨기기';
+  } else {
+    span.textContent = '••••••';
+    span.style.color = '';
+    btn.textContent = '보기';
+  }
 }
 function updateClientField(idx, field, value){
   if(field==='active' || field==='marginPercent' || field==='cheapExempt') clients[idx][field] = value; // active=boolean, marginPercent/cheapExempt=면제플래그(1/0)
