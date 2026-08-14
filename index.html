@@ -548,7 +548,7 @@
         </div>
         <div class="settle-cards">
           <div class="settle-card"><span class="lbl">총 매출</span><span class="val" id="settleTotalSales">0원</span></div>
-          <div class="settle-card"><span class="lbl">건수</span><span class="val" id="settleTotalCount">0건</span></div>
+          <div class="settle-card"><span class="lbl">건수</span><span class="val" id="settleTotalCount">0건</span><span class="val-sub" id="settleTotalQty" style="font-size:13px; color:#888; font-weight:700; margin-top:2px;">수량 0건</span></div>
           <div class="settle-card total"><span class="lbl">총 이익</span><span class="val" id="settleTotalProfit">0원</span></div>
           <div class="settle-card"><span class="lbl">건당이익</span><span class="val" id="settleAvgPer">0원</span></div>
         </div>
@@ -2074,6 +2074,7 @@ function renderSettlement(){
   document.getElementById('settleTotalProfit').textContent = '+' + won(totalProfit) + '원';
   document.getElementById('settleTotalSales').textContent = won(totalSales) + '원';
   document.getElementById('settleTotalCount').textContent = countedNum + '건';
+  document.getElementById('settleTotalQty').textContent = '수량 ' + won(countedQty) + '건';
   document.getElementById('settleAvgPer').textContent = won(avgPer) + '원';
   document.getElementById('settleScopeLabel').textContent = sel ? ('📌 ' + sel.replace('-','년 ') + '월 기준') : (settleDays ? ('📌 최근 ' + settleDays + '일 (' + cutoff + ' ~ 오늘)') : '📌 전체 기간');
   const tbody = document.getElementById('settleTbody');
