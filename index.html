@@ -2245,9 +2245,8 @@ function renderClients(){
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><b>${esc(c.displayName)}</b><br><button class="btn secondary" style="padding:2px 7px; font-size:11px; margin-top:4px;" onclick="changeClientUsername('${esc(c.username)}','${esc(c.displayName)}')">✏️ 아이디 변경</button></td>
-      <td>
-        <span id="pw-${idx}" style="font-variant-numeric:tabular-nums;">••••••</span>
-        <button class="btn secondary" style="padding:3px 8px; font-size:11px;" onclick="togglePassword(${idx})" id="pwBtn-${idx}">보기</button>
+      <td title="비밀번호는 암호화되어 저장되며, 관리자도 원래 값을 볼 수 없습니다. 잊었으면 오른쪽 '초기화'로 새로 설정하세요.">
+        <span style="color:#8B95A1; font-size:12.5px; white-space:nowrap;"><i class="lockdot">🔒</i> 암호화됨</span>
       </td>
       <td><input type="checkbox" ${c.active?'checked':''} onchange="updateClientField(${idx},'active',this.checked)"></td>
       <td>
@@ -2281,7 +2280,7 @@ function renderDeletedClients(){
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><b>${esc(c.displayName)}</b></td>
-      <td style="font-variant-numeric:tabular-nums;">${esc(c.password||'(없음)')}</td>
+      <td style="color:#8B95A1; font-size:12.5px;">🔒 암호화됨</td>
       <td>${tierOf(c) ? tierOf(c) : '직접'}</td>
       <td><button class="btn" onclick="restoreClient('${esc(c.username)}','${esc(c.displayName)}')">복원</button></td>
     `;
@@ -2297,17 +2296,6 @@ async function restoreClient(username, displayName){
   if(!confirm(displayName + ' 고객사를 복원할까요?')) return;
   try{ await call('adminRestoreClient', token, username); await loadClients(); showClientSub('active'); }
   catch(e){ if(!handleSessionError(e)) alert('복원 실패: ' + e.message); }
-}
-function togglePassword(idx){
-  const span = document.getElementById('pw-'+idx);
-  const btn = document.getElementById('pwBtn-'+idx);
-  if(span.textContent === '••••••'){
-    span.textContent = clients[idx].password || '(없음)';
-    btn.textContent = '숨기기';
-  } else {
-    span.textContent = '••••••';
-    btn.textContent = '보기';
-  }
 }
 function updateClientField(idx, field, value){
   if(field==='active' || field==='marginPercent' || field==='cheapExempt') clients[idx][field] = value; // active=boolean, marginPercent/cheapExempt=면제플래그(1/0)
