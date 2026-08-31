@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>카카오 톡딜 현황판</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--line:#262a33;--tx:#e6e8ee;--dim:#8b93a5;--y:#fee500;--up:#4ade80;--dn:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 -apple-system,BlinkMacSystemFont,'Malgun Gothic',sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:1240px;margin:0 auto;padding:16px}
+h1{font-size:19px;margin:0 0 4px}
+.sub{color:var(--dim);font-size:12px;margin-bottom:12px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.tab{padding:7px 13px;border:1px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;background:var(--card);user-select:none}
+.tab.on{background:var(--y);color:#111;border-color:var(--y);font-weight:700}
+input.q{background:var(--card);border:1px solid var(--line);border-radius:8px;color:var(--tx);padding:7px 11px;font-size:13px;min-width:180px}
+input.q::placeholder{color:var(--dim)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{position:sticky;top:0;background:#1f232b;text-align:left;padding:9px 10px;font-size:12px;color:var(--dim);white-space:nowrap;z-index:1}
+td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.nm{min-width:220px}
+.nm a{color:var(--tx);text-decoration:none}
+.nm a:hover{color:var(--y)}
+.st{color:var(--dim);font-size:11px;margin-top:2px}
+.up{color:var(--up);font-weight:700}
+.badge{display:inline-block;padding:1px 6px;border-radius:5px;background:#2a2f3a;font-size:11px;color:var(--dim);margin-left:5px}
+.badge.ad{background:#3b2f00;color:var(--y)}
+.scroll{max-height:76vh;overflow:auto}
+.note{color:var(--dim);font-size:13px;padding:18px;line-height:1.8}
+.err{color:var(--dn)}
+.tablewrap{overflow-x:auto}
+@media(max-width:640px){.wrap{padding:12px}td,th{padding:8px 7px;font-size:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>카카오 톡딜 현황판</h1>
+  <div class="sub" id="sub">불러오는 중…</div>
+  <div class="bar">
+    <div class="tabs">
+      <div class="tab on" data-t="win">오늘의 승자</div>
+      <div class="tab" data-t="gmv">누적 판매 TOP</div>
+      <div class="tab" data-t="hot">지금 뜨는 딜</div>
+      <div class="tab" data-t="brand">브랜드 랭킹</div>
+      <div class="tab" data-t="cat">카테고리 벤치마크</div>
+      <div class="tab" data-t="ad">광고 지면</div>
+      <div class="tab" data-t="end">마감 임박</div>
+    </div>
+    <input class="q" id="q" placeholder="상품·브랜드 검색">
+  </div>
+  <div class="card"><div class="scroll tablewrap" id="body"><div class="note">불러오는 중…</div></div></div>
+</div>
+
+<script>
+const SB  = "https://bgkdkfmdndhqgfdygmfm.supabase.co/rest/v1/rpc/";
+const KEY = "sb_publishable_KxsYIOy5d4i7TR5PVBExLg_8UvNz6v9";
+
+const rpc = (fn, args) => fetch(SB + fn, {
+  method: "POST",
+  headers: { apikey: KEY, "Content-Type": "application/json" },
+  body: JSON.stringify(args || {})
+}).then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(fn + ": " + t); }));
+
+const n   = v => (Number(v) || 0).toLocaleString("ko-KR");
+const won = v => n(v) + "원";
+const fmt = t => t ? String(t).replace("T", " ").slice(0, 16) : "-";
+
+let D = { feed: [], movers: [], brands: [], cats: [], ads: [] };
+let tab = "win", q = "";
+
+const hit = o => {
+  if (!q) return true;
+  const s = q.toLowerCase();
+  return (o.product_name || o.store_name || o.category_name || "").toLowerCase().includes(s)
+      || (o.store_name || "").toLowerCase().includes(s);
+};
+
+const nameCell = it => '<td class="nm"><a href="' + (it.url || "#") + '" target="_blank" rel="noopener">'
+  + (it.product_name || "") + "</a>"
+  + (it.placement_key ? '<span class="badge ad">광고 ' + it.placement_key + "</span>" : "")
+  + '<div class="st">' + (it.store_name || "") + (it.category_name ? " · " + it.category_name : "") + "</div></td>";
+
+const table = (head, rows) => rows.length
+  ? "<table><thead><tr>" + head + "</tr></thead><tbody>" + rows.join("") + "</tbody></table>"
+  : '<div class="note">해당하는 항목이 없다.</div>';
+
+const views = {
+  win() {
+    // 24시간치가 쌓이기 전에는 직전 스냅샷 대비 증감으로 대체한다
+    const src = D.movers.length ? D.movers
+      : D.feed.filter(i => i.delta > 0)
+              .map(i => Object.assign({}, i, { sold: i.delta }))
+              .sort((a, b) => b.est_revenue - a.est_revenue);
+    const w = src.filter(hit);
+    if (!w.length) return '<div class="note">아직 증감 데이터가 없다.<br>스냅샷이 2회 이상 쌓이면 <b>직전 대비 몇 개 팔렸나 × 톡딜가 = 추정 매출</b>이 여기 뜬다.</div>';
+    return table('<th class="n">#</th><th>상품</th><th class="n">톡딜가</th><th class="n">판매증가</th><th class="n">추정매출</th><th class="n">누적</th>',
+      w.map((it, i) => '<tr><td class="n">' + (i + 1) + "</td>" + nameCell(it)
+        + '<td class="n">' + won(it.price) + "</td>"
+        + '<td class="n up">+' + n(it.sold) + "</td>"
+        + '<td class="n up">' + won(it.est_revenue) + "</td>"
+        + '<td class="n">' + n(it.total_sale_count) + "</td></tr>"));
+  },
+  gmv() {
+    const w = D.feed.filter(hit).slice().sort((a, b) => b.gmv - a.gmv);
+    return table('<th class="n">#</th><th>상품</th><th class="n">톡딜가</th><th class="n">누적판매</th><th class="n">누적매출(추정)</th><th class="n">주문중</th>',
+      w.slice(0, 300).map((it, i) => '<tr><td class="n">' + (i + 1) + "</td>" + nameCell(it)
+        + '<td class="n">' + won(it.price) + '<div class="st">' + Math.round(it.discount_rate || 0) + "%↓</div></td>"
+        + '<td class="n">' + n(it.total_sale_count) + "</td>"
+        + '<td class="n">' + won(it.gmv) + "</td>"
+        + '<td class="n">' + n(it.group_user_count) + "</td></tr>"));
+  },
+  hot() {
+    const w = D.feed.filter(hit).filter(i => i.rank_user < 9999).sort((a, b) => a.rank_user - b.rank_user);
+    return table('<th class="n">구경순위</th><th>상품</th><th class="n">톡딜가</th><th class="n">주문중</th><th class="n">7일방문</th><th class="n">평점</th>',
+      w.slice(0, 300).map(it => '<tr><td class="n">' + it.rank_user + "</td>" + nameCell(it)
+        + '<td class="n">' + won(it.price) + "</td>"
+        + '<td class="n">' + n(it.group_user_count) + "</td>"
+        + '<td class="n">' + n(it.uv_7d) + "</td>"
+        + '<td class="n">' + (it.score ? Number(it.score).toFixed(1) : "-")
+        + '<div class="st">' + n(it.review_count) + "개</div></td></tr>"));
+  },
+  brand() {
+    const w = D.brands.filter(hit);
+    return table('<th class="n">#</th><th>브랜드</th><th class="n">딜수</th><th class="n">누적판매</th><th class="n">누적매출(추정)</th><th class="n">주문중</th>',
+      w.map((b, i) => '<tr><td class="n">' + (i + 1) + "</td><td>" + b.store_name + "</td>"
+        + '<td class="n">' + n(b.deals) + "</td>"
+        + '<td class="n">' + n(b.total_sale) + "</td>"
+        + '<td class="n">' + won(b.gmv) + "</td>"
+        + '<td class="n">' + n(b.users) + "</td></tr>"));
+  },
+  cat() {
+    const w = D.cats.filter(hit);
+    return table('<th class="n">#</th><th>카테고리</th><th class="n">딜수</th><th class="n">평균할인</th><th class="n">평균가</th><th class="n">누적매출(추정)</th>',
+      w.map((c, i) => '<tr><td class="n">' + (i + 1) + "</td><td>" + c.category_name + "</td>"
+        + '<td class="n">' + n(c.deals) + "</td>"
+        + '<td class="n">' + (c.avg_rate || 0) + "%</td>"
+        + '<td class="n">' + won(c.avg_price) + "</td>"
+        + '<td class="n">' + won(c.gmv) + "</td></tr>"));
+  },
+  ad() {
+    const w = D.ads.filter(hit);
+    if (!w.length) return '<div class="note">아직 기록된 광고 지면이 없다.</div>';
+    return table("<th>수집시각</th><th>지면</th><th>상품</th><th class=\"n\">톡딜가</th><th class=\"n\">누적판매</th><th class=\"n\">주문중</th>",
+      w.map(it => "<tr><td>" + fmt(it.captured_at) + "</td><td>" + (it.placement_key || "") + "</td>"
+        + nameCell(it)
+        + '<td class="n">' + won(it.price) + "</td>"
+        + '<td class="n">' + n(it.total_sale_count) + "</td>"
+        + '<td class="n">' + n(it.group_user_count) + "</td></tr>"));
+  },
+  end() {
+    const w = D.feed.filter(hit).filter(i => i.remain_days > 0).sort((a, b) => a.remain_days - b.remain_days);
+    return table('<th class="n">남음</th><th>상품</th><th class="n">톡딜가</th><th class="n">누적판매</th><th class="n">주문중</th>',
+      w.slice(0, 200).map(it => '<tr><td class="n">' + it.remain_days + "일</td>" + nameCell(it)
+        + '<td class="n">' + won(it.price) + "</td>"
+        + '<td class="n">' + n(it.total_sale_count) + "</td>"
+        + '<td class="n">' + n(it.group_user_count) + "</td></tr>"));
+  }
+};
+
+const draw = () => { document.getElementById("body").innerHTML = views[tab](); };
+
+document.querySelectorAll(".tab").forEach(el => el.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("on"));
+  el.classList.add("on"); tab = el.dataset.t; draw();
+});
+document.getElementById("q").oninput = e => { q = e.target.value.trim(); draw(); };
+
+(async () => {
+  try {
+    const [feed, movers, brands, cats, ads] = await Promise.all([
+      rpc("td_feed",   { p_limit: 1000 }),
+      rpc("td_movers", { p_hours: 24, p_limit: 300 }),
+      rpc("td_brands", { p_limit: 100 }),
+      rpc("td_cats",   { p_limit: 60 }),
+      rpc("td_ads",    { p_days: 14 })
+    ]);
+    D = { feed: feed || [], movers: movers || [], brands: brands || [], cats: cats || [], ads: ads || [] };
+    const cap = D.feed.length ? D.feed[0].captured_at : null;
+    document.getElementById("sub").textContent =
+      "최근 수집 " + fmt(cap) + " · 추적 딜 " + n(D.feed.length) + "개"
+      + (D.movers.length ? " · 최근 24시간 판매증가 " + n(D.movers.length) + "건" : " · (증감은 스냅샷 2회부터)");
+    draw();
+  } catch (e) {
+    document.getElementById("sub").innerHTML = '<span class="err">불러오기 실패</span>';
+    document.getElementById("body").innerHTML = '<div class="note err">' + e.message + "</div>";
+  }
+})();
+</script>
+</body>
+</html>
