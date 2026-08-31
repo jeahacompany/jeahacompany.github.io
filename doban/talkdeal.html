@@ -67,7 +67,10 @@ const rpc = (fn, args) => fetch(SB + fn, {
 
 const n   = v => (Number(v) || 0).toLocaleString("ko-KR");
 const won = v => n(v) + "원";
-const fmt = t => t ? String(t).replace("T", " ").slice(0, 16) : "-";
+// 서버는 UTC로 내려주므로 보는 사람 시간대로 바꿔서 표시한다
+const fmt = t => t
+  ? new Date(t).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
+  : "-";
 
 let D = { feed: [], movers: [], brands: [], cats: [], ads: [] };
 let tab = "win", q = "";
