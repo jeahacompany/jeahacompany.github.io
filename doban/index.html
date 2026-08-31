@@ -1014,7 +1014,11 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){retur
 function afterLogin(d){
   document.getElementById('pinGate').style.display='none';
   DB = d; render();
-  try{ var oc=localStorage.getItem('doban_open'); if(oc && DB.광고주.some(function(c){return c.ID===oc && c.상태!=='삭제됨';})) openClient(oc); }catch(e){} // 새로고침 시 보던 업체 복원
+  try{ var oc=localStorage.getItem('doban_open'); if(oc && DB.광고주.some(function(c){return c.ID===oc && c.상태!=='삭제됨';})){ // 새로고침 시 보던 업체+탭+차수 복원
+    var _rd=localStorage.getItem('doban_round'); if(_rd) CURROUND=Number(_rd)||1;
+    var _dt=localStorage.getItem('doban_dtab'); if(_dt) DTAB=_dt;   // openClient가 권한 없는 탭이면 첫 탭으로 보정
+    openClient(oc, true);   // keepRound=true → 복원한 차수 유지
+  } }catch(e){}
 }
 function doStaffLogin(id, pw){
   return sbRpc('staff_login', { p_id:id, p_pw:pw }).then(function(res){
@@ -3110,12 +3114,12 @@ function setTaskStatusVal(id, status){ patchLocal('작업',id,{상태:status,완
 function toggleTask(st){ TASKOPEN[st] = !TASKOPEN[st]; render(); }
 
 // ─── 상세 패널 ───
-function openClient(id) {
+function openClient(id, keepRound) {
   var c0 = DB.광고주.filter(function(x){return x.ID===id;})[0];
   if (!c0) return;
-  if (CUR !== id) CURROUND = maxRoundOf(id); // 다른 광고주 열면 최신 차수로
+  if (CUR !== id && !keepRound) CURROUND = maxRoundOf(id); // 다른 광고주 열면 최신 차수로 (새로고침 복원 땐 유지)
   CUR = id;
-  try{ localStorage.setItem('doban_open', id); }catch(e){} // 새로고침 복원용
+  try{ localStorage.setItem('doban_open', id); localStorage.setItem('doban_round', String(CURROUND)); }catch(e){} // 새로고침 복원용 (업체+차수)
   if (!canSeeMargin()) SHOWMARGIN = false; // 마진 권한 없으면 항상 숨김
   var c = c0;
   var ts = tasksOf(id);
@@ -3584,6 +3588,7 @@ function setRoundDate(id, r, date){
 }
 // ─── 상세 서브탭 ───
 function showDTab(t){ DTAB=t;
+  try{ localStorage.setItem('doban_dtab', t); }catch(e){}   // 새로고침 시 탭 복원용
   Array.prototype.forEach.call(document.querySelectorAll('#panel .dpane'), function(e){ e.style.display = e.getAttribute('data-dt')===t?'':'none'; });
   Array.prototype.forEach.call(document.querySelectorAll('#panel .dtab'), function(e){ e.classList.toggle('on', e.getAttribute('data-dt')===t); });
 }
