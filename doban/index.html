@@ -3306,8 +3306,8 @@ function openClient(id, keepRound) {
 // 점주 페이지는 ?c=코드로 데이터를 불러온 뒤에도 로그인 게이트를 한 번 더 띄우는데,
 // 그 게이트는 localStorage 'doban_client_' + location.search 키를 본다. 관리자·같은 도메인이라 미리 넣을 수 있음.
 function peekClient(code){
-  var url = location.origin + location.pathname.replace(/[^/]*$/,'') + 'client/?c=' + code;
-  try{ localStorage.setItem('doban_client_?c=' + code, 'ok'); }catch(e){}
+  // peek=1 → 점주 앱이 저장된 로그인을 무시하고 이 매장 화면만 바로 연다 (누구 브라우저든 동일)
+  var url = location.origin + location.pathname.replace(/[^/]*$/,'') + 'client/?c=' + code + '&peek=1';
   window.open(url, '_blank');
 }
 function closePanel(){ CUR=null; try{ localStorage.removeItem('doban_open'); }catch(e){} document.getElementById('overlay').style.display='none'; document.getElementById('panel').classList.remove('open'); }
