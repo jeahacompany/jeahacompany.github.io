@@ -1018,8 +1018,19 @@ function afterLogin(d){
     var _rd=localStorage.getItem('doban_round'); if(_rd) CURROUND=Number(_rd)||1;
     var _dt=localStorage.getItem('doban_dtab'); if(_dt) DTAB=_dt;   // openClient가 권한 없는 탭이면 첫 탭으로 보정
     openClient(oc, true);   // keepRound=true → 복원한 차수 유지
-  } }catch(e){}
+  } else { console.warn('[복원] doban_open 매칭 실패 — 목록으로:', oc); } }catch(e){ console.warn('[복원] 예외:', e); }
 }
+// 새로고침 직전에 "지금 보던 화면"을 무조건 다시 저장 → F5 순간 상태를 못 박아 딴 데로 안 튐.
+// 상세를 보고 있으면 업체·차수·탭을 저장, 목록이면 지워서 목록 그대로 남게 한다.
+function saveNav(){
+  try{
+    if(CUR){ localStorage.setItem('doban_open', CUR); localStorage.setItem('doban_round', String(CURROUND)); localStorage.setItem('doban_dtab', DTAB); }
+    else { localStorage.removeItem('doban_open'); }
+  }catch(e){}
+}
+window.addEventListener('beforeunload', saveNav);
+window.addEventListener('pagehide', saveNav);   // iOS 사파리 등 beforeunload 안 먹는 곳 대비
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') saveNav(); });
 function doStaffLogin(id, pw){
   return sbRpc('staff_login', { p_id:id, p_pw:pw }).then(function(res){
     if(!res || res.ok===false){ throw new Error((res&&res.error)||'로그인 실패'); }
