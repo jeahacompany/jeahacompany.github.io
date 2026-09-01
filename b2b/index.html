@@ -208,10 +208,12 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     </section>
 
     <section id="t-ship" class="hide">
-      <div class="tip">창고에서 나간 수량을 <b>어느 거래처로 갔는지</b> 채우는 곳입니다.
-        채우면 그 거래처 <b>발주가 자동으로 만들어지고</b> — 단가·매출·미수금·정산까지 한 번에 붙습니다.
-        (거래처가 앱으로 직접 발주하면 이 작업은 필요 없습니다)</div>
+      <div class="tip">📦 <b>재고는 이미 맞아 있습니다.</b> 재고표를 올린 순간 나간 건 확정이니까요.<br>
+        여기서 하는 건 <b>그게 어느 거래처로 갔는지</b>를 채워 <b>매출로 잡는</b> 일입니다 —
+        채우면 발주·단가·미수금·정산까지 자동으로 붙습니다.<br>
+        <b>급하지 않습니다. 나중에 몰아서 하셔도 숫자는 그대로 잡힙니다.</b></div>
       <div id="alSum"></div>
+      <div id="alBacklog"></div>
       <div class="filt">
         <select id="alDate"></select>
         <button class="btn" id="alAdd">+ 거래처로 배분</button>
@@ -829,8 +831,8 @@ const MKINDS = [
     why:'돈은 들어왔는데 어느 발주 건인지 안 붙어 있습니다. 정산이 어긋납니다.', act:'발주 연결' },
   { k:'po_overdue', t:'결제일 지난 매입', sev:'red',
     why:'매입처에 줄 돈인데 약속한 날짜가 지났습니다.', act:'지급' },
-  { k:'ship_unallocated', t:'행선지 모르는 출고', sev:'red',
-    why:'창고에서 나갔는데 어느 거래처로 갔는지 안 채워졌습니다. 그만큼 매출이 안 잡혀 있습니다.',
+  { k:'ship_unallocated', t:'행선지 모르는 출고', sev:'warn',
+    why:'재고는 이미 맞습니다. 다만 이게 어느 거래처로 갔는지 안 채워져서 그만큼 매출이 안 잡혀 있습니다. 나중에 몰아서 하셔도 됩니다.',
     act:'행선지 채우기' },
   { k:'partner_incomplete', t:'정보가 빈 거래처', sev:'warn',
     why:'세금계산서·배송·연락에 필요한 정보가 비어 있습니다.', act:'채우기' },
@@ -1536,11 +1538,13 @@ async function loadShip() {
         <div class="v" style="color:var(--ok)">${num(sum.allocated)}</div>
         <div class="muted">${sum.pct}%</div></div>
       <div class="stat"><div class="l">아직 모르는 것</div>
-        <div class="v" style="color:${sum.rest > 0 ? 'var(--red)' : 'var(--ok)'}">${num(sum.rest)}</div></div>
+        <div class="v" style="color:${sum.rest > 0 ? 'var(--warn)' : 'var(--ok)'}">${num(sum.rest)}</div>
+        <div class="muted">나중에 해도 됩니다</div></div>
       <div class="stat"><div class="l">이렇게 잡힌 매출</div><div class="v">${num(sum.alloc_amount)}</div>
         <div class="muted">${sum.alloc_orders}건</div></div>
     </div>`;
-    $('#dotShip').classList.toggle('hide', !(sum.rest > 0));
+    // 배분은 급한 일이 아니라 밀려도 되는 일 — 탭에 빨간 점을 띄우지 않는다
+    $('#dotShip').classList.add('hide');
 
     const day = await api('aShipDay', [TOKEN, $('#alDate').value || '']);
     SHIPDAY = day;
@@ -1552,11 +1556,43 @@ async function loadShip() {
       const first = ds.find(d => d.rest > 0) || ds[0];
       if (first) { $('#alDate').value = first.d; return loadShip(); }
     }
+    renderBacklog(day.open_dates || []);
     renderShip();
   } catch (e) { $('#alTbl').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
 }
 $('#alRefresh').onclick = () => { $('#alDate').innerHTML = ''; loadShip(); };
 $('#alDate').onchange = loadShip;
+
+/* ── 밀린 배분: 날짜별로 얼마나 남았나 (나중에 몰아서 하기용) ── */
+function renderBacklog(dates) {
+  const open = dates.filter(d => d.rest > 0);
+  const done = dates.filter(d => d.rest <= 0);
+  if (!dates.length) { $('#alBacklog').innerHTML = ''; return; }
+  if (!open.length) {
+    $('#alBacklog').innerHTML = `<div class="card" style="border-color:#b7e4c7;background:#f4fbf6">
+      <h3>✅ 밀린 배분 없음</h3>
+      <div class="muted">${done.length}일치 출고가 모두 거래처까지 이어졌습니다.</div></div>`;
+    return;
+  }
+  const totRest = open.reduce((a, d) => a + Number(d.rest), 0);
+  $('#alBacklog').innerHTML = `<div class="card" style="border-color:#ffd8a8;background:#fffdf5">
+    <h3>📋 밀린 배분 ${open.length}일치 <span class="sp muted">${num(totRest)}개 남음</span></h3>
+    <div class="muted" style="margin:-6px 0 10px">오래된 것부터 채우시면 됩니다. 날짜를 누르면 그 날로 넘어갑니다.</div>
+    <div class="chips">
+      ${open.slice().sort((a, b) => String(a.d).localeCompare(String(b.d))).map(d => `
+        <button data-go="${d.d}" style="border-color:#ffd8a8">
+          ${esc(String(d.d))} <b>${num(d.rest)}</b>
+          ${d.alloc > 0 ? `<span class="muted"> / ${num(d.out)}</span>` : ''}</button>`).join('')}
+    </div>
+    ${done.length ? `<div class="muted" style="margin-top:10px">
+      끝난 날: ${done.map(d => esc(String(d.d))).join(', ')}</div>` : ''}
+  </div>`;
+  $$('#alBacklog [data-go]').forEach(b => b.onclick = () => {
+    $('#alDate').value = b.dataset.go;
+    loadShip();
+    setTimeout(() => $('#alTbl').scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+  });
+}
 
 function renderShip() {
   const d = SHIPDAY;
