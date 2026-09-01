@@ -1,0 +1,1110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>B2B 발주 관리</title>
+<meta name="theme-color" content="#111827">
+<style>
+:root{
+  --bg:#f4f6f9; --card:#fff; --line:#e4e8ef; --txt:#1a1f2b; --sub:#6b7484;
+  --blue:#1b6ef3; --blue-d:#1257c9; --ok:#12a150; --warn:#f08c00; --red:#e03131; --purple:#7048e8;
+  --r:14px; --sh:0 1px 3px rgba(20,30,50,.07),0 6px 18px rgba(20,30,50,.05);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;
+  font-size:14.5px;line-height:1.55}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+.hide{display:none!important}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--sub);font-size:13px}
+.row{display:flex;gap:8px;align-items:center}
+.grow{flex:1;min-width:0}
+.right{text-align:right}
+
+header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--line)}
+.hd{display:flex;align-items:center;gap:10px;padding:11px 18px;max-width:1240px;margin:0 auto}
+.hd b{font-size:17px;letter-spacing:-.3px}
+.hd .who{margin-left:auto;font-size:13px;color:var(--sub)}
+.tabs{display:flex;max-width:1240px;margin:0 auto;overflow-x:auto;scrollbar-width:none;padding:0 8px}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{padding:10px 14px 9px;font-size:14px;font-weight:600;color:var(--sub);
+  border-bottom:2.5px solid transparent;white-space:nowrap;position:relative}
+.tabs button.on{color:var(--blue);border-bottom-color:var(--blue)}
+.tabs .dot{position:absolute;top:6px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--red)}
+
+main{max-width:1240px;margin:0 auto;padding:16px 16px 80px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);padding:16px;margin-bottom:14px}
+.card h3{margin:0 0 12px;font-size:15px;letter-spacing:-.2px;display:flex;align-items:center;gap:8px}
+.card h3 .sp{margin-left:auto;font-weight:400}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh)}
+.stat .l{font-size:12.5px;color:var(--sub);font-weight:600}
+.stat .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.5px;margin-top:3px}
+.stat.act{cursor:pointer}
+.stat.act:hover{border-color:var(--blue)}
+
+label.f{display:block;margin-bottom:10px}
+label.f span{display:block;font-size:12.5px;color:var(--sub);margin-bottom:4px;font-weight:600}
+input[type=text],input[type=password],input[type=tel],input[type=email],input[type=number],input[type=date],select,textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fff;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(27,110,243,.12)}
+textarea{resize:vertical;min-height:64px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+@media(max-width:560px){.g2{grid-template-columns:1fr}}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 15px;border-radius:9px;
+  background:var(--blue);color:#fff;font-weight:700;font-size:14px}
+.btn:active{background:var(--blue-d)}
+.btn.g{background:#eef1f6;color:#3a4356}
+.btn.r{background:#fdecec;color:var(--red)}
+.btn.ok{background:#e6f7ee;color:#0b7a3c}
+.btn.w{width:100%}
+.btn.s{padding:6px 11px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.45}
+
+.bdg{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.b-pending{background:#fff3e0;color:#c76a00}
+.b-paid{background:#e7f0ff;color:#1257c9}
+.b-ready{background:#f1ecff;color:#5f3dc4}
+.b-shipped{background:#e6f7ee;color:#0b7a3c}
+.b-done{background:#eef1f6;color:#5a6376}
+.b-cancel{background:#fdecec;color:#c92a2a}
+.b-hold{background:#fdecec;color:#c92a2a}
+.b-active{background:#e6f7ee;color:#0b7a3c}
+
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+table{width:100%;border-collapse:collapse;font-size:13.8px;min-width:640px}
+th{text-align:left;font-size:12.5px;color:var(--sub);font-weight:700;padding:8px 10px;
+  border-bottom:1px solid var(--line);white-space:nowrap;background:#fbfcfe;position:sticky;top:0}
+td{padding:10px;border-bottom:1px solid #f0f2f6;vertical-align:middle}
+tr.clk{cursor:pointer}
+tr.clk:hover td{background:#f7f9fd}
+td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.low{color:var(--red);font-weight:700}
+
+.modal{position:fixed;inset:0;z-index:200;background:rgba(15,20,30,.5);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal .box{background:#fff;width:100%;max-width:620px;max-height:90vh;overflow:auto;border-radius:16px;padding:18px}
+.modal .box.wide{max-width:900px}
+@media(max-width:560px){.modal{align-items:flex-end;padding:0}.modal .box{border-radius:16px 16px 0 0;max-height:94vh}}
+.mhd{display:flex;align-items:center;margin:-2px 0 14px;gap:8px}
+.mhd h3{margin:0;font-size:17px}
+.mhd .x{margin-left:auto;font-size:24px;color:var(--sub);padding:0 4px;line-height:1}
+
+.wrap{max-width:400px;margin:0 auto;padding:60px 18px}
+.logo{text-align:center;margin-bottom:24px}
+.logo b{display:block;font-size:24px;letter-spacing:-.6px}
+.logo span{font-size:13.5px;color:var(--sub)}
+.err{background:#fdecec;border:1px solid #f8c9c9;color:#c92a2a;border-radius:10px;padding:10px 12px;font-size:13.5px;margin-bottom:10px}
+.tip{background:#f0f6ff;border:1px solid #cfe0ff;color:#1257c9;border-radius:12px;padding:12px 14px;font-size:13.5px;margin-bottom:12px}
+.warn{background:#fff8e6;border:1px solid #ffe3a3;color:#996100;border-radius:12px;padding:12px 14px;font-size:13.5px;margin-bottom:12px}
+.empty{text-align:center;color:var(--sub);padding:38px 10px;font-size:14px}
+#toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);background:#1a1f2b;color:#fff;
+  padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:300;opacity:0;
+  transition:opacity .18s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.on{opacity:.95}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.kv:last-child{border:0}
+.kv .k{color:var(--sub)}
+.kv .v{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.tot{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;margin-top:6px;border-top:2px solid var(--txt)}
+.tot b{font-size:20px;font-variant-numeric:tabular-nums}
+.filt{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filt select,.filt input{width:auto;min-width:120px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{padding:6px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--sub)}
+.chips button.on{background:var(--txt);border-color:var(--txt);color:#fff}
+</style>
+</head>
+<body>
+
+<!-- ══════════ 최초 관리자 만들기 ══════════ -->
+<div id="setup" class="wrap hide">
+  <div class="logo"><b>처음 오셨네요</b><span>관리자 계정을 만들어 주세요</span></div>
+  <div class="card">
+    <div class="tip">이 화면은 관리자 계정이 하나도 없을 때만 나옵니다.<br>여기서 만든 아이디로 앞으로 로그인하세요.</div>
+    <div id="setErr" class="err hide"></div>
+    <label class="f"><span>이름</span><input type="text" id="st_name" placeholder="예) 홍길동"></label>
+    <label class="f"><span>아이디</span><input type="text" id="st_id" autocapitalize="off"></label>
+    <label class="f"><span>비밀번호 (6자 이상)</span><input type="password" id="st_pw"></label>
+    <label class="f"><span>비밀번호 확인</span><input type="password" id="st_pw2"></label>
+    <button class="btn w" id="stBtn">관리자 계정 만들기</button>
+  </div>
+</div>
+
+<!-- ══════════ 로그인 ══════════ -->
+<div id="gate" class="wrap hide">
+  <div class="logo"><b>B2B 발주 관리</b><span>관리자 전용</span></div>
+  <div class="card">
+    <div id="gateErr" class="err hide"></div>
+    <label class="f"><span>아이디</span><input type="text" id="lgId" autocomplete="username" autocapitalize="off"></label>
+    <label class="f"><span>비밀번호</span><input type="password" id="lgPw" autocomplete="current-password"></label>
+    <button class="btn w" id="lgBtn">로그인</button>
+  </div>
+</div>
+
+<!-- ══════════ 앱 ══════════ -->
+<div id="app" class="hide">
+  <header>
+    <div class="hd">
+      <b id="appName">B2B 발주 관리</b>
+      <div class="who"><span id="meName"></span> · <button id="logout" style="text-decoration:underline;color:var(--sub)">로그아웃</button></div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="dash" class="on">대시보드</button>
+      <button data-tab="orders">발주<span class="dot hide" id="dotOrders"></span></button>
+      <button data-tab="pays">입금</button>
+      <button data-tab="products">상품·재고</button>
+      <button data-tab="partners">거래처<span class="dot hide" id="dotPartners"></span></button>
+      <button data-tab="settle">정산</button>
+      <button data-tab="setting">설정</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="t-dash"></section>
+
+    <section id="t-orders" class="hide">
+      <div class="filt">
+        <select id="oStatus">
+          <option value="">전체 상태</option>
+          <option value="pending">입금대기</option>
+          <option value="paid">입금확인</option>
+          <option value="ready">준비중</option>
+          <option value="shipped">출고완료</option>
+          <option value="done">거래완료</option>
+          <option value="cancel">취소</option>
+        </select>
+        <select id="oYm"></select>
+        <select id="oPartner"></select>
+        <input type="text" id="oQ" placeholder="발주번호·업체·입금자명" class="grow">
+        <button class="btn g" id="oRefresh">새로고침</button>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="tblwrap" style="margin:0;padding:0"><table id="oTbl"></table></div>
+      </div>
+    </section>
+
+    <section id="t-pays" class="hide">
+      <div class="filt">
+        <select id="pyYm"></select>
+        <select id="pyPartner"></select>
+        <button class="btn" id="pyAdd">+ 입금 등록</button>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="tblwrap" style="margin:0;padding:0"><table id="pyTbl"></table></div>
+      </div>
+    </section>
+
+    <section id="t-products" class="hide">
+      <div class="filt">
+        <input type="text" id="prQ" placeholder="상품 검색" class="grow">
+        <button class="btn" id="prAdd">+ 상품 등록</button>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="tblwrap" style="margin:0;padding:0"><table id="prTbl"></table></div>
+      </div>
+    </section>
+
+    <section id="t-partners" class="hide">
+      <div class="filt">
+        <input type="text" id="ptQ" placeholder="거래처 검색" class="grow">
+        <button class="btn" id="ptAdd">+ 거래처 등록</button>
+      </div>
+      <div id="ptPending"></div>
+      <div class="card" style="padding:0">
+        <div class="tblwrap" style="margin:0;padding:0"><table id="ptTbl"></table></div>
+      </div>
+    </section>
+
+    <section id="t-settle" class="hide">
+      <div class="filt"><select id="seYm"></select></div>
+      <div id="seBox"></div>
+    </section>
+
+    <section id="t-setting" class="hide">
+      <div class="card">
+        <h3>회사 정보 · 입금 계좌</h3>
+        <div id="setSaveErr" class="err hide"></div>
+        <div class="g2">
+          <label class="f"><span>상호</span><input type="text" id="s_company_name"></label>
+          <label class="f"><span>사업자등록번호</span><input type="text" id="s_biz_no"></label>
+          <label class="f"><span>대표자</span><input type="text" id="s_ceo"></label>
+          <label class="f"><span>연락처</span><input type="text" id="s_phone"></label>
+          <label class="f"><span>이메일</span><input type="text" id="s_email"></label>
+          <label class="f"><span>주소</span><input type="text" id="s_addr"></label>
+        </div>
+        <div class="warn">아래 계좌가 업체 발주 완료 화면에 그대로 뜹니다. 정확히 입력하세요.</div>
+        <div class="g2">
+          <label class="f"><span>은행</span><input type="text" id="s_bank_name" placeholder="예) 국민은행"></label>
+          <label class="f"><span>계좌번호</span><input type="text" id="s_bank_account"></label>
+          <label class="f"><span>예금주</span><input type="text" id="s_bank_holder"></label>
+          <label class="f"><span>부가세</span>
+            <select id="s_tax_mode"><option value="include">단가에 포함</option><option value="exclude">별도</option></select></label>
+        </div>
+        <div class="g2">
+          <label class="f"><span>기본 배송비 (원)</span><input type="number" id="s_ship_fee"></label>
+          <label class="f"><span>무료배송 기준액 (0=안씀)</span><input type="number" id="s_free_ship_over"></label>
+          <label class="f"><span>최소 주문금액 (0=제한없음)</span><input type="number" id="s_min_order"></label>
+        </div>
+        <label class="f"><span>업체 화면 상단 안내문</span><textarea id="s_notice"></textarea></label>
+        <label class="f"><span>발주 완료 후 안내문</span><textarea id="s_order_guide" placeholder="예) 오후 2시 이전 입금 건은 당일 출고됩니다."></textarea></label>
+        <button class="btn" id="setSave">설정 저장</button>
+      </div>
+
+      <div class="card">
+        <h3>업체 공지<span class="sp"><button class="btn s" id="ntAdd">+ 공지 추가</button></span></h3>
+        <div id="ntList"></div>
+      </div>
+
+      <div class="card">
+        <h3>관리자 계정<span class="sp"><button class="btn s" id="adAdd">+ 직원 추가</button></span></h3>
+        <div id="adList"></div>
+      </div>
+
+      <div class="card">
+        <h3>업체용 발주 주소</h3>
+        <div class="muted" style="margin-bottom:8px">이 주소를 업체 단톡방/카톡에 보내주세요.</div>
+        <div class="row"><input type="text" id="partnerUrl" readonly class="grow"><button class="btn g" id="copyUrl">복사</button></div>
+      </div>
+
+      <div class="card">
+        <h3>내 비밀번호 변경</h3>
+        <div id="pwErr" class="err hide"></div>
+        <div class="g2">
+          <label class="f"><span>지금 비밀번호</span><input type="password" id="pw_old"></label>
+          <label class="f"><span>새 비밀번호 (6자 이상)</span><input type="password" id="pw_new"></label>
+        </div>
+        <button class="btn g" id="pwSave">비밀번호 바꾸기</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="modal"></div>
+<div id="toast"></div>
+
+<script>
+/* ═══════════ 설정 ═══════════ */
+const SB  = 'https://zcjvriedzememkiltqfa.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjanZyaWVkemVtZW1raWx0cWZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMjg2MTIsImV4cCI6MjA5OTYwNDYxMn0.2nZh82xFUNORqcKObAHUnz8K5EjjL-Nym0T4YkDHxMk';
+const LS_TOKEN = 'b2b_admin_token';
+
+let TOKEN = localStorage.getItem(LS_TOKEN) || '';
+let BOOT = null, PARTNERS = [], PRODUCTS = [], TAB = 'dash';
+
+async function api(fn, args = []) {
+  const r = await fetch(SB + '/rest/v1/rpc/b2b_api', {
+    method: 'POST',
+    headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_fn: fn, p_args: args })
+  });
+  if (!r.ok) throw new Error('서버 연결에 문제가 있어요. 잠시 뒤 다시 시도해 주세요.');
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || '알 수 없는 오류');
+  return j.result;
+}
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const won  = n => (Number(n) || 0).toLocaleString('ko-KR') + '원';
+const num  = n => (Number(n) || 0).toLocaleString('ko-KR');
+const esc  = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const ymd  = d => { if (!d) return '-'; const t = new Date(d); return String(t.getFullYear()).slice(2) + '.' + String(t.getMonth()+1).padStart(2,'0') + '.' + String(t.getDate()).padStart(2,'0'); };
+const ymdt = d => { if (!d) return '-'; const t = new Date(d); return ymd(d) + ' ' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0'); };
+const ST = { pending:'입금대기', paid:'입금확인', ready:'준비중', shipped:'출고완료', done:'거래완료', cancel:'취소' };
+const PST = { pending:'승인대기', active:'거래중', hold:'중지' };
+const TAXL = { no:'미요청', req:'요청', issued:'발행완료' };
+
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2400); }
+function showErr(sel, m) { const e = $(sel); if (!m) { e.classList.add('hide'); return; } e.textContent = m; e.classList.remove('hide'); }
+function closeModal() { $('#modal').innerHTML = ''; }
+window.closeModal = closeModal;
+function openModal(title, html, onOpen, wide) {
+  $('#modal').innerHTML = `<div class="modal"><div class="box${wide ? ' wide' : ''}">
+    <div class="mhd"><h3>${esc(title)}</h3><button class="x" onclick="closeModal()">&times;</button></div>${html}</div></div>`;
+  $('#modal .modal').addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(); });
+  if (onOpen) onOpen();
+}
+function ymOptions(sel, months = 15, all = true) {
+  const now = new Date(), out = [];
+  for (let i = 0; i < months; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const v = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    out.push(`<option value="${v}">${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}</option>`);
+  }
+  sel.innerHTML = (all ? `<option value="">전체 기간</option>` : '') + out.join('');
+}
+function partnerOptions(sel, label) {
+  sel.innerHTML = `<option value="">${label}</option>` +
+    PARTNERS.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+}
+function show(which) {
+  ['setup','gate','app'].forEach(k => $('#' + k).classList.toggle('hide', k !== which));
+}
+
+/* ═══════════ 최초 진입 ═══════════ */
+async function start() {
+  if (TOKEN) {
+    try { await boot(); return; } catch (e) { localStorage.removeItem(LS_TOKEN); TOKEN = ''; }
+  }
+  try {
+    const h = await api('hasAdmin', []);
+    show(h.exists ? 'gate' : 'setup');
+  } catch (e) { show('gate'); showErr('#gateErr', e.message); }
+}
+
+$('#stBtn').onclick = async () => {
+  const id = $('#st_id').value.trim(), pw = $('#st_pw').value, pw2 = $('#st_pw2').value;
+  showErr('#setErr', '');
+  if (!id) return showErr('#setErr', '아이디를 입력해 주세요.');
+  if (pw.length < 6) return showErr('#setErr', '비밀번호는 6자 이상으로 정해 주세요.');
+  if (pw !== pw2) return showErr('#setErr', '비밀번호 확인이 다릅니다.');
+  $('#stBtn').disabled = true;
+  try {
+    await api('adminBootstrap', [id, pw, $('#st_name').value.trim()]);
+    const r = await api('login', [id, pw]);
+    TOKEN = r.token; localStorage.setItem(LS_TOKEN, TOKEN);
+    await boot();
+  } catch (e) { showErr('#setErr', e.message); $('#stBtn').disabled = false; }
+};
+
+$('#lgBtn').onclick = async () => {
+  const id = $('#lgId').value.trim(), pw = $('#lgPw').value;
+  if (!id || !pw) return showErr('#gateErr', '아이디와 비밀번호를 입력해 주세요.');
+  showErr('#gateErr', ''); $('#lgBtn').disabled = true;
+  try {
+    const r = await api('login', [id, pw]);
+    if (r.type !== 'admin') throw new Error('관리자 계정이 아닙니다. 업체는 발주 페이지로 접속해 주세요.');
+    TOKEN = r.token; localStorage.setItem(LS_TOKEN, TOKEN);
+    await boot();
+  } catch (e) { showErr('#gateErr', e.message); }
+  $('#lgBtn').disabled = false;
+};
+$('#lgPw').addEventListener('keydown', e => { if (e.key === 'Enter') $('#lgBtn').click(); });
+$('#logout').onclick = async () => {
+  try { await api('logout', [TOKEN]); } catch (e) {}
+  localStorage.removeItem(LS_TOKEN); location.reload();
+};
+
+/* ═══════════ 부트 ═══════════ */
+async function boot() {
+  BOOT = await api('aBoot', [TOKEN]);
+  show('app');
+  $('#appName').textContent = (BOOT.settings.company_name || 'B2B') + ' 발주 관리';
+  $('#meName').textContent = BOOT.me.name || BOOT.me.username;
+  document.title = (BOOT.settings.company_name || 'B2B') + ' 발주 관리';
+
+  PARTNERS = await api('aPartners', [TOKEN]);
+  ymOptions($('#oYm')); ymOptions($('#pyYm')); ymOptions($('#seYm'), 15, false);
+  partnerOptions($('#oPartner'), '전체 거래처');
+  partnerOptions($('#pyPartner'), '전체 거래처');
+  $('#partnerUrl').value = location.href.replace(/[^/]*$/, 'partner.html');
+  fillSettings();
+  renderDash();
+  updateDots();
+}
+
+function updateDots() {
+  $('#dotOrders').classList.toggle('hide', !(BOOT?.stat.pending > 0));
+  $('#dotPartners').classList.toggle('hide', !(BOOT?.stat.partners_pending > 0));
+}
+
+$$('#tabs button').forEach(b => b.onclick = () => {
+  TAB = b.dataset.tab;
+  $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  ['dash','orders','pays','products','partners','settle','setting']
+    .forEach(t => $('#t-' + t).classList.toggle('hide', t !== TAB));
+  ({ dash: renderDash, orders: loadOrders, pays: loadPays, products: loadProducts,
+     partners: loadPartners, settle: loadSettle, setting: loadSetting })[TAB]?.();
+  window.scrollTo(0, 0);
+});
+function goTab(t, prep) {
+  const b = $$('#tabs button').find(x => x.dataset.tab === t);
+  if (prep) prep();
+  b.click();
+}
+
+/* ═══════════ 대시보드 ═══════════ */
+async function renderDash() {
+  try { BOOT = await api('aBoot', [TOKEN]); } catch (e) { toast(e.message); return; }
+  const s = BOOT.stat;
+  updateDots();
+  $('#t-dash').innerHTML = `
+    <div class="stats">
+      <div class="stat act" data-go="pending"><div class="l">입금 대기</div><div class="v" style="color:var(--warn)">${s.pending}건</div></div>
+      <div class="stat act" data-go="paid"><div class="l">입금 확인 · 출고 대기</div><div class="v" style="color:var(--blue)">${s.paid + s.ready}건</div></div>
+      <div class="stat"><div class="l">오늘 발주</div><div class="v">${s.today_orders}건</div><div class="muted num">${won(s.today_amount)}</div></div>
+      <div class="stat"><div class="l">이번 달 발주액</div><div class="v">${num(s.month_amount)}</div></div>
+      <div class="stat act" data-go="unpaid"><div class="l">미입금 잔액</div><div class="v" style="color:${s.unpaid > 0 ? 'var(--red)' : 'var(--ok)'}">${num(s.unpaid)}</div></div>
+      <div class="stat act" data-go="partners"><div class="l">거래처 승인 대기</div><div class="v" style="color:${s.partners_pending ? 'var(--red)' : 'inherit'}">${s.partners_pending}곳</div></div>
+    </div>
+    ${s.low_stock ? `<div class="warn">재고가 안전재고 밑으로 떨어진 상품이 <b>${s.low_stock}개</b> 있습니다. 상품·재고 탭에서 확인하세요.</div>` : ''}
+    <div class="card">
+      <h3>처리할 발주<span class="sp"><button class="btn s g" id="dashAll">전체 보기</button></span></h3>
+      <div id="dashList"><div class="empty">불러오는 중…</div></div>
+    </div>`;
+
+  $$('#t-dash .stat.act').forEach(el => el.onclick = () => {
+    const g = el.dataset.go;
+    if (g === 'partners') return goTab('partners');
+    if (g === 'unpaid')   return goTab('settle');
+    goTab('orders', () => { $('#oStatus').value = g; $('#oYm').value = ''; });
+  });
+  $('#dashAll').onclick = () => goTab('orders', () => { $('#oStatus').value = ''; });
+
+  try {
+    const rows = await api('aOrders', [TOKEN, { limit: 15 }]);
+    const todo = rows.filter(o => ['pending','paid','ready'].includes(o.status));
+    $('#dashList').innerHTML = todo.length ? `<div class="tblwrap"><table>
+      <tr><th>발주번호</th><th>거래처</th><th>내용</th><th class="right">금액</th><th>상태</th><th>일시</th></tr>
+      ${todo.map(o => `<tr class="clk" data-id="${o.id}">
+        <td><b>${esc(o.order_no)}</b></td>
+        <td>${esc(o.partner_name || '')}</td>
+        <td class="muted">${esc((o.items_text || '').slice(0, 40))}</td>
+        <td class="n">${num(o.total)}</td>
+        <td><span class="bdg b-${o.status}">${ST[o.status]}</span></td>
+        <td class="muted">${ymdt(o.created_at)}</td></tr>`).join('')}
+      </table></div>` : `<div class="empty">처리할 발주가 없습니다. 👍</div>`;
+    $$('#dashList tr.clk').forEach(tr => tr.onclick = () => openOrder(tr.dataset.id));
+  } catch (e) { $('#dashList').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+/* ═══════════ 발주 ═══════════ */
+async function loadOrders() {
+  $('#oTbl').innerHTML = `<tr><td class="empty">불러오는 중…</td></tr>`;
+  const f = { status: $('#oStatus').value, ym: $('#oYm').value, partner_id: $('#oPartner').value, q: $('#oQ').value.trim() };
+  try {
+    const rows = await api('aOrders', [TOKEN, f]);
+    if (!rows.length) { $('#oTbl').innerHTML = `<tr><td class="empty">해당하는 발주가 없습니다.</td></tr>`; return; }
+    $('#oTbl').innerHTML = `
+      <tr><th>발주번호</th><th>거래처</th><th>내용</th><th class="right">금액</th><th class="right">입금</th>
+          <th>상태</th><th>송장</th><th>일시</th></tr>
+      ${rows.map(o => `<tr class="clk" data-id="${o.id}">
+        <td><b>${esc(o.order_no)}</b></td>
+        <td>${esc(o.partner_name || '')}<div class="muted">${esc(o.deposit_name || '')}</div></td>
+        <td class="muted">${esc((o.items_text || '').slice(0, 36))}</td>
+        <td class="n">${num(o.total)}</td>
+        <td class="n" style="color:${o.paid_amount >= o.total ? 'var(--ok)' : 'var(--sub)'}">${num(o.paid_amount)}</td>
+        <td><span class="bdg b-${o.status}">${ST[o.status]}</span></td>
+        <td class="muted">${o.tracking_no ? esc(o.courier || '') + ' ' + esc(o.tracking_no) : '-'}</td>
+        <td class="muted">${ymdt(o.created_at)}</td></tr>`).join('')}`;
+    $$('#oTbl tr.clk').forEach(tr => tr.onclick = () => openOrder(tr.dataset.id));
+  } catch (e) { $('#oTbl').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+['oStatus','oYm','oPartner'].forEach(id => $('#' + id).onchange = loadOrders);
+$('#oQ').addEventListener('keydown', e => { if (e.key === 'Enter') loadOrders(); });
+$('#oRefresh').onclick = loadOrders;
+
+async function openOrder(id) {
+  let o;
+  try { o = await api('aOrderGet', [TOKEN, id]); } catch (e) { return toast(e.message); }
+  const items = o.items.map(i => `<div class="kv">
+    <span class="k">${esc(i.name)} <b>${i.qty}</b>${esc(i.unit || '')} <span style="color:#aeb4c0">× ${num(i.price)}</span></span>
+    <span class="v">${num(i.amount)}</span></div>`).join('');
+
+  const btns = [];
+  if (o.status === 'pending') btns.push(`<button class="btn ok" data-s="paid">입금 확인</button>`);
+  if (['paid'].includes(o.status)) btns.push(`<button class="btn" data-s="ready">준비중으로</button>`);
+  if (['paid','ready'].includes(o.status)) btns.push(`<button class="btn" data-s="shipped">출고 처리</button>`);
+  if (o.status === 'shipped') btns.push(`<button class="btn g" data-s="done">거래완료</button>`);
+  if (o.status !== 'cancel') btns.push(`<button class="btn r" data-s="cancel">발주 취소</button>`);
+
+  openModal(o.order_no + ' · ' + (o.partner_name || ''), `
+    <div class="row" style="margin-bottom:12px">
+      <span class="bdg b-${o.status}">${ST[o.status]}</span>
+      <span class="muted">${ymdt(o.created_at)}</span>
+      <span class="muted" style="margin-left:auto">${esc(o.partner_code || '')} · ${esc(o.partner_phone || '')}</span>
+    </div>
+    <div class="card" style="box-shadow:none;margin-bottom:12px">${items}
+      <div class="kv"><span class="k">배송비</span><span class="v">${num(o.ship_fee)}</span></div>
+      <div class="tot"><span>합계</span><b>${won(o.total)}</b></div>
+      <div class="kv" style="margin-top:8px"><span class="k">입금액</span>
+        <span class="v" style="color:${o.paid_amount >= o.total ? 'var(--ok)' : 'var(--red)'}">${won(o.paid_amount)}</span></div>
+    </div>
+    <div class="card" style="box-shadow:none;margin-bottom:12px">
+      <div class="kv"><span class="k">입금자명</span><span class="v">${esc(o.deposit_name || '-')}</span></div>
+      <div class="kv"><span class="k">입금 확인일</span><span class="v">${o.paid_at ? ymdt(o.paid_at) : '-'}</span></div>
+      <div class="kv"><span class="k">출고일</span><span class="v">${o.shipped_at ? ymdt(o.shipped_at) : '-'}</span></div>
+      ${o.req_memo ? `<div class="kv"><span class="k">요청사항</span><span class="v" style="font-weight:400">${esc(o.req_memo)}</span></div>` : ''}
+    </div>
+    <div class="g2">
+      <label class="f"><span>받는 분</span><input type="text" id="e_receiver" value="${esc(o.receiver || '')}"></label>
+      <label class="f"><span>연락처</span><input type="text" id="e_rphone" value="${esc(o.rphone || '')}"></label>
+    </div>
+    <label class="f"><span>배송지</span><input type="text" id="e_raddr" value="${esc(o.raddr || '')}"></label>
+    <label class="f"><span>상세주소</span><input type="text" id="e_raddr2" value="${esc(o.raddr2 || '')}"></label>
+    <div class="g2">
+      <label class="f"><span>택배사</span><input type="text" id="e_courier" value="${esc(o.courier || '')}"></label>
+      <label class="f"><span>송장번호</span><input type="text" id="e_tracking" value="${esc(o.tracking_no || '')}"></label>
+      <label class="f"><span>배송비</span><input type="number" id="e_ship" value="${o.ship_fee || 0}"></label>
+      <label class="f"><span>세금계산서</span>
+        <select id="e_tax">${Object.entries(TAXL).map(([k,v]) => `<option value="${k}" ${o.tax_invoice===k?'selected':''}>${v}</option>`).join('')}</select></label>
+    </div>
+    <label class="f"><span>내부 메모</span><textarea id="e_memo">${esc(o.admin_memo || '')}</textarea></label>
+    <div class="row" style="flex-wrap:wrap;margin-bottom:10px">${btns.join('')}</div>
+    <button class="btn w g" id="e_save">수정 내용 저장</button>
+  `, () => {
+    $('#e_save').onclick = async () => {
+      try {
+        await api('aOrderSave', [TOKEN, id, {
+          receiver: $('#e_receiver').value.trim(), rphone: $('#e_rphone').value.trim(),
+          raddr: $('#e_raddr').value.trim(), raddr2: $('#e_raddr2').value.trim(),
+          courier: $('#e_courier').value.trim(), tracking_no: $('#e_tracking').value.trim(),
+          ship_fee: parseInt($('#e_ship').value || 0, 10), tax_invoice: $('#e_tax').value,
+          admin_memo: $('#e_memo').value
+        }]);
+        toast('저장했습니다'); closeModal(); loadOrders();
+      } catch (e) { toast(e.message); }
+    };
+    $$('#modal [data-s]').forEach(b => b.onclick = () => statusAction(o, b.dataset.s));
+  }, true);
+}
+
+async function statusAction(o, s) {
+  if (s === 'paid') {
+    openModal('입금 확인 — ' + o.order_no, `
+      <div class="tip">확인 즉시 입금 내역에 기록되고, 정산에 반영됩니다.</div>
+      <div class="g2">
+        <label class="f"><span>입금액</span><input type="number" id="pa_amt" value="${o.total}"></label>
+        <label class="f"><span>입금일</span><input type="date" id="pa_date" value="${new Date().toISOString().slice(0,10)}"></label>
+        <label class="f"><span>입금자명</span><input type="text" id="pa_name" value="${esc(o.deposit_name || '')}"></label>
+        <label class="f"><span>방법</span><select id="pa_m">
+          <option value="transfer">계좌이체</option><option value="cash">현금</option>
+          <option value="card">카드</option><option value="offset">상계</option></select></label>
+      </div>
+      <label class="f"><span>메모</span><input type="text" id="pa_memo"></label>
+      <button class="btn w" id="pa_go">입금 확인 처리</button>`, () => {
+      $('#pa_go').onclick = async () => {
+        try {
+          await api('aOrderStatus', [TOKEN, o.id, 'paid', {
+            amount: parseInt($('#pa_amt').value || 0, 10), paid_at: $('#pa_date').value,
+            deposit_name: $('#pa_name').value.trim(), method: $('#pa_m').value, memo: $('#pa_memo').value.trim()
+          }]);
+          closeModal(); toast('입금 확인 처리했습니다'); loadOrders(); renderDashQuiet();
+        } catch (e) { toast(e.message); }
+      };
+    });
+    return;
+  }
+  if (s === 'shipped') {
+    openModal('출고 처리 — ' + o.order_no, `
+      <div class="tip">출고 처리하면 재고가 자동으로 차감됩니다.</div>
+      <div class="g2">
+        <label class="f"><span>택배사</span><input type="text" id="sh_c" value="${esc(o.courier || '')}" placeholder="예) CJ대한통운"></label>
+        <label class="f"><span>송장번호</span><input type="text" id="sh_t" value="${esc(o.tracking_no || '')}"></label>
+      </div>
+      <button class="btn w" id="sh_go">출고 완료 처리</button>`, () => {
+      $('#sh_go').onclick = async () => {
+        try {
+          await api('aOrderStatus', [TOKEN, o.id, 'shipped',
+            { courier: $('#sh_c').value.trim(), tracking_no: $('#sh_t').value.trim() }]);
+          closeModal(); toast('출고 처리했습니다'); loadOrders(); renderDashQuiet();
+        } catch (e) { toast(e.message); }
+      };
+    });
+    return;
+  }
+  if (s === 'cancel' && !confirm('이 발주를 취소할까요? 이미 출고된 건이면 재고가 되돌아갑니다.')) return;
+  try {
+    await api('aOrderStatus', [TOKEN, o.id, s, {}]);
+    closeModal(); toast('처리했습니다'); loadOrders(); renderDashQuiet();
+  } catch (e) { toast(e.message); }
+}
+async function renderDashQuiet() { try { BOOT = await api('aBoot', [TOKEN]); updateDots(); } catch (e) {} }
+
+/* ═══════════ 입금 ═══════════ */
+async function loadPays() {
+  $('#pyTbl').innerHTML = `<tr><td class="empty">불러오는 중…</td></tr>`;
+  try {
+    const rows = await api('aPays', [TOKEN, { ym: $('#pyYm').value, partner_id: $('#pyPartner').value }]);
+    if (!rows.length) { $('#pyTbl').innerHTML = `<tr><td class="empty">입금 내역이 없습니다.</td></tr>`; return; }
+    const sum = rows.reduce((a, r) => a + Number(r.amount || 0), 0);
+    $('#pyTbl').innerHTML = `
+      <tr><th>입금일</th><th>거래처</th><th>발주번호</th><th>입금자명</th><th>방법</th>
+          <th class="right">금액</th><th>메모</th><th></th></tr>
+      ${rows.map(p => `<tr>
+        <td>${ymd(p.paid_at)}</td>
+        <td>${esc(p.partner_name || '')}</td>
+        <td class="muted">${esc(p.order_no || '-')}</td>
+        <td>${esc(p.deposit_name || '')}</td>
+        <td class="muted">${({transfer:'계좌이체',cash:'현금',card:'카드',offset:'상계'})[p.method] || p.method}</td>
+        <td class="n"><b>${num(p.amount)}</b></td>
+        <td class="muted">${esc(p.memo || '')}</td>
+        <td><button class="btn s g" data-e="${p.id}">수정</button></td></tr>`).join('')}
+      <tr><td colspan="5"><b>합계</b></td><td class="n"><b>${num(sum)}</b></td><td colspan="2"></td></tr>`;
+    $$('#pyTbl [data-e]').forEach(b => b.onclick = () => payModal(rows.find(r => r.id === b.dataset.e)));
+  } catch (e) { $('#pyTbl').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+['pyYm','pyPartner'].forEach(id => $('#' + id).onchange = loadPays);
+$('#pyAdd').onclick = () => payModal(null);
+
+function payModal(p) {
+  const isNew = !p;
+  openModal(isNew ? '입금 등록' : '입금 수정', `
+    <label class="f"><span>거래처 *</span><select id="py_partner">
+      <option value="">선택</option>
+      ${PARTNERS.map(x => `<option value="${x.id}" ${p && p.partner_id === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}
+    </select></label>
+    <div class="g2">
+      <label class="f"><span>금액 *</span><input type="number" id="py_amt" value="${p ? p.amount : ''}"></label>
+      <label class="f"><span>입금일</span><input type="date" id="py_date" value="${p ? (p.paid_at || '') : new Date().toISOString().slice(0,10)}"></label>
+      <label class="f"><span>입금자명</span><input type="text" id="py_name" value="${p ? esc(p.deposit_name || '') : ''}"></label>
+      <label class="f"><span>방법</span><select id="py_m">
+        ${Object.entries({transfer:'계좌이체',cash:'현금',card:'카드',offset:'상계'})
+          .map(([k,v]) => `<option value="${k}" ${p && p.method === k ? 'selected' : ''}>${v}</option>`).join('')}
+      </select></label>
+    </div>
+    <label class="f"><span>메모</span><input type="text" id="py_memo" value="${p ? esc(p.memo || '') : ''}"></label>
+    <div class="row"><button class="btn grow" id="py_save">저장</button>
+      ${isNew ? '' : `<button class="btn r" id="py_del">삭제</button>`}</div>
+    <p class="muted" style="margin-top:10px">발주와 연결된 입금은 발주 상세의 &lsquo;입금 확인&rsquo;으로 등록하면 자동으로 묶입니다. 여기서는 발주와 무관한 입금(선입금·잔금 등)을 기록하세요.</p>
+  `, () => {
+    $('#py_save').onclick = async () => {
+      const body = {
+        partner_id: $('#py_partner').value, amount: parseInt($('#py_amt').value || 0, 10),
+        paid_at: $('#py_date').value, deposit_name: $('#py_name').value.trim(),
+        method: $('#py_m').value, memo: $('#py_memo').value.trim()
+      };
+      if (p) { body.id = p.id; body.order_id = p.order_id || ''; }
+      if (!body.partner_id) return toast('거래처를 선택해 주세요.');
+      try { await api('aPaySave', [TOKEN, body]); closeModal(); toast('저장했습니다'); loadPays(); }
+      catch (e) { toast(e.message); }
+    };
+    const d = $('#py_del');
+    if (d) d.onclick = async () => {
+      if (!confirm('이 입금 내역을 삭제할까요?')) return;
+      try { await api('aPayDelete', [TOKEN, p.id]); closeModal(); toast('삭제했습니다'); loadPays(); }
+      catch (e) { toast(e.message); }
+    };
+  });
+}
+
+/* ═══════════ 상품 ═══════════ */
+async function loadProducts() {
+  $('#prTbl').innerHTML = `<tr><td class="empty">불러오는 중…</td></tr>`;
+  try {
+    PRODUCTS = await api('aProducts', [TOKEN]);
+    renderProducts();
+  } catch (e) { $('#prTbl').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+function renderProducts() {
+  const q = $('#prQ').value.trim().toLowerCase();
+  const rows = PRODUCTS.filter(p => !q || (p.name + ' ' + (p.sku||'') + ' ' + (p.category||'')).toLowerCase().includes(q));
+  if (!rows.length) { $('#prTbl').innerHTML = `<tr><td class="empty">상품이 없습니다. 오른쪽 위 &lsquo;상품 등록&rsquo;으로 추가하세요.</td></tr>`; return; }
+  $('#prTbl').innerHTML = `
+    <tr><th>상품명</th><th>분류</th><th class="right">소비자가</th><th class="right">공급가</th>
+        <th class="right">재고</th><th>판매</th><th></th></tr>
+    ${rows.map(p => `<tr>
+      <td><b>${esc(p.name)}</b>${p.spec ? `<div class="muted">${esc(p.spec)}</div>` : ''}</td>
+      <td class="muted">${esc(p.category || '-')}</td>
+      <td class="n muted">${p.list_price ? num(p.list_price) : '-'}</td>
+      <td class="n"><b>${num(p.price)}</b></td>
+      <td class="n ${p.safety_stock > 0 && p.stock <= p.safety_stock ? 'low' : ''}">${num(p.stock)} ${esc(p.unit || '')}</td>
+      <td>${p.active ? '<span class="bdg b-active">판매중</span>' : '<span class="bdg b-done">중지</span>'}</td>
+      <td class="row" style="gap:5px">
+        <button class="btn s g" data-in="${p.id}">입고</button>
+        <button class="btn s g" data-e="${p.id}">수정</button></td></tr>`).join('')}`;
+  $$('#prTbl [data-e]').forEach(b => b.onclick = () => productModal(PRODUCTS.find(x => x.id === b.dataset.e)));
+  $$('#prTbl [data-in]').forEach(b => b.onclick = () => stockModal(PRODUCTS.find(x => x.id === b.dataset.in)));
+}
+$('#prQ').oninput = renderProducts;
+$('#prAdd').onclick = () => productModal(null);
+
+function productModal(p) {
+  const v = (k, d = '') => p ? esc(p[k] ?? d) : d;
+  openModal(p ? '상품 수정' : '상품 등록', `
+    <div class="g2">
+      <label class="f"><span>상품명 *</span><input type="text" id="pr_name" value="${v('name')}"></label>
+      <label class="f"><span>분류</span><input type="text" id="pr_category" value="${v('category')}" placeholder="예) 냉동"></label>
+      <label class="f"><span>규격·옵션</span><input type="text" id="pr_spec" value="${v('spec')}" placeholder="예) 1kg"></label>
+      <label class="f"><span>단위</span><input type="text" id="pr_unit" value="${p ? esc(p.unit) : '개'}"></label>
+      <label class="f"><span>소비자가 (참고)</span><input type="number" id="pr_list_price" value="${p ? p.list_price : 0}"></label>
+      <label class="f"><span>공급가 (업체 단가) *</span><input type="number" id="pr_price" value="${p ? p.price : 0}"></label>
+      <label class="f"><span>현재 재고</span><input type="number" id="pr_stock" value="${p ? p.stock : 0}"></label>
+      <label class="f"><span>안전재고 (경고 기준)</span><input type="number" id="pr_safety_stock" value="${p ? p.safety_stock : 0}"></label>
+      <label class="f"><span>최소 발주 수량</span><input type="number" id="pr_min_qty" value="${p ? p.min_qty : 1}"></label>
+      <label class="f"><span>박스당 수량</span><input type="number" id="pr_box_qty" value="${p ? p.box_qty : 1}"></label>
+      <label class="f"><span>정렬 순서 (작을수록 위)</span><input type="number" id="pr_sort" value="${p ? p.sort : 0}"></label>
+      <label class="f"><span>판매 상태</span><select id="pr_active">
+        <option value="true" ${!p || p.active ? 'selected' : ''}>판매중</option>
+        <option value="false" ${p && !p.active ? 'selected' : ''}>판매 중지</option></select></label>
+    </div>
+    <label class="f"><span>사진 주소 (선택)</span><input type="text" id="pr_image_url" value="${v('image_url')}"></label>
+    <label class="f"><span>업체에 보일 안내</span><input type="text" id="pr_memo" value="${v('memo')}"></label>
+    <div class="row"><button class="btn grow" id="pr_save">저장</button>
+      ${p ? `<button class="btn g" id="pr_hist">재고 이력</button><button class="btn r" id="pr_del">삭제</button>` : ''}</div>
+  `, () => {
+    $('#pr_save').onclick = async () => {
+      const body = { name: $('#pr_name').value.trim() };
+      ['category','spec','unit','image_url','memo'].forEach(k => body[k] = $('#pr_' + k).value.trim());
+      ['list_price','price','stock','safety_stock','min_qty','box_qty','sort']
+        .forEach(k => body[k] = parseInt($('#pr_' + k).value || 0, 10));
+      body.active = $('#pr_active').value === 'true';
+      if (p) body.id = p.id;
+      if (!body.name) return toast('상품명을 입력해 주세요.');
+      try { await api('aProductSave', [TOKEN, body]); closeModal(); toast('저장했습니다'); loadProducts(); }
+      catch (e) { toast(e.message); }
+    };
+    const d = $('#pr_del');
+    if (d) d.onclick = async () => {
+      if (!confirm(`'${p.name}' 을(를) 목록에서 내릴까요?\n지난 발주 기록은 그대로 남습니다.`)) return;
+      try { await api('aProductDelete', [TOKEN, p.id]); closeModal(); toast('삭제했습니다'); loadProducts(); }
+      catch (e) { toast(e.message); }
+    };
+    const h = $('#pr_hist');
+    if (h) h.onclick = () => histModal(p);
+  }, true);
+}
+
+function stockModal(p) {
+  openModal('입고 — ' + p.name, `
+    <div class="kv"><span class="k">현재 재고</span><span class="v">${num(p.stock)} ${esc(p.unit || '')}</span></div>
+    <label class="f" style="margin-top:12px"><span>입고 수량 (빼려면 음수)</span>
+      <input type="number" id="si_qty" placeholder="예) 100"></label>
+    <label class="f"><span>메모</span><input type="text" id="si_memo" placeholder="예) 3월 2차 입고"></label>
+    <button class="btn w" id="si_go">입고 처리</button>`, () => {
+    $('#si_go').onclick = async () => {
+      const q = parseInt($('#si_qty').value || 0, 10);
+      if (!q) return toast('수량을 입력해 주세요.');
+      try {
+        await api('aStockIn', [TOKEN, { product_id: p.id, qty: q, memo: $('#si_memo').value.trim() }]);
+        closeModal(); toast('입고 처리했습니다'); loadProducts();
+      } catch (e) { toast(e.message); }
+    };
+  });
+}
+
+async function histModal(p) {
+  try {
+    const rows = await api('aStockMoves', [TOKEN, p.id]);
+    openModal('재고 이력 — ' + p.name, rows.length ? `<div class="tblwrap"><table>
+      <tr><th>일시</th><th>구분</th><th class="right">증감</th><th>내용</th><th>처리</th></tr>
+      ${rows.map(m => `<tr><td class="muted">${ymdt(m.at)}</td>
+        <td>${({in:'입고',out:'출고',adjust:'조정'})[m.kind] || m.kind}</td>
+        <td class="n" style="color:${m.qty > 0 ? 'var(--ok)' : 'var(--red)'}">${m.qty > 0 ? '+' : ''}${num(m.qty)}</td>
+        <td class="muted">${esc(m.order_no || m.memo || '')}</td>
+        <td class="muted">${esc(m.actor || '')}</td></tr>`).join('')}
+      </table></div>` : `<div class="empty">이력이 없습니다.</div>`, null, true);
+  } catch (e) { toast(e.message); }
+}
+
+/* ═══════════ 거래처 ═══════════ */
+async function loadPartners() {
+  $('#ptTbl').innerHTML = `<tr><td class="empty">불러오는 중…</td></tr>`;
+  try { PARTNERS = await api('aPartners', [TOKEN]); renderPartners(); partnerOptions($('#oPartner'), '전체 거래처'); partnerOptions($('#pyPartner'), '전체 거래처'); }
+  catch (e) { $('#ptTbl').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+function renderPartners() {
+  const pend = PARTNERS.filter(p => p.status === 'pending');
+  $('#ptPending').innerHTML = pend.length ? `<div class="card" style="border-color:#ffd8a8">
+    <h3>승인 대기 ${pend.length}곳</h3>
+    ${pend.map(p => `<div class="row" style="padding:8px 0;border-bottom:1px solid #f0f2f6">
+      <div class="grow"><b>${esc(p.name)}</b> <span class="muted">${esc(p.username || '')} · ${esc(p.phone || '')} · ${esc(p.biz_no || '')}</span></div>
+      <button class="btn s ok" data-ok="${p.id}">승인</button>
+      <button class="btn s g" data-ed="${p.id}">보기</button></div>`).join('')}</div>` : '';
+  $$('#ptPending [data-ok]').forEach(b => b.onclick = async () => {
+    try { await api('aPartnerSave', [TOKEN, { id: b.dataset.ok, name: PARTNERS.find(x=>x.id===b.dataset.ok).name, status: 'active' }]);
+      toast('승인했습니다'); loadPartners(); renderDashQuiet(); } catch (e) { toast(e.message); }
+  });
+  $$('#ptPending [data-ed]').forEach(b => b.onclick = () => partnerModal(PARTNERS.find(x => x.id === b.dataset.ed)));
+
+  const q = $('#ptQ').value.trim().toLowerCase();
+  const rows = PARTNERS.filter(p => !q || (p.name + ' ' + (p.code||'') + ' ' + (p.phone||'') + ' ' + (p.username||'')).toLowerCase().includes(q));
+  if (!rows.length) { $('#ptTbl').innerHTML = `<tr><td class="empty">거래처가 없습니다.</td></tr>`; return; }
+  $('#ptTbl').innerHTML = `
+    <tr><th>코드</th><th>상호</th><th>담당자</th><th>아이디</th><th class="right">할인</th>
+        <th class="right">누적 발주</th><th class="right">미수금</th><th>최근발주</th><th>상태</th><th></th></tr>
+    ${rows.map(p => {
+      const un = Number(p.order_total || 0) - Number(p.pay_total || 0);
+      return `<tr>
+        <td class="muted">${esc(p.code || '')}</td>
+        <td><b>${esc(p.name)}</b>${p.biz_no ? `<div class="muted">${esc(p.biz_no)}</div>` : ''}</td>
+        <td>${esc(p.manager || '')}<div class="muted">${esc(p.phone || '')}</div></td>
+        <td class="muted">${esc(p.username || '-')}${p.has_pw ? '' : ' <span style="color:var(--red)">(비번없음)</span>'}</td>
+        <td class="n">${p.discount_rate > 0 ? p.discount_rate + '%' : '-'}</td>
+        <td class="n">${num(p.order_total)}<div class="muted">${p.order_count}건</div></td>
+        <td class="n" style="color:${un > 0 ? 'var(--red)' : 'var(--sub)'}">${num(un)}</td>
+        <td class="muted">${p.last_order ? ymd(p.last_order) : '-'}</td>
+        <td><span class="bdg b-${p.status === 'active' ? 'active' : p.status === 'hold' ? 'hold' : 'pending'}">${PST[p.status]}</span></td>
+        <td class="row" style="gap:5px">
+          <button class="btn s g" data-pr="${p.id}">단가</button>
+          <button class="btn s g" data-ed="${p.id}">수정</button></td></tr>`;
+    }).join('')}`;
+  $$('#ptTbl [data-ed]').forEach(b => b.onclick = () => partnerModal(PARTNERS.find(x => x.id === b.dataset.ed)));
+  $$('#ptTbl [data-pr]').forEach(b => b.onclick = () => priceModal(PARTNERS.find(x => x.id === b.dataset.pr)));
+}
+$('#ptQ').oninput = renderPartners;
+$('#ptAdd').onclick = () => partnerModal(null);
+
+function partnerModal(p) {
+  const v = k => p ? esc(p[k] ?? '') : '';
+  openModal(p ? '거래처 수정 — ' + p.name : '거래처 등록', `
+    <div class="g2">
+      <label class="f"><span>상호 *</span><input type="text" id="pt_name" value="${v('name')}"></label>
+      <label class="f"><span>사업자등록번호</span><input type="text" id="pt_biz_no" value="${v('biz_no')}"></label>
+      <label class="f"><span>대표자</span><input type="text" id="pt_ceo" value="${v('ceo')}"></label>
+      <label class="f"><span>담당자</span><input type="text" id="pt_manager" value="${v('manager')}"></label>
+      <label class="f"><span>연락처</span><input type="text" id="pt_phone" value="${v('phone')}"></label>
+      <label class="f"><span>이메일</span><input type="text" id="pt_email" value="${v('email')}"></label>
+    </div>
+    <label class="f"><span>기본 배송지</span><input type="text" id="pt_addr" value="${v('addr')}"></label>
+    <label class="f"><span>상세주소</span><input type="text" id="pt_addr2" value="${v('addr2')}"></label>
+    <div class="g2">
+      <label class="f"><span>로그인 아이디</span><input type="text" id="pt_username" value="${v('username')}" autocapitalize="off"></label>
+      <label class="f"><span>${p ? '비밀번호 재설정 (빈칸=유지)' : '비밀번호 (6자 이상)'}</span><input type="password" id="pt_password"></label>
+      <label class="f"><span>기본 할인율 (%)</span><input type="number" id="pt_discount_rate" step="0.1" value="${p ? p.discount_rate : 0}"></label>
+      <label class="f"><span>상태</span><select id="pt_status">
+        ${Object.entries(PST).map(([k,l]) => `<option value="${k}" ${p && p.status === k ? 'selected' : (!p && k === 'active' ? 'selected' : '')}>${l}</option>`).join('')}
+      </select></label>
+    </div>
+    <label class="f"><span>메모</span><textarea id="pt_memo">${v('memo')}</textarea></label>
+    <div class="tip">할인율은 상품 공급가에서 빼주는 비율입니다. 상품별로 따로 정하려면 목록의 &lsquo;단가&rsquo; 버튼을 쓰세요.</div>
+    <div class="row"><button class="btn grow" id="pt_save">저장</button>
+      ${p ? `<button class="btn g" id="pt_settle">정산 보기</button><button class="btn r" id="pt_del">삭제</button>` : ''}</div>
+  `, () => {
+    $('#pt_save').onclick = async () => {
+      const body = { name: $('#pt_name').value.trim() };
+      ['biz_no','ceo','manager','phone','email','addr','addr2','username','memo']
+        .forEach(k => body[k] = $('#pt_' + k).value.trim());
+      body.discount_rate = parseFloat($('#pt_discount_rate').value || 0);
+      body.status = $('#pt_status').value;
+      const pw = $('#pt_password').value;
+      if (pw) body.password = pw;
+      if (p) body.id = p.id;
+      if (!body.name) return toast('상호를 입력해 주세요.');
+      if (!p && body.username && !pw) return toast('아이디를 넣었으면 비밀번호도 정해 주세요.');
+      try { await api('aPartnerSave', [TOKEN, body]); closeModal(); toast('저장했습니다'); loadPartners(); renderDashQuiet(); }
+      catch (e) { toast(e.message); }
+    };
+    const d = $('#pt_del');
+    if (d) d.onclick = async () => {
+      if (!confirm(`'${p.name}' 을(를) 삭제할까요?\n지난 발주·입금 기록은 그대로 남습니다.`)) return;
+      try { await api('aPartnerDelete', [TOKEN, p.id]); closeModal(); toast('삭제했습니다'); loadPartners(); }
+      catch (e) { toast(e.message); }
+    };
+    const s = $('#pt_settle');
+    if (s) s.onclick = () => partnerSettleModal(p);
+  }, true);
+}
+
+async function priceModal(p) {
+  try {
+    const rows = await api('aPartnerPrices', [TOKEN, p.id]);
+    openModal('개별 단가 — ' + p.name, `
+      <div class="tip">비워두면 기본 공급가에서 할인율(${p.discount_rate || 0}%)을 적용합니다. 값을 넣으면 그 값이 우선입니다.</div>
+      <div class="tblwrap"><table>
+        <tr><th>상품</th><th class="right">기본 공급가</th><th class="right">개별 단가</th><th class="right">적용가</th></tr>
+        ${rows.map(r => `<tr>
+          <td><b>${esc(r.name)}</b>${r.spec ? `<div class="muted">${esc(r.spec)}</div>` : ''}</td>
+          <td class="n muted">${num(r.base_price)}</td>
+          <td class="n"><input type="number" style="width:110px;text-align:right" data-p="${r.product_id}" value="${r.my_price ?? ''}" placeholder="-"></td>
+          <td class="n" data-f="${r.product_id}">${num(r.final_price)}</td></tr>`).join('')}
+      </table></div>
+      <button class="btn w" style="margin-top:12px" id="pp_save">단가 저장</button>`, () => {
+      $('#pp_save').onclick = async () => {
+        try {
+          for (const inp of $$('#modal [data-p]')) {
+            await api('aPartnerPriceSave', [TOKEN, { partner_id: p.id, product_id: inp.dataset.p, price: inp.value.trim() }]);
+          }
+          closeModal(); toast('단가를 저장했습니다');
+        } catch (e) { toast(e.message); }
+      };
+    }, true);
+  } catch (e) { toast(e.message); }
+}
+
+async function partnerSettleModal(p, ym) {
+  ym = ym || new Date().toISOString().slice(0, 7);
+  try {
+    const s = await api('aPartnerSettle', [TOKEN, { partner_id: p.id, ym }]);
+    const b = s.balance;
+    openModal('정산 — ' + p.name, `
+      <div class="row" style="margin-bottom:12px"><input type="month" id="ps_ym" value="${ym}" style="width:auto"></div>
+      <div class="card" style="box-shadow:none">
+        <div class="kv"><span class="k">이 달 발주</span><span class="v">${won(s.order_total)}</span></div>
+        <div class="kv"><span class="k">이 달 입금</span><span class="v" style="color:var(--ok)">${won(s.pay_total)}</span></div>
+        <div class="tot"><span>누적 미수금</span><b style="color:${b.unpaid > 0 ? 'var(--red)' : 'var(--ok)'}">${won(b.unpaid)}</b></div>
+      </div>
+      <div class="card" style="box-shadow:none"><h3>발주</h3>
+        ${s.orders.map(o => `<div class="kv"><span class="k">${ymd(o.created_at)} ${esc(o.order_no)}</span>
+          <span class="v">${num(o.total)}</span></div>`).join('') || '<div class="muted">없음</div>'}</div>
+      <div class="card" style="box-shadow:none"><h3>입금</h3>
+        ${s.payments.map(x => `<div class="kv"><span class="k">${ymd(x.paid_at)} ${esc(x.deposit_name || x.memo || '')}</span>
+          <span class="v" style="color:var(--ok)">${num(x.amount)}</span></div>`).join('') || '<div class="muted">없음</div>'}</div>
+    `, () => { $('#ps_ym').onchange = e => partnerSettleModal(p, e.target.value); }, true);
+  } catch (e) { toast(e.message); }
+}
+
+/* ═══════════ 정산 ═══════════ */
+async function loadSettle() {
+  $('#seBox').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const s = await api('aSettle', [TOKEN, $('#seYm').value]);
+    const rows = s.rows.filter(r => r.order_count > 0 || r.pay_total > 0 || r.balance !== 0);
+    $('#seBox').innerHTML = `
+      <div class="stats">
+        <div class="stat"><div class="l">${s.ym} 발주 합계</div><div class="v">${num(s.total_order)}</div></div>
+        <div class="stat"><div class="l">${s.ym} 입금 합계</div><div class="v" style="color:var(--ok)">${num(s.total_pay)}</div></div>
+        <div class="stat"><div class="l">차액</div><div class="v" style="color:${s.total_order - s.total_pay > 0 ? 'var(--red)' : 'var(--ok)'}">${num(s.total_order - s.total_pay)}</div></div>
+      </div>
+      <div class="card" style="padding:0"><div class="tblwrap" style="margin:0;padding:0"><table>
+        <tr><th>코드</th><th>거래처</th><th class="right">발주</th><th class="right">입금</th>
+            <th class="right">누적 미수금</th><th>세금계산서</th><th>메모</th><th></th></tr>
+        ${rows.length ? rows.map(r => `<tr>
+          <td class="muted">${esc(r.code || '')}</td>
+          <td><b>${esc(r.name)}</b>${r.biz_no ? `<div class="muted">${esc(r.biz_no)}</div>` : ''}</td>
+          <td class="n">${num(r.order_total)}<div class="muted">${r.order_count}건</div></td>
+          <td class="n" style="color:var(--ok)">${num(r.pay_total)}</td>
+          <td class="n" style="color:${r.balance > 0 ? 'var(--red)' : 'var(--sub)'}">${num(r.balance)}</td>
+          <td><button class="btn s ${r.tax_invoice === 'issued' ? 'ok' : 'g'}" data-tx="${r.partner_id}" data-cur="${r.tax_invoice}">
+            ${r.tax_invoice === 'issued' ? '발행완료' : '미발행'}</button></td>
+          <td><input type="text" data-memo="${r.partner_id}" value="${esc(r.memo || '')}" style="min-width:120px"></td>
+          <td><button class="btn s g" data-de="${r.partner_id}">상세</button></td></tr>`).join('')
+          : `<tr><td colspan="8" class="empty">이 달 거래 내역이 없습니다.</td></tr>`}
+      </table></div></div>`;
+    $$('#seBox [data-tx]').forEach(b => b.onclick = async () => {
+      const next = b.dataset.cur === 'issued' ? 'no' : 'issued';
+      try {
+        await api('aSettleSave', [TOKEN, { partner_id: b.dataset.tx, ym: s.ym, tax_invoice: next,
+          memo: $(`#seBox [data-memo="${b.dataset.tx}"]`).value }]);
+        toast(next === 'issued' ? '발행완료로 표시했습니다' : '미발행으로 되돌렸습니다'); loadSettle();
+      } catch (e) { toast(e.message); }
+    });
+    $$('#seBox [data-memo]').forEach(inp => inp.onchange = async () => {
+      try {
+        await api('aSettleSave', [TOKEN, { partner_id: inp.dataset.memo, ym: s.ym, memo: inp.value,
+          tax_invoice: $(`#seBox [data-tx="${inp.dataset.memo}"]`).dataset.cur }]);
+        toast('메모를 저장했습니다');
+      } catch (e) { toast(e.message); }
+    });
+    $$('#seBox [data-de]').forEach(b => b.onclick = () =>
+      partnerSettleModal(PARTNERS.find(x => x.id === b.dataset.de), s.ym));
+  } catch (e) { $('#seBox').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$('#seYm').onchange = loadSettle;
+
+/* ═══════════ 설정 ═══════════ */
+function fillSettings() {
+  const s = BOOT.settings;
+  ['company_name','biz_no','ceo','addr','phone','email','bank_name','bank_account','bank_holder',
+   'ship_fee','free_ship_over','min_order','tax_mode','notice','order_guide']
+    .forEach(k => { const el = $('#s_' + k); if (el) el.value = s[k] ?? ''; });
+}
+$('#setSave').onclick = async () => {
+  const body = {};
+  ['company_name','biz_no','ceo','addr','phone','email','bank_name','bank_account','bank_holder','tax_mode','notice','order_guide']
+    .forEach(k => body[k] = $('#s_' + k).value.trim());
+  ['ship_fee','free_ship_over','min_order'].forEach(k => body[k] = parseInt($('#s_' + k).value || 0, 10));
+  showErr('#setSaveErr', '');
+  try {
+    await api('aSettingsSave', [TOKEN, body]);
+    BOOT = await api('aBoot', [TOKEN]);
+    $('#appName').textContent = (BOOT.settings.company_name || 'B2B') + ' 발주 관리';
+    toast('설정을 저장했습니다');
+  } catch (e) { showErr('#setSaveErr', e.message); }
+};
+$('#copyUrl').onclick = () => {
+  navigator.clipboard?.writeText($('#partnerUrl').value)
+    .then(() => toast('주소를 복사했어요')).catch(() => toast('주소 칸을 길게 눌러 복사해 주세요'));
+};
+
+async function loadSetting() {
+  fillSettings();
+  try { NOTICES = await api('aNotices', [TOKEN]); } catch (e) { toast(e.message); }
+  renderNotices();
+  renderAdmins();
+}
+
+let NOTICES = [];
+function renderNotices() {
+  $('#ntList').innerHTML = NOTICES.length ? NOTICES.map(n => `
+    <div class="row" style="padding:8px 0;border-bottom:1px solid #f0f2f6">
+      <div class="grow"><b>${n.pinned ? '📌 ' : ''}${esc(n.title)}</b>
+        <div class="muted">${esc((n.body || '').slice(0, 60))}</div></div>
+      <button class="btn s g" data-ne="${n.id}">수정</button>
+      <button class="btn s r" data-nd="${n.id}">삭제</button></div>`).join('')
+    : `<div class="muted">등록된 공지가 없습니다.</div>`;
+  $$('#ntList [data-ne]').forEach(b => b.onclick = () => noticeModal(NOTICES.find(x => x.id === b.dataset.ne)));
+  $$('#ntList [data-nd]').forEach(b => b.onclick = async () => {
+    if (!confirm('이 공지를 삭제할까요?')) return;
+    try { await api('aNoticeDelete', [TOKEN, b.dataset.nd]); NOTICES = NOTICES.filter(x => x.id !== b.dataset.nd); renderNotices(); toast('삭제했습니다'); }
+    catch (e) { toast(e.message); }
+  });
+}
+$('#ntAdd').onclick = () => noticeModal(null);
+function noticeModal(n) {
+  openModal(n ? '공지 수정' : '공지 추가', `
+    <label class="f"><span>제목</span><input type="text" id="nt_title" value="${n ? esc(n.title) : ''}"></label>
+    <label class="f"><span>내용</span><textarea id="nt_body">${n ? esc(n.body) : ''}</textarea></label>
+    <label class="row" style="gap:8px;margin-bottom:12px">
+      <input type="checkbox" id="nt_pin" ${n && n.pinned ? 'checked' : ''} style="width:18px;height:18px;flex:none">
+      <span>맨 위에 고정</span></label>
+    <button class="btn w" id="nt_save">저장</button>`, () => {
+    $('#nt_save').onclick = async () => {
+      const body = { title: $('#nt_title').value.trim(), body: $('#nt_body').value, pinned: $('#nt_pin').checked };
+      if (n) body.id = n.id;
+      try {
+        await api('aNoticeSave', [TOKEN, body]);
+        NOTICES = await api('aNotices', [TOKEN]);
+        closeModal(); renderNotices(); toast('저장했습니다');
+      } catch (e) { toast(e.message); }
+    };
+  });
+}
+
+async function renderAdmins() {
+  try {
+    const rows = await api('aAdmins', [TOKEN]);
+    $('#adList').innerHTML = rows.map(a => `<div class="row" style="padding:8px 0;border-bottom:1px solid #f0f2f6">
+      <div class="grow"><b>${esc(a.name || a.username)}</b>
+        <span class="muted">${esc(a.username)} · ${a.role === 'owner' ? '대표' : '직원'}${a.active ? '' : ' · 사용중지'}</span></div>
+      <button class="btn s g" data-ae="${a.id}">수정</button></div>`).join('');
+    $$('#adList [data-ae]').forEach(b => b.onclick = () => adminModal(rows.find(x => x.id === b.dataset.ae)));
+  } catch (e) { $('#adList').innerHTML = `<div class="muted">${esc(e.message)}</div>`; }
+}
+$('#adAdd').onclick = () => adminModal(null);
+function adminModal(a) {
+  openModal(a ? '관리자 수정' : '직원 계정 추가', `
+    <div class="g2">
+      <label class="f"><span>이름</span><input type="text" id="ad_name" value="${a ? esc(a.name) : ''}"></label>
+      <label class="f"><span>아이디</span><input type="text" id="ad_username" value="${a ? esc(a.username) : ''}" ${a ? 'disabled' : ''} autocapitalize="off"></label>
+      <label class="f"><span>${a ? '비밀번호 재설정 (빈칸=유지)' : '비밀번호 (6자 이상)'}</span><input type="password" id="ad_password"></label>
+      <label class="f"><span>권한</span><select id="ad_role">
+        <option value="staff" ${a && a.role === 'staff' ? 'selected' : ''}>직원</option>
+        <option value="owner" ${a && a.role === 'owner' ? 'selected' : ''}>대표</option></select></label>
+    </div>
+    ${a ? `<label class="row" style="gap:8px;margin-bottom:12px">
+      <input type="checkbox" id="ad_active" ${a.active ? 'checked' : ''} style="width:18px;height:18px;flex:none">
+      <span>사용 가능</span></label>` : ''}
+    <button class="btn w" id="ad_save">저장</button>`, () => {
+    $('#ad_save').onclick = async () => {
+      const body = { name: $('#ad_name').value.trim(), role: $('#ad_role').value };
+      if (a) { body.id = a.id; body.active = $('#ad_active').checked; }
+      else body.username = $('#ad_username').value.trim();
+      const pw = $('#ad_password').value;
+      if (pw) body.password = pw;
+      try { await api('aAdminSave', [TOKEN, body]); closeModal(); toast('저장했습니다'); renderAdmins(); }
+      catch (e) { toast(e.message); }
+    };
+  });
+}
+
+$('#pwSave').onclick = async () => {
+  const o = $('#pw_old').value, n = $('#pw_new').value;
+  showErr('#pwErr', '');
+  if (n.length < 6) return showErr('#pwErr', '새 비밀번호는 6자 이상으로 정해 주세요.');
+  try {
+    await api('changePassword', [TOKEN, o, n]);
+    alert('비밀번호를 바꿨습니다. 다시 로그인해 주세요.');
+    localStorage.removeItem(LS_TOKEN); location.reload();
+  } catch (e) { showErr('#pwErr', e.message); }
+};
+
+start();
+</script>
+</body>
+</html>

@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>거래처 발주</title>
+<meta name="theme-color" content="#1b6ef3">
+<style>
+:root{
+  --bg:#f4f6f9; --card:#fff; --line:#e4e8ef; --txt:#1a1f2b; --sub:#6b7484;
+  --blue:#1b6ef3; --blue-d:#1257c9; --ok:#12a150; --warn:#f08c00; --red:#e03131; --purple:#7048e8;
+  --r:14px; --sh:0 1px 3px rgba(20,30,50,.07),0 6px 18px rgba(20,30,50,.05);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;
+  font-size:15px;line-height:1.55;padding-bottom:env(safe-area-inset-bottom)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+a{color:var(--blue)}
+.hide{display:none!important}
+
+/* 헤더 */
+header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--line)}
+.hd{display:flex;align-items:center;gap:10px;padding:12px 16px;max-width:820px;margin:0 auto}
+.hd b{font-size:17px;letter-spacing:-.3px}
+.hd .who{margin-left:auto;font-size:13px;color:var(--sub);text-align:right;line-height:1.3}
+.tabs{display:flex;max-width:820px;margin:0 auto;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:1;min-width:84px;padding:11px 6px 10px;font-size:14px;font-weight:600;color:var(--sub);
+  border-bottom:2.5px solid transparent;white-space:nowrap}
+.tabs button.on{color:var(--blue);border-bottom-color:var(--blue)}
+
+main{max-width:820px;margin:0 auto;padding:14px 14px 120px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);
+  padding:16px;margin-bottom:12px}
+.card h3{margin:0 0 12px;font-size:15px;letter-spacing:-.2px}
+.muted{color:var(--sub);font-size:13px}
+.row{display:flex;gap:8px;align-items:center}
+.grow{flex:1;min-width:0}
+.right{text-align:right}
+.num{font-variant-numeric:tabular-nums}
+
+/* 폼 */
+label.f{display:block;margin-bottom:10px}
+label.f span{display:block;font-size:12.5px;color:var(--sub);margin-bottom:4px;font-weight:600}
+input[type=text],input[type=password],input[type=tel],input[type=email],input[type=number],input[type=date],select,textarea{
+  width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(27,110,243,.12)}
+textarea{resize:vertical;min-height:70px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;border-radius:10px;
+  background:var(--blue);color:#fff;font-weight:700;font-size:14.5px}
+.btn:active{background:var(--blue-d)}
+.btn.g{background:#eef1f6;color:#3a4356}
+.btn.r{background:#fdecec;color:var(--red)}
+.btn.w{width:100%}
+.btn:disabled{opacity:.45}
+
+/* 뱃지 */
+.bdg{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700}
+.b-pending{background:#fff3e0;color:#c76a00}
+.b-paid{background:#e7f0ff;color:#1257c9}
+.b-ready{background:#f1ecff;color:#5f3dc4}
+.b-shipped{background:#e6f7ee;color:#0b7a3c}
+.b-done{background:#eef1f6;color:#5a6376}
+.b-cancel{background:#fdecec;color:#c92a2a}
+
+/* 상품 */
+.catbar{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.catbar::-webkit-scrollbar{display:none}
+.catbar button{padding:7px 13px;border-radius:999px;background:#fff;border:1px solid var(--line);
+  font-size:13px;font-weight:600;color:var(--sub);white-space:nowrap}
+.catbar button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.plist{display:flex;flex-direction:column;gap:10px}
+.pitem{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:13px 14px;box-shadow:var(--sh)}
+.pitem.picked{border-color:var(--blue);box-shadow:0 0 0 2px rgba(27,110,243,.14)}
+.pname{font-weight:700;font-size:15px;letter-spacing:-.2px}
+.pspec{font-size:12.5px;color:var(--sub);margin-top:1px}
+.pprice{font-weight:800;font-size:16px;margin-top:6px}
+.pprice s{font-weight:400;font-size:12.5px;color:#adb3c0;margin-left:6px}
+.qty{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.qty button{width:38px;height:38px;font-size:18px;font-weight:700;color:var(--blue);background:#f7f9fc}
+.qty input{width:54px;height:38px;border:0;text-align:center;font-weight:700;padding:0}
+.qty input::-webkit-outer-spin-button,.qty input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.soldout{font-size:12px;color:var(--red);font-weight:700}
+
+/* 장바구니 바 */
+.cartbar{position:fixed;left:0;right:0;bottom:0;z-index:60;background:#fff;border-top:1px solid var(--line);
+  box-shadow:0 -4px 18px rgba(20,30,50,.08);padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+.cartbar .in{max-width:820px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.cartbar .sum{flex:1;min-width:0}
+.cartbar .sum b{font-size:19px;font-variant-numeric:tabular-nums}
+.cartbar .btn{padding:13px 22px;font-size:15px}
+
+/* 목록 */
+.olist{display:flex;flex-direction:column;gap:10px}
+.oitem{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--sh)}
+.oitem .top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.oitem .no{font-weight:800;font-variant-numeric:tabular-nums}
+.oitem .txt{font-size:13.5px;color:var(--sub);margin-bottom:6px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.kv:last-child{border:0}
+.kv .k{color:var(--sub)}
+.kv .v{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.tot{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;margin-top:6px;border-top:2px solid var(--txt)}
+.tot b{font-size:20px;font-variant-numeric:tabular-nums}
+
+/* 모달 */
+.modal{position:fixed;inset:0;z-index:200;background:rgba(15,20,30,.5);display:flex;align-items:flex-end;justify-content:center}
+.modal .box{background:#fff;width:100%;max-width:560px;max-height:92vh;overflow:auto;
+  border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:640px){.modal{align-items:center}.modal .box{border-radius:18px}}
+.modal h3{margin:0 0 14px;font-size:17px}
+.mhd{display:flex;align-items:center;margin:-4px 0 14px}
+.mhd h3{margin:0}
+.mhd button{margin-left:auto;font-size:22px;color:var(--sub);padding:0 4px}
+
+/* 로그인 */
+.wrap{max-width:400px;margin:0 auto;padding:52px 18px}
+.logo{text-align:center;margin-bottom:26px}
+.logo b{display:block;font-size:24px;letter-spacing:-.6px}
+.logo span{font-size:13.5px;color:var(--sub)}
+.tip{background:#f0f6ff;border:1px solid #cfe0ff;color:#1257c9;border-radius:12px;padding:12px 14px;font-size:13.5px;margin-bottom:12px}
+.err{background:#fdecec;border:1px solid #f8c9c9;color:#c92a2a;border-radius:10px;padding:10px 12px;font-size:13.5px;margin-bottom:10px}
+.empty{text-align:center;color:var(--sub);padding:42px 10px;font-size:14px}
+#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#1a1f2b;color:#fff;
+  padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:300;opacity:0;
+  transition:opacity .18s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.on{opacity:.95}
+.bank{background:#f7f9fc;border:1px dashed var(--line);border-radius:12px;padding:14px;margin-top:4px}
+.bank .big{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+</style>
+</head>
+<body>
+
+<!-- ══════════ 로그인 ══════════ -->
+<div id="gate" class="wrap">
+  <div class="logo"><b id="gateName">거래처 발주</b><span>업체 전용 발주 · 결제 · 정산</span></div>
+  <div class="card">
+    <div id="gateErr" class="err hide"></div>
+    <label class="f"><span>아이디</span><input type="text" id="lgId" autocomplete="username" autocapitalize="off"></label>
+    <label class="f"><span>비밀번호</span><input type="password" id="lgPw" autocomplete="current-password"></label>
+    <button class="btn w" id="lgBtn">로그인</button>
+    <div style="text-align:center;margin-top:14px">
+      <button class="muted" id="toSignup" style="text-decoration:underline">거래처 가입 신청</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 가입 신청 ══════════ -->
+<div id="signup" class="wrap hide">
+  <div class="logo"><b>거래처 가입 신청</b><span>승인되면 바로 발주하실 수 있어요</span></div>
+  <div class="card">
+    <div id="suErr" class="err hide"></div>
+    <label class="f"><span>상호 *</span><input type="text" id="su_name"></label>
+    <label class="f"><span>사업자등록번호</span><input type="text" id="su_biz_no" inputmode="numeric" placeholder="000-00-00000"></label>
+    <label class="f"><span>대표자</span><input type="text" id="su_ceo"></label>
+    <label class="f"><span>담당자</span><input type="text" id="su_manager"></label>
+    <label class="f"><span>연락처 *</span><input type="tel" id="su_phone" inputmode="tel"></label>
+    <label class="f"><span>이메일</span><input type="email" id="su_email" autocapitalize="off"></label>
+    <label class="f"><span>배송지 주소</span><input type="text" id="su_addr"></label>
+    <label class="f"><span>상세주소</span><input type="text" id="su_addr2"></label>
+    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+    <label class="f"><span>사용할 아이디 * (3자 이상)</span><input type="text" id="su_username" autocapitalize="off"></label>
+    <label class="f"><span>비밀번호 * (6자 이상)</span><input type="password" id="su_password"></label>
+    <button class="btn w" id="suBtn">가입 신청하기</button>
+    <div style="text-align:center;margin-top:14px">
+      <button class="muted" id="toLogin" style="text-decoration:underline">로그인으로 돌아가기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 앱 ══════════ -->
+<div id="app" class="hide">
+  <header>
+    <div class="hd">
+      <b id="appName">거래처 발주</b>
+      <div class="who"><span id="meName"></span><br><button class="muted" id="logout" style="text-decoration:underline">로그아웃</button></div>
+    </div>
+    <nav class="tabs">
+      <button data-tab="order" class="on">발주하기</button>
+      <button data-tab="list">발주내역</button>
+      <button data-tab="settle">정산</button>
+      <button data-tab="my">내 정보</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- 발주하기 -->
+    <section id="t-order">
+      <div id="noticeBox"></div>
+      <div class="row" style="margin-bottom:10px">
+        <input type="text" id="pq" placeholder="상품 검색" class="grow">
+      </div>
+      <div class="catbar" id="catbar"></div>
+      <div class="plist" id="plist"></div>
+    </section>
+
+    <!-- 발주내역 -->
+    <section id="t-list" class="hide">
+      <div class="row" style="margin-bottom:10px">
+        <select id="listYm" class="grow"></select>
+      </div>
+      <div class="olist" id="olist"></div>
+    </section>
+
+    <!-- 정산 -->
+    <section id="t-settle" class="hide">
+      <div class="row" style="margin-bottom:10px"><select id="stYm" class="grow"></select></div>
+      <div id="stBox"></div>
+    </section>
+
+    <!-- 내 정보 -->
+    <section id="t-my" class="hide">
+      <div class="card">
+        <h3>거래처 정보</h3>
+        <div id="myErr" class="err hide"></div>
+        <label class="f"><span>상호</span><input type="text" id="my_name" disabled></label>
+        <label class="f"><span>업체코드</span><input type="text" id="my_code" disabled></label>
+        <label class="f"><span>사업자등록번호</span><input type="text" id="my_biz_no"></label>
+        <label class="f"><span>대표자</span><input type="text" id="my_ceo"></label>
+        <label class="f"><span>담당자</span><input type="text" id="my_manager"></label>
+        <label class="f"><span>연락처</span><input type="tel" id="my_phone"></label>
+        <label class="f"><span>이메일</span><input type="email" id="my_email" autocapitalize="off"></label>
+        <label class="f"><span>기본 배송지</span><input type="text" id="my_addr"></label>
+        <label class="f"><span>상세주소</span><input type="text" id="my_addr2"></label>
+        <button class="btn w" id="mySave">저장</button>
+      </div>
+      <div class="card">
+        <h3>비밀번호 변경</h3>
+        <div id="pwErr" class="err hide"></div>
+        <label class="f"><span>지금 비밀번호</span><input type="password" id="pw_old"></label>
+        <label class="f"><span>새 비밀번호 (6자 이상)</span><input type="password" id="pw_new"></label>
+        <button class="btn w g" id="pwSave">비밀번호 바꾸기</button>
+      </div>
+      <div class="card" id="sellerBox"></div>
+    </section>
+  </main>
+
+  <div class="cartbar hide" id="cartbar">
+    <div class="in">
+      <div class="sum">
+        <div class="muted" id="cartCnt">0개 품목</div>
+        <b id="cartSum">0원</b>
+      </div>
+      <button class="btn g" id="cartClear">비우기</button>
+      <button class="btn" id="cartGo">발주하기</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal"></div>
+<div id="toast"></div>
+
+<script>
+/* ═══════════ 설정 ═══════════ */
+const SB  = 'https://zcjvriedzememkiltqfa.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjanZyaWVkemVtZW1raWx0cWZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMjg2MTIsImV4cCI6MjA5OTYwNDYxMn0.2nZh82xFUNORqcKObAHUnz8K5EjjL-Nym0T4YkDHxMk';
+const LS_TOKEN = 'b2b_partner_token', LS_CART = 'b2b_cart';
+
+let TOKEN = localStorage.getItem(LS_TOKEN) || '';
+let BOOT = null, CART = {}, TAB = 'order', CAT = '';
+
+/* ═══════════ 공통 ═══════════ */
+async function api(fn, args = []) {
+  const r = await fetch(SB + '/rest/v1/rpc/b2b_api', {
+    method: 'POST',
+    headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_fn: fn, p_args: args })
+  });
+  if (!r.ok) throw new Error('서버 연결에 문제가 있어요. 잠시 뒤 다시 시도해 주세요.');
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || '알 수 없는 오류');
+  return j.result;
+}
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const won = n => (Number(n) || 0).toLocaleString('ko-KR') + '원';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const ymd = d => { if (!d) return ''; const t = new Date(d); return t.getFullYear() + '.' + String(t.getMonth()+1).padStart(2,'0') + '.' + String(t.getDate()).padStart(2,'0'); };
+const ST = { pending:'입금대기', paid:'입금확인', ready:'준비중', shipped:'출고완료', done:'거래완료', cancel:'취소' };
+
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200); }
+function showErr(sel, m) { const e = $(sel); if (!m) { e.classList.add('hide'); return; } e.textContent = m; e.classList.remove('hide'); }
+function closeModal() { $('#modal').innerHTML = ''; }
+function openModal(title, html, onOpen) {
+  $('#modal').innerHTML = `<div class="modal"><div class="box">
+    <div class="mhd"><h3>${esc(title)}</h3><button onclick="closeModal()">&times;</button></div>${html}</div></div>`;
+  $('#modal .modal').addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(); });
+  if (onOpen) onOpen();
+}
+window.closeModal = closeModal;
+
+function ymOptions(sel, months = 12) {
+  const now = new Date(), out = [];
+  for (let i = 0; i < months; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const v = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    out.push(`<option value="${v}">${d.getFullYear()}년 ${d.getMonth()+1}월</option>`);
+  }
+  sel.innerHTML = `<option value="">전체 기간</option>` + out.join('');
+}
+
+/* ═══════════ 화면 전환 ═══════════ */
+function show(which) {
+  $('#gate').classList.toggle('hide', which !== 'gate');
+  $('#signup').classList.toggle('hide', which !== 'signup');
+  $('#app').classList.toggle('hide', which !== 'app');
+}
+
+/* ═══════════ 로그인 ═══════════ */
+$('#lgBtn').onclick = async () => {
+  const id = $('#lgId').value.trim(), pw = $('#lgPw').value;
+  if (!id || !pw) return showErr('#gateErr', '아이디와 비밀번호를 입력해 주세요.');
+  showErr('#gateErr', ''); $('#lgBtn').disabled = true;
+  try {
+    const r = await api('login', [id, pw]);
+    if (r.type !== 'partner') throw new Error('거래처 계정이 아닙니다. 관리자 화면에서 로그인해 주세요.');
+    TOKEN = r.token; localStorage.setItem(LS_TOKEN, TOKEN);
+    await boot();
+  } catch (e) { showErr('#gateErr', e.message); }
+  $('#lgBtn').disabled = false;
+};
+$('#lgPw').addEventListener('keydown', e => { if (e.key === 'Enter') $('#lgBtn').click(); });
+$('#toSignup').onclick = () => show('signup');
+$('#toLogin').onclick  = () => show('gate');
+
+$('#suBtn').onclick = async () => {
+  const p = {};
+  ['name','biz_no','ceo','manager','phone','email','addr','addr2','username','password']
+    .forEach(k => p[k] = $('#su_' + k).value.trim());
+  if (!p.name)  return showErr('#suErr', '상호를 입력해 주세요.');
+  if (!p.phone) return showErr('#suErr', '연락처를 입력해 주세요.');
+  showErr('#suErr', ''); $('#suBtn').disabled = true;
+  try {
+    const r = await api('signup', [p]);
+    openModal('가입 신청 완료', `<p>업체코드 <b>${esc(r.code)}</b> 로 신청되었습니다.<br>
+      담당자가 확인하고 승인하면 바로 로그인하실 수 있어요.</p>
+      <button class="btn w" style="margin-top:12px" onclick="closeModal();location.reload()">확인</button>`);
+  } catch (e) { showErr('#suErr', e.message); }
+  $('#suBtn').disabled = false;
+};
+
+$('#logout').onclick = async () => {
+  try { await api('logout', [TOKEN]); } catch (e) {}
+  localStorage.removeItem(LS_TOKEN); localStorage.removeItem(LS_CART);
+  TOKEN = ''; location.reload();
+};
+
+/* ═══════════ 부트 ═══════════ */
+async function boot() {
+  if (!TOKEN) { show('gate'); return; }
+  try {
+    BOOT = await api('pBoot', [TOKEN]);
+  } catch (e) {
+    localStorage.removeItem(LS_TOKEN); TOKEN = '';
+    show('gate'); showErr('#gateErr', e.message); return;
+  }
+  const st = BOOT.settings;
+  document.title = (st.company_name || '거래처') + ' 발주';
+  $('#appName').textContent = st.company_name || '거래처 발주';
+  $('#meName').textContent = BOOT.me.name + (BOOT.me.code ? ' (' + BOOT.me.code + ')' : '');
+  show('app');
+
+  try { CART = JSON.parse(localStorage.getItem(LS_CART) || '{}'); } catch (e) { CART = {}; }
+  renderNotice(); renderCats(); renderProducts(); renderCart(); fillMy();
+  ymOptions($('#listYm')); ymOptions($('#stYm'));
+  $('#stYm').querySelector('option[value=""]').remove();
+  $('#stYm').selectedIndex = 0;
+}
+
+/* ═══════════ 탭 ═══════════ */
+$$('.tabs button').forEach(b => b.onclick = () => {
+  TAB = b.dataset.tab;
+  $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  ['order','list','settle','my'].forEach(t => $('#t-' + t).classList.toggle('hide', t !== TAB));
+  $('#cartbar').classList.toggle('hide', TAB !== 'order' || !Object.keys(CART).length);
+  if (TAB === 'list') loadOrders();
+  if (TAB === 'settle') loadSettle();
+  window.scrollTo(0, 0);
+});
+
+/* ═══════════ 공지 ═══════════ */
+function renderNotice() {
+  const st = BOOT.settings, ns = BOOT.notices || [];
+  let h = '';
+  if (st.notice) h += `<div class="tip">${esc(st.notice).replace(/\n/g, '<br>')}</div>`;
+  ns.slice(0, 3).forEach(n => {
+    h += `<div class="card" style="padding:13px 14px">
+      <div style="font-weight:700;font-size:14.5px">${n.pinned ? '📌 ' : ''}${esc(n.title)}</div>
+      ${n.body ? `<div class="muted" style="margin-top:4px">${esc(n.body).replace(/\n/g,'<br>')}</div>` : ''}</div>`;
+  });
+  $('#noticeBox').innerHTML = h;
+}
+
+/* ═══════════ 상품 ═══════════ */
+function renderCats() {
+  const cats = [...new Set((BOOT.products || []).map(p => p.category).filter(Boolean))];
+  $('#catbar').innerHTML = [`<button data-c="" class="on">전체</button>`]
+    .concat(cats.map(c => `<button data-c="${esc(c)}">${esc(c)}</button>`)).join('');
+  $$('#catbar button').forEach(b => b.onclick = () => {
+    CAT = b.dataset.c;
+    $$('#catbar button').forEach(x => x.classList.toggle('on', x === b));
+    renderProducts();
+  });
+  if (!cats.length) $('#catbar').classList.add('hide');
+}
+
+function renderProducts() {
+  const q = $('#pq').value.trim().toLowerCase();
+  const list = (BOOT.products || []).filter(p =>
+    (!CAT || p.category === CAT) &&
+    (!q || (p.name + ' ' + (p.spec||'') + ' ' + (p.sku||'')).toLowerCase().includes(q)));
+  if (!list.length) { $('#plist').innerHTML = `<div class="empty">상품이 없습니다.</div>`; return; }
+  $('#plist').innerHTML = list.map(p => {
+    const n = CART[p.id]?.qty || 0;
+    return `<div class="pitem ${n ? 'picked' : ''}" data-id="${p.id}">
+      <div class="row" style="align-items:flex-start">
+        <div class="grow">
+          <div class="pname">${esc(p.name)}</div>
+          ${p.spec || p.unit ? `<div class="pspec">${esc(p.spec || '')}${p.spec && p.unit ? ' · ' : ''}${p.unit ? esc(p.unit) + ' 단위' : ''}${p.min_qty > 1 ? ` · 최소 ${p.min_qty}` : ''}</div>` : ''}
+          <div class="pprice">${won(p.price)}${p.list_price > p.price ? `<s>소비자가 ${won(p.list_price)}</s>` : ''}</div>
+          ${p.soldout ? `<div class="soldout" style="margin-top:4px">재고 없음 — 담당자 확인 필요</div>` : ''}
+          ${p.memo ? `<div class="muted" style="margin-top:3px">${esc(p.memo)}</div>` : ''}
+        </div>
+        <div class="qty">
+          <button data-a="-">−</button>
+          <input type="number" inputmode="numeric" value="${n || ''}" placeholder="0" data-a="q">
+          <button data-a="+">+</button>
+        </div>
+      </div></div>`;
+  }).join('');
+
+  $$('#plist .pitem').forEach(el => {
+    const id = el.dataset.id, p = BOOT.products.find(x => x.id === id);
+    const inp = el.querySelector('input');
+    el.querySelector('[data-a="-"]').onclick = () => setQty(p, (CART[id]?.qty || 0) - (p.min_qty > 1 && (CART[id]?.qty||0) <= p.min_qty ? p.min_qty : 1));
+    el.querySelector('[data-a="+"]').onclick = () => setQty(p, (CART[id]?.qty || 0) === 0 ? Math.max(1, p.min_qty) : (CART[id].qty + 1));
+    inp.oninput  = () => setQty(p, parseInt(inp.value || '0', 10), true);
+    inp.onblur   = () => renderProducts();
+  });
+}
+$('#pq').oninput = renderProducts;
+
+function setQty(p, n, silent) {
+  n = Math.max(0, parseInt(n || 0, 10) || 0);
+  if (n === 0) delete CART[p.id];
+  else CART[p.id] = { qty: n, price: p.price, name: p.name, unit: p.unit, min_qty: p.min_qty };
+  localStorage.setItem(LS_CART, JSON.stringify(CART));
+  renderCart();
+  if (!silent) renderProducts();
+}
+
+function cartTotals() {
+  let cnt = 0, sum = 0;
+  for (const id in CART) { cnt++; sum += CART[id].qty * CART[id].price; }
+  return { cnt, sum };
+}
+function renderCart() {
+  const { cnt, sum } = cartTotals();
+  $('#cartCnt').textContent = cnt + '개 품목';
+  $('#cartSum').textContent = won(sum);
+  $('#cartbar').classList.toggle('hide', cnt === 0 || TAB !== 'order');
+}
+$('#cartClear').onclick = () => {
+  if (!confirm('담은 상품을 모두 비울까요?')) return;
+  CART = {}; localStorage.setItem(LS_CART, '{}'); renderCart(); renderProducts();
+};
+
+/* ═══════════ 발주 확인 ═══════════ */
+$('#cartGo').onclick = () => {
+  const me = BOOT.me, st = BOOT.settings, { sum } = cartTotals();
+  const bad = Object.entries(CART).find(([id, c]) => c.qty < (c.min_qty || 1));
+  if (bad) return toast(`${bad[1].name}: 최소 ${bad[1].min_qty}개부터 발주할 수 있어요.`);
+  if (st.min_order > 0 && sum < st.min_order) return toast(`최소 주문금액은 ${won(st.min_order)}입니다.`);
+
+  const ship = (st.free_ship_over > 0 && sum >= st.free_ship_over) ? 0 : (st.ship_fee || 0);
+  const rows = Object.entries(CART).map(([id, c]) =>
+    `<div class="kv"><span class="k">${esc(c.name)} <b>${c.qty}</b>${esc(c.unit || '')}</span>
+     <span class="v">${won(c.qty * c.price)}</span></div>`).join('');
+
+  openModal('발주 확인', `
+    <div class="card" style="box-shadow:none;margin-bottom:12px">${rows}
+      <div class="kv"><span class="k">배송비</span><span class="v">${ship ? won(ship) : '무료'}</span></div>
+      <div class="tot"><span>총 결제금액</span><b>${won(sum + ship)}</b></div>
+    </div>
+    <label class="f"><span>받는 분</span><input type="text" id="o_receiver" value="${esc(me.name)}"></label>
+    <label class="f"><span>연락처</span><input type="tel" id="o_rphone" value="${esc(me.phone || '')}"></label>
+    <label class="f"><span>배송지 주소</span><input type="text" id="o_raddr" value="${esc(me.addr || '')}"></label>
+    <label class="f"><span>상세주소</span><input type="text" id="o_raddr2" value="${esc(me.addr2 || '')}"></label>
+    <label class="f"><span>입금자명 (통장에 찍히는 이름)</span><input type="text" id="o_deposit" value="${esc(me.name)}"></label>
+    <label class="f"><span>요청사항</span><textarea id="o_memo" placeholder="예) 오전 배송 부탁드립니다"></textarea></label>
+    <label class="row" style="margin:2px 0 14px;gap:8px">
+      <input type="checkbox" id="o_tax" style="width:18px;height:18px;flex:none">
+      <span style="font-size:14px">세금계산서 발행 요청</span></label>
+    <button class="btn w" id="o_go">이대로 발주하기</button>
+    <p class="muted" style="margin:10px 0 0;text-align:center">발주 후 안내되는 계좌로 입금해 주시면 확인 뒤 출고됩니다.</p>
+  `, () => { $('#o_go').onclick = submitOrder; });
+};
+
+async function submitOrder() {
+  const btn = $('#o_go'); btn.disabled = true; btn.textContent = '발주 중…';
+  const payload = {
+    receiver: $('#o_receiver').value.trim(),
+    rphone:   $('#o_rphone').value.trim(),
+    raddr:    $('#o_raddr').value.trim(),
+    raddr2:   $('#o_raddr2').value.trim(),
+    deposit_name: $('#o_deposit').value.trim(),
+    req_memo: $('#o_memo').value.trim(),
+    tax_invoice: $('#o_tax').checked ? 'req' : 'no',
+    items: Object.entries(CART).map(([id, c]) => ({ id, qty: c.qty }))
+  };
+  try {
+    const o = await api('orderCreate', [TOKEN, payload]);
+    CART = {}; localStorage.setItem(LS_CART, '{}'); renderCart(); renderProducts();
+    BOOT.balance = await api('pSettle', [TOKEN, '']).then(r => r.balance).catch(() => BOOT.balance);
+    doneModal(o);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = '이대로 발주하기';
+    toast(e.message);
+  }
+}
+
+function doneModal(o) {
+  const st = BOOT.settings;
+  const acct = [st.bank_name, st.bank_account].filter(Boolean).join(' ');
+  openModal('발주 완료', `
+    <p style="margin:0 0 12px">발주번호 <b>${esc(o.order_no)}</b> 로 접수되었습니다.</p>
+    <div class="bank">
+      <div class="muted">입금하실 금액</div>
+      <div class="big" style="color:var(--blue)">${won(o.total)}</div>
+      <div style="margin-top:10px" class="muted">입금 계좌</div>
+      <div class="big" id="acctTxt">${esc(acct || '계좌 정보가 아직 등록되지 않았습니다')}</div>
+      ${st.bank_holder ? `<div class="muted">예금주 ${esc(st.bank_holder)}</div>` : ''}
+      <div class="muted" style="margin-top:8px">입금자명 <b style="color:var(--txt)">${esc(o.deposit_name)}</b></div>
+    </div>
+    ${acct ? `<button class="btn w g" style="margin-top:10px" id="copyAcct">계좌번호 복사</button>` : ''}
+    ${st.order_guide ? `<div class="tip" style="margin-top:12px">${esc(st.order_guide).replace(/\n/g,'<br>')}</div>` : ''}
+    <button class="btn w" style="margin-top:12px" id="goList">발주내역 보기</button>
+  `, () => {
+    const c = $('#copyAcct');
+    if (c) c.onclick = () => {
+      navigator.clipboard?.writeText(st.bank_account || '').then(() => toast('계좌번호를 복사했어요'))
+        .catch(() => toast('복사가 안 되면 길게 눌러 복사해 주세요'));
+    };
+    $('#goList').onclick = () => { closeModal(); $$('.tabs button').find(b => b.dataset.tab === 'list').click(); };
+  });
+}
+
+/* ═══════════ 발주내역 ═══════════ */
+async function loadOrders() {
+  $('#olist').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const rows = await api('pOrders', [TOKEN, $('#listYm').value]);
+    if (!rows.length) { $('#olist').innerHTML = `<div class="empty">발주 내역이 없습니다.</div>`; return; }
+    $('#olist').innerHTML = rows.map(o => `
+      <div class="oitem" data-id="${o.id}">
+        <div class="top">
+          <span class="no">${esc(o.order_no)}</span>
+          <span class="bdg b-${o.status}">${ST[o.status] || o.status}</span>
+          <span class="muted" style="margin-left:auto">${ymd(o.created_at)}</span>
+        </div>
+        <div class="txt">${esc(o.items_text || '')}</div>
+        <div class="row">
+          <b class="num" style="font-size:16px">${won(o.total)}</b>
+          ${o.tracking_no ? `<span class="muted" style="margin-left:auto">${esc(o.courier||'')} ${esc(o.tracking_no)}</span>` : ''}
+        </div>
+      </div>`).join('');
+    $$('#olist .oitem').forEach(el => el.onclick = () => openOrder(el.dataset.id));
+  } catch (e) { $('#olist').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$('#listYm').onchange = loadOrders;
+
+async function openOrder(id) {
+  try {
+    const o = await api('pOrderGet', [TOKEN, id]);
+    const items = o.items.map(i => `<div class="kv">
+      <span class="k">${esc(i.name)} <b>${i.qty}</b>${esc(i.unit||'')} <span style="color:#aeb4c0">× ${won(i.price)}</span></span>
+      <span class="v">${won(i.amount)}</span></div>`).join('');
+    openModal(o.order_no, `
+      <div class="row" style="margin-bottom:12px">
+        <span class="bdg b-${o.status}">${ST[o.status] || o.status}</span>
+        <span class="muted" style="margin-left:auto">${ymd(o.created_at)}</span>
+      </div>
+      <div class="card" style="box-shadow:none;margin-bottom:12px">
+        ${items}
+        <div class="kv"><span class="k">배송비</span><span class="v">${o.ship_fee ? won(o.ship_fee) : '무료'}</span></div>
+        <div class="tot"><span>합계</span><b>${won(o.total)}</b></div>
+      </div>
+      <div class="card" style="box-shadow:none;margin-bottom:12px">
+        <div class="kv"><span class="k">입금자명</span><span class="v">${esc(o.deposit_name||'-')}</span></div>
+        <div class="kv"><span class="k">입금 확인</span><span class="v">${o.paid_at ? ymd(o.paid_at) + ' · ' + won(o.paid_amount) : '대기 중'}</span></div>
+        <div class="kv"><span class="k">받는 분</span><span class="v">${esc(o.receiver||'')} ${esc(o.rphone||'')}</span></div>
+        <div class="kv"><span class="k">배송지</span><span class="v">${esc([o.raddr,o.raddr2].filter(Boolean).join(' ')||'-')}</span></div>
+        ${o.tracking_no ? `<div class="kv"><span class="k">송장</span><span class="v">${esc(o.courier||'')} ${esc(o.tracking_no)}</span></div>` : ''}
+        ${o.req_memo ? `<div class="kv"><span class="k">요청사항</span><span class="v" style="font-weight:400">${esc(o.req_memo)}</span></div>` : ''}
+        <div class="kv"><span class="k">세금계산서</span><span class="v">${{no:'미요청',req:'요청함',issued:'발행완료'}[o.tax_invoice]||'-'}</span></div>
+      </div>
+      ${o.status === 'pending' ? `
+        <div class="bank">
+          <div class="muted">입금하실 금액</div>
+          <div class="big" style="color:var(--blue)">${won(o.total)}</div>
+          <div class="muted" style="margin-top:8px">${esc([BOOT.settings.bank_name, BOOT.settings.bank_account].filter(Boolean).join(' '))}
+          ${BOOT.settings.bank_holder ? ' · ' + esc(BOOT.settings.bank_holder) : ''}</div>
+        </div>
+        <button class="btn w r" style="margin-top:12px" id="oCancel">발주 취소</button>` : ''}
+    `, () => {
+      const c = $('#oCancel');
+      if (c) c.onclick = async () => {
+        if (!confirm('이 발주를 취소할까요?')) return;
+        try { await api('pOrderCancel', [TOKEN, id]); closeModal(); toast('취소되었습니다'); loadOrders(); }
+        catch (e) { toast(e.message); }
+      };
+    });
+  } catch (e) { toast(e.message); }
+}
+
+/* ═══════════ 정산 ═══════════ */
+async function loadSettle() {
+  $('#stBox').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const s = await api('pSettle', [TOKEN, $('#stYm').value]);
+    const b = s.balance;
+    const orders = s.orders.map(o => `<div class="kv">
+      <span class="k">${ymd(o.created_at)} · ${esc(o.order_no)}</span>
+      <span class="v">${won(o.total)}</span></div>`).join('') || `<div class="muted">이 달 발주 없음</div>`;
+    const pays = s.payments.map(p => `<div class="kv">
+      <span class="k">${ymd(p.paid_at)} · ${esc(p.deposit_name || p.memo || '입금')}</span>
+      <span class="v" style="color:var(--ok)">${won(p.amount)}</span></div>`).join('') || `<div class="muted">이 달 입금 없음</div>`;
+    $('#stBox').innerHTML = `
+      <div class="card">
+        <h3>${s.ym.replace('-','년 ')}월 요약</h3>
+        <div class="kv"><span class="k">발주 합계</span><span class="v">${won(s.order_total)}</span></div>
+        <div class="kv"><span class="k">입금 합계</span><span class="v" style="color:var(--ok)">${won(s.pay_total)}</span></div>
+        <div class="kv"><span class="k">세금계산서</span><span class="v">${s.tax_invoice === 'issued' ? '발행완료' : '미발행'}</span></div>
+      </div>
+      <div class="card">
+        <h3>전체 누적</h3>
+        <div class="kv"><span class="k">총 발주액</span><span class="v">${won(b.ordered)}</span></div>
+        <div class="kv"><span class="k">총 입금액</span><span class="v" style="color:var(--ok)">${won(b.paid)}</span></div>
+        <div class="tot"><span>미입금 잔액</span><b style="color:${b.unpaid > 0 ? 'var(--red)' : 'var(--ok)'}">${won(b.unpaid)}</b></div>
+      </div>
+      <div class="card"><h3>이 달 발주</h3>${orders}</div>
+      <div class="card"><h3>이 달 입금</h3>${pays}</div>`;
+  } catch (e) { $('#stBox').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$('#stYm').onchange = loadSettle;
+
+/* ═══════════ 내 정보 ═══════════ */
+function fillMy() {
+  const m = BOOT.me, st = BOOT.settings;
+  ['name','code','biz_no','ceo','manager','phone','email','addr','addr2'].forEach(k => $('#my_' + k).value = m[k] || '');
+  $('#sellerBox').innerHTML = `<h3>공급사 정보</h3>
+    <div class="kv"><span class="k">상호</span><span class="v">${esc(st.company_name||'-')}</span></div>
+    ${st.biz_no ? `<div class="kv"><span class="k">사업자번호</span><span class="v">${esc(st.biz_no)}</span></div>` : ''}
+    ${st.phone ? `<div class="kv"><span class="k">연락처</span><span class="v">${esc(st.phone)}</span></div>` : ''}
+    ${st.bank_account ? `<div class="kv"><span class="k">입금 계좌</span><span class="v">${esc(st.bank_name||'')} ${esc(st.bank_account)}</span></div>` : ''}
+    ${st.bank_holder ? `<div class="kv"><span class="k">예금주</span><span class="v">${esc(st.bank_holder)}</span></div>` : ''}`;
+}
+$('#mySave').onclick = async () => {
+  const p = {};
+  ['biz_no','ceo','manager','phone','email','addr','addr2'].forEach(k => p[k] = $('#my_' + k).value.trim());
+  showErr('#myErr', '');
+  try { await api('pProfileSave', [TOKEN, p]); Object.assign(BOOT.me, p); toast('저장했습니다'); }
+  catch (e) { showErr('#myErr', e.message); }
+};
+$('#pwSave').onclick = async () => {
+  const o = $('#pw_old').value, n = $('#pw_new').value;
+  showErr('#pwErr', '');
+  if (n.length < 6) return showErr('#pwErr', '새 비밀번호는 6자 이상으로 정해 주세요.');
+  try {
+    await api('changePassword', [TOKEN, o, n]);
+    alert('비밀번호를 바꿨습니다. 다시 로그인해 주세요.');
+    localStorage.removeItem(LS_TOKEN); location.reload();
+  } catch (e) { showErr('#pwErr', e.message); }
+};
+
+/* ═══════════ 시작 ═══════════ */
+boot();
+</script>
+</body>
+</html>
