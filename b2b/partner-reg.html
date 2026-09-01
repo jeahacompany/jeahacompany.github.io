@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>거래처 등록</title>
+<meta name="theme-color" content="#1b6ef3">
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<style>
+:root{
+  --bg:#f4f6f9; --card:#fff; --line:#e4e8ef; --txt:#1a1f2b; --sub:#6b7484;
+  --blue:#1b6ef3; --blue-d:#1257c9; --ok:#12a150; --warn:#f08c00; --red:#e03131;
+  --r:14px; --sh:0 1px 3px rgba(20,30,50,.07),0 6px 18px rgba(20,30,50,.05);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;
+  font-size:15.5px;line-height:1.6;padding-bottom:env(safe-area-inset-bottom)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+.hide{display:none!important}
+.wrap{max-width:560px;margin:0 auto;padding:22px 16px 60px}
+.hd{text-align:center;margin-bottom:20px}
+.hd .b{display:inline-block;background:var(--blue);color:#fff;font-size:12.5px;font-weight:700;
+  padding:4px 12px;border-radius:999px}
+.hd h1{font-size:23px;margin:12px 0 4px;letter-spacing:-.6px}
+.hd p{margin:0;color:var(--sub);font-size:14px}
+.sec{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--sh);padding:18px 16px;margin-bottom:14px}
+.sec h3{margin:0 0 4px;font-size:16px;letter-spacing:-.3px}
+.sec .d{color:var(--sub);font-size:13.5px;margin:0 0 14px}
+label.f{display:block;margin-bottom:13px}
+label.f > span{display:block;font-size:13px;color:var(--sub);margin-bottom:5px;font-weight:600}
+label.f .req{color:var(--red)}
+input[type=text],input[type=tel],input[type=email],input[type=number],input[type=url],select,textarea{
+  width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:11px;background:#fff;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(27,110,243,.13)}
+input[readonly]{background:#f7f9fc;color:var(--sub)}
+textarea{resize:vertical;min-height:64px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+@media(max-width:480px){.g2{grid-template-columns:1fr}}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chips button{padding:9px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);
+  font-size:14px;font-weight:600;color:var(--sub)}
+.chips button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.kind{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.kind button{padding:16px 8px;border-radius:13px;border:2px solid var(--line);background:#fff;
+  font-weight:700;font-size:15px;color:var(--sub);line-height:1.4}
+.kind button .ic{display:block;font-size:24px;margin-bottom:4px}
+.kind button .s{display:block;font-size:11.5px;font-weight:400;margin-top:2px}
+.kind button.on{border-color:var(--blue);background:#f0f6ff;color:var(--blue)}
+.note{background:#fff8e6;border:1px solid #ffe3a3;color:#8a5a00;border-radius:12px;
+  padding:13px 15px;font-size:14px;margin-bottom:14px;line-height:1.55}
+.tip{background:#f0f6ff;border:1px solid #cfe0ff;color:#1257c9;border-radius:12px;
+  padding:12px 14px;font-size:13.5px;margin-bottom:12px}
+.err{background:#fdecec;border:1px solid #f8c9c9;color:#c92a2a;border-radius:11px;
+  padding:12px 14px;font-size:14px;margin-bottom:12px}
+.up{display:block;border:2px dashed var(--line);border-radius:13px;padding:20px 14px;text-align:center;
+  background:#fbfcfe;cursor:pointer;font-weight:600;color:var(--sub);font-size:14.5px}
+.up .ic{font-size:26px;display:block;margin-bottom:5px;line-height:1}
+.up.done{border-style:solid;border-color:var(--ok);background:#f2fbf6;color:#0b7a3c}
+.prev{margin-top:9px;text-align:center}
+.prev img{max-width:100%;max-height:200px;border-radius:11px;border:1px solid var(--line)}
+.prev .fn{font-size:13px;color:var(--sub);margin-top:5px}
+.prev button{color:var(--red);font-size:13px;text-decoration:underline;margin-top:4px}
+.btn{display:block;width:100%;padding:16px;border-radius:13px;background:var(--blue);color:#fff;
+  font-weight:800;font-size:16.5px}
+.btn:active{background:var(--blue-d)}
+.btn:disabled{opacity:.5}
+.btn.g{background:#eef1f6;color:#3a4356;padding:12px;font-size:14.5px;font-weight:700}
+.addr{display:flex;gap:8px}
+.addr input{flex:1}
+.addr button{flex:none;padding:0 16px;border-radius:11px;background:#eef1f6;color:#3a4356;font-weight:700;font-size:14px}
+#pcLayer{position:fixed;inset:0;z-index:500;background:rgba(15,20,30,.5);display:none;
+  align-items:center;justify-content:center;padding:14px}
+#pcLayer .box{background:#fff;width:100%;max-width:500px;height:520px;max-height:88vh;
+  border-radius:16px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+#pcLayer .top{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+#pcLayer .top b{font-size:15.5px}
+#pcLayer .top button{margin-left:auto;font-size:22px;color:var(--sub);line-height:1}
+#pcBox{flex:1}
+.foot{text-align:center;color:var(--sub);font-size:12.5px;margin-top:16px;line-height:1.6}
+.okbox{text-align:center;padding:44px 18px}
+.okbox .ic{font-size:56px;line-height:1}
+.okbox h2{font-size:22px;margin:14px 0 8px}
+.okbox p{color:var(--sub);margin:0 0 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="loading" style="text-align:center;padding:70px 0;color:var(--sub)">불러오는 중…</div>
+
+  <div id="bad" class="hide">
+    <div class="sec" style="text-align:center;padding:40px 20px">
+      <div style="font-size:44px">🔗</div>
+      <h3 style="margin:12px 0 6px">주소가 올바르지 않습니다</h3>
+      <p class="d" id="badMsg">담당자에게 링크를 다시 받아 주세요.</p>
+    </div>
+  </div>
+
+  <div id="form" class="hide">
+    <div class="hd">
+      <span class="b">거래처 등록</span>
+      <h1 id="coName">—</h1>
+      <p>아래 정보를 남겨주시면 발주·배송·세금계산서가 바로 됩니다.<br>2분이면 끝나요.</p>
+    </div>
+
+    <div class="note">
+      ⚠️ <b>상호는 사업자등록증에 적힌 그대로</b> 적어주세요.<br>
+      발주서·입금 기록과 자동으로 연결됩니다.
+    </div>
+
+    <div id="err" class="err hide"></div>
+
+    <div class="sec">
+      <h3>어떤 형태로 거래하시나요?</h3>
+      <p class="d">고르신 것에 맞는 칸만 보여드립니다.</p>
+      <div class="kind" id="kind">
+        <button type="button" data-k="offline"><span class="ic">🏪</span>오프라인
+          <span class="s">식당·정육점·마트</span></button>
+        <button type="button" data-k="online"><span class="ic">🛒</span>온라인
+          <span class="s">스토어·쇼핑몰</span></button>
+        <button type="button" data-k="both"><span class="ic">🔀</span>둘 다
+          <span class="s">매장＋온라인</span></button>
+      </div>
+    </div>
+
+    <div id="rest" class="hide">
+      <div class="sec">
+        <h3>사업자 정보</h3>
+        <p class="d">세금계산서 발행에 쓰입니다.</p>
+        <label class="f"><span>상호 (사업자등록증상) <b class="req">*</b></span>
+          <input type="text" id="f_name" placeholder="예) 순창담 본점"></label>
+        <label class="f"><span>사업자등록번호 <b class="req">*</b></span>
+          <input type="tel" id="f_biz_no" inputmode="numeric" placeholder="000-00-00000" maxlength="12"></label>
+        <div class="g2">
+          <label class="f"><span>대표자명</span><input type="text" id="f_ceo"></label>
+          <label class="f"><span>업태</span><input type="text" id="f_biz_type" placeholder="예) 음식점업"></label>
+        </div>
+        <label class="f"><span>종목</span><input type="text" id="f_biz_item" placeholder="예) 한식"></label>
+        <div id="offType">
+          <label class="f"><span>업종</span></label>
+          <div class="chips" id="stypes"></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <h3 id="addrTitle">사업장 · 배송지 주소</h3>
+        <p class="d" id="addrDesc">물건 받으실 곳입니다. <b>주소 검색</b>을 눌러 정확한 주소를 넣어주세요.</p>
+        <label class="f"><span>우편번호 <b class="req">*</b></span>
+          <div class="addr">
+            <input type="text" id="f_zip" readonly placeholder="주소 검색을 눌러주세요">
+            <button type="button" data-find="main">주소 검색</button>
+          </div></label>
+        <label class="f"><span>주소</span><input type="text" id="f_addr" readonly></label>
+        <label class="f"><span>상세주소 (동·호수, 층)</span><input type="text" id="f_addr2" placeholder="예) 2층"></label>
+      </div>
+
+      <div class="sec" id="secOff">
+        <h3>배송 받으실 때</h3>
+        <p class="d">기사님이 헤매지 않게 알려주세요.</p>
+        <label class="f"><span>받을 수 있는 시간</span>
+          <input type="text" id="f_open_hours" placeholder="예) 평일 09:00~17:00 (브레이크 15~17시 제외)"></label>
+        <label class="f"><span>하차·주차 안내</span>
+          <textarea id="f_deliver_note" placeholder="예) 건물 뒤편 하역장, 엘리베이터 있음. 정문 앞 잠깐 정차 가능"></textarea></label>
+      </div>
+
+      <div class="sec hide" id="secOn">
+        <h3>온라인 판매 정보</h3>
+        <p class="d">출고·반품 처리에 필요합니다.</p>
+        <label class="f"><span>통신판매업 신고번호</span>
+          <input type="text" id="f_mailorder_no" placeholder="예) 제2026-광주광산-1234호"></label>
+        <label class="f"><span>판매 채널</span></label>
+        <div class="chips" id="chans"></div>
+        <label class="f" style="margin-top:12px"><span>스토어 주소</span>
+          <input type="url" id="f_channel_url" placeholder="https://" autocapitalize="off"></label>
+        <label class="f"><span>고객문의(CS) 연락처</span><input type="tel" id="f_cs_phone"></label>
+        <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+        <p class="d" style="margin-bottom:10px"><b>반품 받으실 주소</b> — 위 주소와 다르면 적어주세요.</p>
+        <label class="f"><span>우편번호</span>
+          <div class="addr">
+            <input type="text" id="f_return_zip" readonly placeholder="같으면 비워두셔도 됩니다">
+            <button type="button" data-find="return">주소 검색</button>
+          </div></label>
+        <label class="f"><span>반품지 주소</span><input type="text" id="f_return_addr" readonly></label>
+        <label class="f"><span>상세주소</span><input type="text" id="f_return_addr2"></label>
+      </div>
+
+      <div class="sec">
+        <h3>담당자 · 연락처</h3>
+        <div class="g2">
+          <label class="f"><span>대표 전화 <b class="req">*</b></span><input type="tel" id="f_phone"></label>
+          <label class="f"><span>세금계산서 이메일</span><input type="email" id="f_tax_email" autocapitalize="off"></label>
+          <label class="f"><span>발주 담당자</span><input type="text" id="f_manager"></label>
+          <label class="f"><span>담당자 휴대폰</span><input type="tel" id="f_mgr_phone"></label>
+        </div>
+        <label class="f"><span>남기실 말씀</span><textarea id="f_memo"></textarea></label>
+      </div>
+
+      <div class="sec">
+        <h3>서류 첨부</h3>
+        <p class="d">사진으로 찍어 올려주셔도 됩니다. (한 장에 2MB 이하)</p>
+        <label class="f" style="margin-bottom:8px"><span>사업자등록증</span></label>
+        <label class="up" id="up_bizreg"><span class="ic">📄</span>사업자등록증 사진 올리기
+          <input type="file" accept="image/*,application/pdf,.pdf" style="display:none" data-k="bizreg"></label>
+        <div class="prev" id="pv_bizreg"></div>
+        <div id="moDoc" class="hide">
+          <label class="f" style="margin:16px 0 8px"><span>통신판매업 신고증</span></label>
+          <label class="up" id="up_mailorder"><span class="ic">🧾</span>통신판매업 신고증 올리기
+            <input type="file" accept="image/*,application/pdf,.pdf" style="display:none" data-k="mailorder"></label>
+          <div class="prev" id="pv_mailorder"></div>
+        </div>
+      </div>
+
+      <div class="tip" id="payTip"></div>
+      <button class="btn" id="submit">제출하기</button>
+      <p class="foot">제출하신 정보는 거래·정산 목적으로만 사용하며,<br>
+        거래 종료 후 관련 법령에 따라 보관·파기합니다.</p>
+    </div>
+  </div>
+
+  <div id="done" class="hide">
+    <div class="sec okbox">
+      <div class="ic">✅</div>
+      <h2>제출되었습니다</h2>
+      <p id="doneName"></p>
+      <p>담당자가 확인한 뒤 발주 계정을 만들어 연락드리겠습니다.</p>
+      <p class="foot" style="margin-top:18px">고칠 내용이 있으면 같은 링크로 다시 제출하시면 됩니다.</p>
+    </div>
+  </div>
+</div>
+
+<div id="pcLayer">
+  <div class="box">
+    <div class="top"><b>주소 검색</b><button type="button" id="pcClose">&times;</button></div>
+    <div id="pcBox"></div>
+  </div>
+</div>
+
+<script>
+const SB  = 'https://zcjvriedzememkiltqfa.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjanZyaWVkemVtZW1raWx0cWZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMjg2MTIsImV4cCI6MjA5OTYwNDYxMn0.2nZh82xFUNORqcKObAHUnz8K5EjjL-Nym0T4YkDHxMk';
+const CODE = new URLSearchParams(location.search).get('s') || '';
+const DOCS = {};
+let KIND = '', STYPE = '', CHANS = [];
+
+async function api(fn, args = []) {
+  const r = await fetch(SB + '/rest/v1/rpc/b2b_api', {
+    method: 'POST',
+    headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_fn: fn, p_args: args })
+  });
+  if (!r.ok) throw new Error('연결이 원활하지 않습니다. 잠시 뒤 다시 시도해 주세요.');
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || '알 수 없는 오류');
+  return j.result;
+}
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+function showErr(m) {
+  const e = $('#err');
+  if (!m) { e.classList.add('hide'); return; }
+  e.textContent = m; e.classList.remove('hide');
+  e.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/* ── 주소 검색 (카카오 우편번호 서비스) ── */
+let pcTarget = 'main';
+function openPostcode(target) {
+  pcTarget = target;
+  $('#pcBox').innerHTML = '';
+  $('#pcLayer').style.display = 'flex';
+  new daum.Postcode({
+    oncomplete: data => {
+      // 도로명주소 우선, 없으면 지번. 건물명이 있으면 괄호로 붙여준다.
+      let addr = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
+      if (data.userSelectedType === 'R' && data.buildingName) addr += ' (' + data.buildingName + ')';
+      if (pcTarget === 'main') {
+        $('#f_zip').value = data.zonecode; $('#f_addr').value = addr;
+        setTimeout(() => $('#f_addr2').focus(), 120);
+      } else {
+        $('#f_return_zip').value = data.zonecode; $('#f_return_addr').value = addr;
+        setTimeout(() => $('#f_return_addr2').focus(), 120);
+      }
+      $('#pcLayer').style.display = 'none';
+    },
+    onresize: size => { $('#pcBox').style.height = size.height + 'px'; },
+    width: '100%', height: '100%'
+  }).embed($('#pcBox'));
+}
+$$('[data-find]').forEach(b => b.onclick = () => openPostcode(b.dataset.find));
+$('#pcClose').onclick = () => $('#pcLayer').style.display = 'none';
+$('#pcLayer').onclick = e => { if (e.target.id === 'pcLayer') $('#pcLayer').style.display = 'none'; };
+
+/* ── 사업자번호 자동 하이픈 ── */
+$('#f_biz_no').addEventListener('input', e => {
+  const d = e.target.value.replace(/\D/g, '').slice(0, 10);
+  e.target.value = d.length > 5 ? `${d.slice(0,3)}-${d.slice(3,5)}-${d.slice(5)}`
+                 : d.length > 3 ? `${d.slice(0,3)}-${d.slice(3)}` : d;
+});
+
+/* ── 거래 형태 ── */
+const STYPES = ['식당','정육점','마트·슈퍼','급식·단체','프랜차이즈','도매','기타'];
+const CHANNELS = ['스마트스토어','쿠팡','11번가','G마켓·옥션','카카오톡스토어','자사몰','배민상회','기타'];
+$('#stypes').innerHTML = STYPES.map(c => `<button type="button" data-s="${esc(c)}">${esc(c)}</button>`).join('');
+$('#chans').innerHTML = CHANNELS.map(c => `<button type="button" data-c="${esc(c)}">${esc(c)}</button>`).join('');
+$$('#stypes button').forEach(b => b.onclick = () => {
+  STYPE = b.dataset.s; $$('#stypes button').forEach(x => x.classList.toggle('on', x === b));
+});
+$$('#chans button').forEach(b => b.onclick = () => {
+  b.classList.toggle('on');
+  CHANS = $$('#chans button.on').map(x => x.dataset.c);
+});
+
+$$('#kind button').forEach(b => b.onclick = () => {
+  KIND = b.dataset.k;
+  $$('#kind button').forEach(x => x.classList.toggle('on', x === b));
+  $('#rest').classList.remove('hide');
+  const on = KIND === 'online', off = KIND === 'offline', both = KIND === 'both';
+  $('#secOn').classList.toggle('hide', off);
+  $('#secOff').classList.toggle('hide', on);
+  $('#offType').classList.toggle('hide', on);
+  $('#moDoc').classList.toggle('hide', off);
+  $('#addrTitle').textContent = on ? '사업장 · 출고지 주소' : '사업장 · 배송지 주소';
+  $('#addrDesc').innerHTML = on
+    ? '저희가 물건을 보낼 곳입니다. <b>주소 검색</b>을 눌러 정확한 주소를 넣어주세요.'
+    : '물건 받으실 곳입니다. <b>주소 검색</b>을 눌러 정확한 주소를 넣어주세요.';
+  $('#rest').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+/* ── 파일 ── */
+const KLABEL = { bizreg: '사업자등록증', mailorder: '통신판매업 신고증' };
+const KICON  = { bizreg: '📄', mailorder: '🧾' };
+function bindFiles() {
+  $$('input[type=file]').forEach(inp => inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    const k = inp.dataset.k;
+    if (f.size > 2 * 1024 * 1024) return alert('사진이 너무 큽니다 (2MB 이하).');
+    const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); });
+    DOCS[k] = { b64, mime: f.type || '', name: f.name };
+    $('#up_' + k).classList.add('done');
+    $('#up_' + k).innerHTML = `<span class="ic">✅</span>${KLABEL[k]} 올렸습니다 — 다시 올리려면 누르세요
+      <input type="file" accept="image/*,application/pdf,.pdf" style="display:none" data-k="${k}">`;
+    $('#pv_' + k).innerHTML = (f.type || '').startsWith('image/')
+      ? `<img src="${b64}"><div class="fn">${esc(f.name)}</div><button type="button" data-x="${k}">지우기</button>`
+      : `<div class="fn">📎 ${esc(f.name)}</div><button type="button" data-x="${k}">지우기</button>`;
+    bindFiles();
+  });
+  $$('[data-x]').forEach(b => b.onclick = () => {
+    const k = b.dataset.x; delete DOCS[k];
+    $('#pv_' + k).innerHTML = '';
+    $('#up_' + k).classList.remove('done');
+    $('#up_' + k).innerHTML = `<span class="ic">${KICON[k]}</span>${KLABEL[k]} 올리기
+      <input type="file" accept="image/*,application/pdf,.pdf" style="display:none" data-k="${k}">`;
+    bindFiles();
+  });
+}
+bindFiles();
+
+/* ── 제출 ── */
+$('#submit').onclick = async () => {
+  showErr('');
+  const v = id => $('#' + id).value.trim();
+  if (!KIND)            return showErr('거래 형태를 먼저 골라주세요.');
+  if (!v('f_name'))     return showErr('상호를 입력해 주세요. (사업자등록증에 적힌 그대로)');
+  if (v('f_biz_no').replace(/\D/g,'').length !== 10) return showErr('사업자등록번호를 10자리로 정확히 입력해 주세요.');
+  if (!v('f_addr'))     return showErr('주소 검색을 눌러 주소를 넣어 주세요.');
+  if (!v('f_phone') && !v('f_mgr_phone')) return showErr('연락처를 하나 이상 남겨 주세요.');
+
+  const p = {
+    biz_kind: KIND, store_type: STYPE,
+    name: v('f_name'), biz_no: v('f_biz_no'), ceo: v('f_ceo'),
+    biz_type: v('f_biz_type'), biz_item: v('f_biz_item'),
+    zip: v('f_zip'), addr: v('f_addr'), addr2: v('f_addr2'),
+    phone: v('f_phone'), tax_email: v('f_tax_email'), email: v('f_tax_email'),
+    manager: v('f_manager'), mgr_phone: v('f_mgr_phone'),
+    open_hours: v('f_open_hours'), deliver_note: v('f_deliver_note'),
+    mailorder_no: v('f_mailorder_no'), channel: CHANS.join(', '), channel_url: v('f_channel_url'),
+    cs_phone: v('f_cs_phone'),
+    return_zip: v('f_return_zip'), return_addr: v('f_return_addr'), return_addr2: v('f_return_addr2'),
+    memo: v('f_memo'),
+    doc_bizreg: DOCS.bizreg ? DOCS.bizreg.b64 : '',
+    doc_bizreg_mime: DOCS.bizreg ? DOCS.bizreg.mime : '',
+    doc_mailorder: DOCS.mailorder ? DOCS.mailorder.b64 : '',
+    doc_mailorder_mime: DOCS.mailorder ? DOCS.mailorder.mime : ''
+  };
+  const btn = $('#submit'); btn.disabled = true; btn.textContent = '보내는 중…';
+  try {
+    const r = await api('ptnSubmit', [CODE, p]);
+    $('#form').classList.add('hide');
+    $('#done').classList.remove('hide');
+    $('#doneName').textContent = r.name;
+    window.scrollTo(0, 0);
+  } catch (e) {
+    showErr(e.message); btn.disabled = false; btn.textContent = '제출하기';
+  }
+};
+
+/* ── 시작 ── */
+(async () => {
+  if (!CODE) { $('#loading').classList.add('hide'); $('#bad').classList.remove('hide'); return; }
+  try {
+    const info = await api('ptnInfo', [CODE]);
+    $('#coName').textContent = info.company_name;
+    document.title = info.company_name + ' 거래처 등록';
+    $('#payTip').innerHTML = info.bank_account
+      ? `발주는 <b>선입금</b>으로 진행됩니다. 발주하시면 아래 계좌와 금액을 안내해 드립니다.<br>
+         ${esc(info.bank_name)} ${esc(info.bank_account)} ${info.bank_holder ? '· ' + esc(info.bank_holder) : ''}`
+      : `발주는 <b>선입금</b>으로 진행됩니다. 발주하시면 입금 계좌와 금액을 안내해 드립니다.`;
+    $('#loading').classList.add('hide');
+    $('#form').classList.remove('hide');
+  } catch (e) {
+    $('#loading').classList.add('hide');
+    $('#badMsg').textContent = e.message;
+    $('#bad').classList.remove('hide');
+  }
+})();
+</script>
+</body>
+</html>

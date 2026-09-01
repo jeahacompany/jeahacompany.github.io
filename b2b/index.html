@@ -324,7 +324,14 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     <section id="t-partners" class="hide">
       <div class="filt">
         <input type="text" id="ptQ" placeholder="거래처 검색" class="grow">
-        <button class="btn" id="ptAdd">+ 거래처 등록</button>
+        <select id="ptKind">
+          <option value="">전체 형태</option>
+          <option value="offline">오프라인</option>
+          <option value="online">온라인</option>
+          <option value="both">둘 다</option>
+        </select>
+        <button class="btn" id="ptInvite">🔗 거래처 등록 요청 링크</button>
+        <button class="btn g" id="ptAdd">+ 직접 등록</button>
       </div>
       <div id="ptPending"></div>
       <div class="card" style="padding:0">
@@ -862,7 +869,12 @@ function mqLabel(kind, r) {
       return `<b>${esc(r.name)}</b><div class="muted" style="color:var(--red)">빠진 것: ${esc(r.missing)}</div>
         <div class="muted">발주 ${r.orders}건</div>${note}`;
     case 'partner_pending':
-      return `<b>${esc(r.name)}</b><div class="muted">${esc(r.phone || '')} ${esc(r.biz_no || '')} · ${ymd(r.created_at)} 신청</div>`;
+      return `<b>${esc(r.name)}</b> <span class="muted">${KINDL[r.biz_kind || 'offline'] || ''}</span>
+        ${r.docs ? `<span class="bdg b-shipped">서류 ${r.docs}장</span>` : ''}
+        <div class="muted">${esc(r.biz_no || '')} ${esc(r.manager || '')} ${esc(r.phone || '')}
+        ${r.store_type ? ' · ' + esc(r.store_type) : ''}${r.channel ? ' · ' + esc(r.channel) : ''}</div>
+        ${r.addr ? `<div class="muted">${esc(r.addr)}</div>` : ''}
+        <div class="muted">${r.submitted_at ? ymdt(r.submitted_at) + ' 제출' : ymd(r.created_at) + ' 신청'}</div>`;
     case 'supplier_pending':
       return `<b>${esc(r.name)}</b> ${r.docs ? `<span class="bdg b-shipped">서류 ${r.docs}장</span>` : `<span class="bdg b-cancel">서류 없음</span>`}
         <div class="muted">${esc(r.biz_no || '')} · ${esc(r.manager || '')} ${esc(r.phone || '')}
@@ -2860,32 +2872,113 @@ function renderPartners() {
   });
   $$('#ptPending [data-ed]').forEach(b => b.onclick = () => partnerModal(PARTNERS.find(x => x.id === b.dataset.ed)));
 
-  const q = $('#ptQ').value.trim().toLowerCase();
-  const rows = PARTNERS.filter(p => !q || (p.name + ' ' + (p.code||'') + ' ' + (p.phone||'') + ' ' + (p.username||'')).toLowerCase().includes(q));
+  const q = $('#ptQ').value.trim().toLowerCase(), kind = $('#ptKind').value;
+  const rows = PARTNERS.filter(p =>
+    (!kind || (p.biz_kind || 'offline') === kind) &&
+    (!q || (p.name + ' ' + (p.code||'') + ' ' + (p.phone||'') + ' ' + (p.username||'') + ' ' + (p.biz_no||'')).toLowerCase().includes(q)));
   if (!rows.length) { $('#ptTbl').innerHTML = `<tr><td class="empty">거래처가 없습니다.</td></tr>`; return; }
   $('#ptTbl').innerHTML = `
-    <tr><th>코드</th><th>상호</th><th>담당자</th><th>아이디</th><th class="right">할인</th>
-        <th class="right">누적 발주</th><th class="right">미수금</th><th>최근발주</th><th>상태</th><th></th></tr>
+    <tr><th>코드</th><th>상호</th><th>형태</th><th>담당자</th><th>아이디</th>
+        <th class="right">누적 발주</th><th class="right">미수금</th><th>서류</th><th>상태</th><th></th></tr>
     ${rows.map(p => {
       const un = Number(p.order_total || 0) - Number(p.pay_total || 0);
-      return `<tr>
+      return `<tr${p.status === 'pending' ? ' style="background:#fffbe6"' : ''}>
         <td class="muted">${esc(p.code || '')}</td>
         <td><b>${esc(p.name)}</b>${p.biz_no ? `<div class="muted">${esc(p.biz_no)}</div>` : ''}</td>
-        <td>${esc(p.manager || '')}<div class="muted">${esc(p.phone || '')}</div></td>
-        <td class="muted">${esc(p.username || '-')}${p.has_pw ? '' : ' <span style="color:var(--red)">(비번없음)</span>'}</td>
-        <td class="n">${p.discount_rate > 0 ? p.discount_rate + '%' : '-'}</td>
+        <td class="muted">${KINDL[p.biz_kind || 'offline']}
+          ${p.store_type ? `<div class="muted">${esc(p.store_type)}</div>` : ''}
+          ${p.channel ? `<div class="muted">${esc(String(p.channel).slice(0, 14))}</div>` : ''}</td>
+        <td>${esc(p.manager || '')}<div class="muted">${esc(p.phone || p.mgr_phone || '')}</div></td>
+        <td class="muted">${esc(p.username || '-')}${p.username && !p.has_pw ? ' <span style="color:var(--red)">(비번없음)</span>' : ''}</td>
         <td class="n">${num(p.order_total)}<div class="muted">${p.order_count}건</div></td>
         <td class="n" style="color:${un > 0 ? 'var(--red)' : 'var(--sub)'}">${num(un)}</td>
-        <td class="muted">${p.last_order ? ymd(p.last_order) : '-'}</td>
+        <td>${p.docs ? `<button class="btn s g" data-pd="${p.id}">📄 ${p.docs}장</button>` : '<span class="muted">없음</span>'}</td>
         <td><span class="bdg b-${p.status === 'active' ? 'active' : p.status === 'hold' ? 'hold' : 'pending'}">${PST[p.status]}</span></td>
         <td class="row" style="gap:5px">
+          ${p.status === 'pending' ? `<button class="btn s ok" data-pap="${p.id}">승인</button>` : ''}
           <button class="btn s g" data-pr="${p.id}">단가</button>
           <button class="btn s g" data-ed="${p.id}">수정</button></td></tr>`;
     }).join('')}`;
   $$('#ptTbl [data-ed]').forEach(b => b.onclick = () => partnerModal(PARTNERS.find(x => x.id === b.dataset.ed)));
   $$('#ptTbl [data-pr]').forEach(b => b.onclick = () => priceModal(PARTNERS.find(x => x.id === b.dataset.pr)));
+  $$('#ptTbl [data-pd]').forEach(b => b.onclick = () => ptnDocsModal(PARTNERS.find(x => x.id === b.dataset.pd)));
+  $$('#ptTbl [data-pap]').forEach(b => b.onclick = async () => {
+    const p = PARTNERS.find(x => x.id === b.dataset.pap);
+    if (!confirm(`'${p.name}' 을(를) 승인할까요?`)) return;
+    try { await api('aPartnerSave', [TOKEN, { id: p.id, name: p.name, status: 'active' }]);
+      toast('승인했습니다'); loadPartners(); refreshMatchDot(); } catch (e) { toast(e.message); }
+  });
 }
 $('#ptQ').oninput = renderPartners;
+$('#ptKind').onchange = renderPartners;
+
+const KINDL = { offline: '🏪 오프라인', online: '🛒 온라인', both: '🔀 둘 다' };
+
+/* ── 거래처 등록 요청 링크 ── */
+async function ptnInviteModal() {
+  let url;
+  try {
+    const r = await api('aPartnerCode', [TOKEN, false]);
+    url = location.href.replace(/[^/]*(\?.*)?$/, '') + 'partner-reg.html?s=' + r.code;
+  } catch (e) { return toast(e.message); }
+  const msg = `[${BOOT.settings.company_name || ''}] 거래처 등록 안내드립니다.\n`
+    + `아래 링크에서 사업자등록증과 배송지·담당자만 남겨주시면\n`
+    + `발주 계정을 만들어 드립니다. 2분이면 끝납니다.\n\n${url}`;
+  openModal('거래처 등록 요청 링크', `
+    <div class="tip">이 링크를 거래처에 <b>카톡으로 보내면</b> 거래처가 직접 적습니다.<br>
+      <b>오프라인(식당·정육점·마트)</b> 과 <b>온라인(스토어·쇼핑몰)</b> 중 고르면
+      그에 맞는 칸만 보여줍니다. 주소는 <b>검색해서</b> 넣게 되어 있어 오타가 없습니다.<br>
+      제출되면 <b>사업자번호로 기존 거래처를 찾아 붙고</b>, 없으면 새로 만들어 매칭 탭에 승인 대기로 뜹니다.</div>
+    <label class="f"><span>링크</span><input type="text" id="pl_url" readonly value="${esc(url)}"></label>
+    <label class="f"><span>보낼 문구</span><textarea id="pl_msg" style="min-height:120px">${esc(msg)}</textarea></label>
+    <div class="row" style="flex-wrap:wrap">
+      <button class="btn grow" id="pl_copy">문구 통째로 복사</button>
+      <button class="btn g" id="pl_copy2">링크만 복사</button>
+      <button class="btn g" id="pl_open">미리보기</button>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+    <div class="warn">링크를 아는 사람은 누구나 등록을 넣을 수 있습니다. 새어나가면 새로 발급하세요.</div>
+    <button class="btn r w" id="pl_reset">링크 새로 발급</button>
+  `, () => {
+    const cp = (t, m) => navigator.clipboard?.writeText(t).then(() => toast(m))
+      .catch(() => toast('칸을 길게 눌러 복사해 주세요'));
+    $('#pl_copy').onclick  = () => cp($('#pl_msg').value, '문구를 복사했어요');
+    $('#pl_copy2').onclick = () => cp(url, '링크를 복사했어요');
+    $('#pl_open').onclick  = () => window.open(url, '_blank');
+    $('#pl_reset').onclick = async () => {
+      if (!confirm('링크를 새로 발급하면 지금 링크는 못 쓰게 됩니다.\n진행할까요?')) return;
+      try { await api('aPartnerCode', [TOKEN, true]); closeModal(); toast('새 링크를 발급했습니다'); ptnInviteModal(); }
+      catch (e) { toast(e.message); }
+    };
+  });
+}
+$('#ptInvite').onclick = ptnInviteModal;
+
+/* ── 거래처가 올린 서류 ── */
+async function ptnDocsModal(p) {
+  try {
+    const docs = await api('aPtnDocs', [TOKEN, p.id]);
+    const KL = { bizreg: '사업자등록증', mailorder: '통신판매업 신고증' };
+    openModal('서류 — ' + p.name, docs.length ? `
+      <div class="tip">거래처가 직접 올린 서류입니다. 관리자만 볼 수 있습니다.</div>
+      ${docs.map(d => `<div class="row" style="padding:9px 0;border-bottom:1px solid #f0f2f6">
+        <div class="grow"><b>${esc(KL[d.kind] || d.kind)}</b>
+          <div class="muted">${ymdt(d.at)} · ${Math.round(d.size / 1400)}KB</div></div>
+        <button class="btn s" data-dv="${d.id}">보기</button></div>`).join('')}
+      <div id="docView" style="margin-top:14px"></div>`
+      : `<div class="empty">아직 올라온 서류가 없습니다.</div>`, () => {
+      $$('#modal [data-dv]').forEach(b => b.onclick = async () => {
+        $('#docView').innerHTML = `<div class="empty">여는 중…</div>`;
+        try {
+          const d = await api('aPtnDocGet', [TOKEN, b.dataset.dv]);
+          $('#docView').innerHTML = (d.mime || '').startsWith('image/') || d.file_b64.startsWith('data:image')
+            ? `<img src="${d.file_b64}" style="max-width:100%;border-radius:12px;border:1px solid var(--line)">`
+            : `<div class="tip"><a href="${d.file_b64}" download="서류">내려받기</a></div>`;
+        } catch (e) { $('#docView').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+      });
+    }, true);
+  } catch (e) { toast(e.message); }
+}
 $('#ptAdd').onclick = () => partnerModal(null);
 
 function partnerModal(p) {
