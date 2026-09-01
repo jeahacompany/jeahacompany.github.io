@@ -157,6 +157,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       <button data-tab="dash" class="on">대시보드</button>
       <button data-tab="orders">발주<span class="dot hide" id="dotOrders"></span></button>
       <button data-tab="pays">입금</button>
+      <button data-tab="buy">매입<span class="dot hide" id="dotBuy"></span></button>
       <button data-tab="products">상품·재고</button>
       <button data-tab="upload">재고 업로드</button>
       <button data-tab="prices">단가표</button>
@@ -201,9 +202,61 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       </div>
     </section>
 
+    <section id="t-buy" class="hide">
+      <div class="chips" style="margin-bottom:12px">
+        <button data-sub="po" class="on">매입 내역</button>
+        <button data-sub="sup">매입처</button>
+        <button data-sub="sp">지급 내역</button>
+      </div>
+
+      <div id="sub-po">
+        <div class="filt">
+          <select id="poStatus">
+            <option value="">전체 상태</option>
+            <option value="ordered">발주(입고 전)</option>
+            <option value="received">입고완료</option>
+            <option value="cancel">취소</option>
+          </select>
+          <select id="poSup"></select>
+          <select id="poYm"></select>
+          <button class="btn" id="poAdd">+ 매입 등록</button>
+        </div>
+        <div id="poSum"></div>
+        <div class="card" style="padding:0">
+          <div class="tblwrap" style="margin:0;padding:0"><table id="poTbl"></table></div>
+        </div>
+      </div>
+
+      <div id="sub-sup" class="hide">
+        <div class="filt"><button class="btn" id="supAdd">+ 매입처 등록</button></div>
+        <div class="card" style="padding:0">
+          <div class="tblwrap" style="margin:0;padding:0"><table id="supTbl"></table></div>
+        </div>
+      </div>
+
+      <div id="sub-sp" class="hide">
+        <div class="filt">
+          <select id="spYm"></select>
+          <select id="spSup"></select>
+          <button class="btn" id="spAdd">+ 지급 등록</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="tblwrap" style="margin:0;padding:0"><table id="spTbl"></table></div>
+        </div>
+      </div>
+    </section>
+
     <section id="t-products" class="hide">
+      <div id="anSum"></div>
       <div class="filt">
         <input type="text" id="prQ" placeholder="상품 검색" class="grow">
+        <select id="prSort">
+          <option value="value">재고금액 큰 순</option>
+          <option value="cover">소진일수 짧은 순</option>
+          <option value="out30">30일 출고 많은 순</option>
+          <option value="dead">안 나가는 순 (묶인 돈)</option>
+          <option value="name">이름 순</option>
+        </select>
         <button class="btn" id="prAdd">+ 상품 등록</button>
       </div>
       <div class="card" style="padding:0">
@@ -437,8 +490,10 @@ async function boot() {
   $('#meName').textContent = BOOT.me.name || BOOT.me.username;
   document.title = (BOOT.settings.company_name || 'B2B') + ' 발주 관리';
 
-  PARTNERS = await api('aPartners', [TOKEN]);
+  PARTNERS  = await api('aPartners',  [TOKEN]);
+  try { SUPPLIERS = await api('aSuppliers', [TOKEN]); } catch (e) { SUPPLIERS = []; }
   ymOptions($('#oYm')); ymOptions($('#pyYm')); ymOptions($('#seYm'), 15, false);
+  ymOptions($('#poYm')); ymOptions($('#spYm'));
   partnerOptions($('#oPartner'), '전체 거래처');
   partnerOptions($('#pyPartner'), '전체 거래처');
   $('#partnerUrl').value = location.href.replace(/[^/]*$/, 'partner.html');
@@ -447,17 +502,20 @@ async function boot() {
   updateDots();
 }
 
+let DASH = null;
 function updateDots() {
   $('#dotOrders').classList.toggle('hide', !(BOOT?.stat.pending > 0));
   $('#dotPartners').classList.toggle('hide', !(BOOT?.stat.partners_pending > 0));
+  // 매입은 '결제일이 코앞인데 아직 안 준 돈'이 있을 때만 빨간 점
+  $('#dotBuy').classList.toggle('hide', !(DASH?.todo?.po_due > 0));
 }
 
 $$('#tabs button').forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
   $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['dash','orders','pays','products','upload','prices','partners','settle','setting']
+  ['dash','orders','pays','buy','products','upload','prices','partners','settle','setting']
     .forEach(t => $('#t-' + t).classList.toggle('hide', t !== TAB));
-  ({ dash: renderDash, orders: loadOrders, pays: loadPays, products: loadProducts,
+  ({ dash: renderDash, orders: loadOrders, pays: loadPays, buy: loadBuy, products: loadProducts,
      upload: loadUpload, prices: loadMatrix, partners: loadPartners,
      settle: loadSettle, setting: loadSetting })[TAB]?.();
   window.scrollTo(0, 0);
@@ -468,21 +526,96 @@ function goTab(t, prep) {
   b.click();
 }
 
-/* ═══════════ 대시보드 ═══════════ */
+/* ═══════════ 대시보드 — 돈이 어디 있고 어디로 가는지 ═══════════ */
+function sparkline(points, w = 560, h = 60) {
+  if (!points.length) return '';
+  const max = Math.max(...points.map(p => p.qty), 1);
+  const step = points.length > 1 ? w / (points.length - 1) : w;
+  const pts = points.map((p, i) => `${(i * step).toFixed(1)},${(h - (p.qty / max) * (h - 8) - 4).toFixed(1)}`);
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px">
+    <polyline points="${pts.join(' ')}" fill="none" stroke="var(--blue)" stroke-width="2"
+      stroke-linejoin="round" stroke-linecap="round"/>
+    ${points.map((p, i) => `<circle cx="${(i * step).toFixed(1)}" cy="${(h - (p.qty / max) * (h - 8) - 4).toFixed(1)}" r="2.5" fill="var(--blue)"/>`).join('')}
+  </svg>`;
+}
+
 async function renderDash() {
-  try { BOOT = await api('aBoot', [TOKEN]); } catch (e) { toast(e.message); return; }
-  const s = BOOT.stat;
+  let d;
+  try { d = await api('aDashboard', [TOKEN]); BOOT = await api('aBoot', [TOKEN]); }
+  catch (e) { toast(e.message); return; }
+  DASH = d;
   updateDots();
+  const m = d.money, sa = d.sales, td = d.todo, al = d.stock_alert;
+  const trend = d.out_trend || [], top = d.top_out || [];
+
   $('#t-dash').innerHTML = `
-    <div class="stats">
-      <div class="stat act" data-go="pending"><div class="l">입금 대기</div><div class="v" style="color:var(--warn)">${s.pending}건</div></div>
-      <div class="stat act" data-go="paid"><div class="l">입금 확인 · 출고 대기</div><div class="v" style="color:var(--blue)">${s.paid + s.ready}건</div></div>
-      <div class="stat"><div class="l">오늘 발주</div><div class="v">${s.today_orders}건</div><div class="muted num">${won(s.today_amount)}</div></div>
-      <div class="stat"><div class="l">이번 달 발주액</div><div class="v">${num(s.month_amount)}</div></div>
-      <div class="stat act" data-go="unpaid"><div class="l">미입금 잔액</div><div class="v" style="color:${s.unpaid > 0 ? 'var(--red)' : 'var(--ok)'}">${num(s.unpaid)}</div></div>
-      <div class="stat act" data-go="partners"><div class="l">거래처 승인 대기</div><div class="v" style="color:${s.partners_pending ? 'var(--red)' : 'inherit'}">${s.partners_pending}곳</div></div>
+    <div class="card" style="background:linear-gradient(180deg,#fff,#fbfcff)">
+      <h3>돈이 어디 있나</h3>
+      <div class="stats" style="margin:0">
+        <div class="stat act" data-go="products"><div class="l">📦 재고에 묶인 돈 (원가)</div>
+          <div class="v">${num(m.stock_value)}</div></div>
+        <div class="stat act" data-go="settle"><div class="l">📥 업체에서 받을 돈</div>
+          <div class="v" style="color:${m.receivable > 0 ? 'var(--warn)' : 'var(--sub)'}">${num(m.receivable)}</div></div>
+        <div class="stat act" data-go="buy"><div class="l">📤 매입처에 줄 돈</div>
+          <div class="v" style="color:${m.payable > 0 ? 'var(--red)' : 'var(--sub)'}">${num(m.payable)}</div></div>
+        <div class="stat"><div class="l">= 순 자산</div>
+          <div class="v" style="color:var(--ok)">${num(m.net)}</div></div>
+      </div>
+      <div class="muted" style="margin-top:8px">재고 + 받을돈 − 줄돈. 원가가 안 들어간 상품이 있으면 재고 금액이 실제보다 작게 나옵니다.</div>
     </div>
-    ${s.low_stock ? `<div class="warn">재고가 안전재고 밑으로 떨어진 상품이 <b>${s.low_stock}개</b> 있습니다. 상품·재고 탭에서 확인하세요.</div>` : ''}
+
+    <div class="stats">
+      <div class="stat"><div class="l">오늘 발주</div><div class="v">${sa.today_cnt}건</div>
+        <div class="muted num">${won(sa.today_amt)}</div></div>
+      <div class="stat"><div class="l">이번 달 매출(발주)</div><div class="v">${num(sa.month_amt)}</div></div>
+      <div class="stat"><div class="l">이번 달 매입</div><div class="v">${num(sa.month_buy)}</div></div>
+      <div class="stat"><div class="l">이번 달 차액</div>
+        <div class="v" style="color:${sa.month_amt - sa.month_buy >= 0 ? 'var(--ok)' : 'var(--red)'}">${num(sa.month_amt - sa.month_buy)}</div></div>
+    </div>
+
+    ${(al.no_cost || al.no_price) ? `<div class="warn">
+      ${al.no_price ? `공급가가 아직 없는 상품 <b>${al.no_price}개</b>. ` : ''}
+      ${al.no_cost ? `원가가 아직 없는 상품 <b>${al.no_cost}개</b>. ` : ''}
+      이게 채워져야 재고 금액과 마진이 제대로 나옵니다. → <b>상품·재고</b> 탭</div>` : ''}
+
+    <div class="card">
+      <h3>지금 할 일</h3>
+      <div class="stats" style="margin:0">
+        <div class="stat act" data-go="pending"><div class="l">입금 대기</div>
+          <div class="v" style="color:${td.pending ? 'var(--warn)' : 'inherit'}">${td.pending}건</div></div>
+        <div class="stat act" data-go="paid"><div class="l">출고해야 할 발주</div>
+          <div class="v" style="color:${td.to_ship ? 'var(--blue)' : 'inherit'}">${td.to_ship}건</div></div>
+        <div class="stat act" data-go="buy"><div class="l">입고 안 된 매입</div>
+          <div class="v">${td.po_open}건</div></div>
+        <div class="stat act" data-go="buy"><div class="l">일주일 내 결제할 매입</div>
+          <div class="v" style="color:${td.po_due ? 'var(--red)' : 'inherit'}">${td.po_due}건</div></div>
+        <div class="stat act" data-go="partners"><div class="l">거래처 승인 대기</div>
+          <div class="v" style="color:${td.partners_pending ? 'var(--red)' : 'inherit'}">${td.partners_pending}곳</div></div>
+        <div class="stat act" data-go="products"><div class="l">품절 · 재고 부족</div>
+          <div class="v" style="color:${al.zero + al.low ? 'var(--red)' : 'inherit'}">${al.zero + al.low}개</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>최근 30일 출고 추이
+        <span class="sp muted">${d.data_days < 3 ? `창고 재고표가 ${d.data_days}일치뿐이라 아직 추세라 하기 어렵습니다` : `${d.data_days}일치 기준`}</span></h3>
+      ${trend.length ? sparkline(trend) + `<div class="row muted" style="justify-content:space-between;margin-top:2px">
+        <span>${trend[0].d}</span><span>합계 ${num(trend.reduce((a,x)=>a+Number(x.qty),0))}개</span><span>${trend[trend.length-1].d}</span></div>`
+        : `<div class="empty">재고 업로드 탭에서 창고 재고표를 올리면 여기에 출고 추이가 그려집니다.</div>`}
+    </div>
+
+    ${top.length ? `<div class="card">
+      <h3>30일간 많이 나간 상품</h3>
+      ${top.map(t => {
+        const mx = Math.max(...top.map(x => Number(x.qty)), 1);
+        return `<div class="row" style="padding:5px 0;gap:10px">
+          <div style="width:180px;flex:none" class="grow">${esc(t.name)}</div>
+          <div style="flex:1;background:#eef1f6;border-radius:5px;height:10px;overflow:hidden">
+            <div style="width:${(Number(t.qty)/mx*100).toFixed(0)}%;height:100%;background:var(--blue)"></div></div>
+          <div class="num" style="width:64px;text-align:right"><b>${num(t.qty)}</b></div></div>`;
+      }).join('')}
+    </div>` : ''}
+
     <div class="card">
       <h3>처리할 발주<span class="sp"><button class="btn s g" id="dashAll">전체 보기</button></span></h3>
       <div id="dashList"><div class="empty">불러오는 중…</div></div>
@@ -491,7 +624,9 @@ async function renderDash() {
   $$('#t-dash .stat.act').forEach(el => el.onclick = () => {
     const g = el.dataset.go;
     if (g === 'partners') return goTab('partners');
-    if (g === 'unpaid')   return goTab('settle');
+    if (g === 'settle')   return goTab('settle');
+    if (g === 'buy')      return goTab('buy');
+    if (g === 'products') return goTab('products');
     goTab('orders', () => { $('#oStatus').value = g; $('#oYm').value = ''; });
   });
   $('#dashAll').onclick = () => goTab('orders', () => { $('#oStatus').value = ''; });
@@ -723,36 +858,459 @@ function payModal(p) {
   });
 }
 
-/* ═══════════ 상품 ═══════════ */
+/* ═══════════ 매입 (매입처 · 매입 · 지급) ═══════════ */
+let SUPPLIERS = [], BUYSUB = 'po';
+const PAYTERMS = { immediate:'즉시', days15:'15일', days30:'30일', days60:'60일', month_end:'월말정산' };
+const POST = { ordered:'발주(입고 전)', received:'입고완료', cancel:'취소' };
+
+$$('#t-buy .chips button').forEach(b => b.onclick = () => {
+  BUYSUB = b.dataset.sub;
+  $$('#t-buy .chips button').forEach(x => x.classList.toggle('on', x === b));
+  ['po','sup','sp'].forEach(k => $('#sub-' + k).classList.toggle('hide', k !== BUYSUB));
+  ({ po: loadPO, sup: renderSuppliers, sp: loadSupPays })[BUYSUB]();
+});
+
+async function loadBuy() {
+  try { SUPPLIERS = await api('aSuppliers', [TOKEN]); } catch (e) { toast(e.message); }
+  const opt = `<option value="">전체 매입처</option>` +
+    SUPPLIERS.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  const keepPo = $('#poSup').value, keepSp = $('#spSup').value;
+  $('#poSup').innerHTML = opt; $('#poSup').value = keepPo;
+  $('#spSup').innerHTML = opt; $('#spSup').value = keepSp;
+  if (!$('#poYm').options.length) { ymOptions($('#poYm')); ymOptions($('#spYm')); }
+  ({ po: loadPO, sup: renderSuppliers, sp: loadSupPays })[BUYSUB]();
+}
+
+/* ── 매입 내역 ── */
+async function loadPO() {
+  $('#poTbl').innerHTML = `<tr><td class="empty">불러오는 중…</td></tr>`;
+  try {
+    const rows = await api('aPurchases', [TOKEN,
+      { status: $('#poStatus').value, supplier_id: $('#poSup').value, ym: $('#poYm').value }]);
+    const buy = rows.filter(r => r.status !== 'cancel').reduce((a, r) => a + Number(r.total || 0), 0);
+    const unpaid = rows.filter(r => r.status !== 'cancel').reduce((a, r) => a + Number(r.unpaid || 0), 0);
+    $('#poSum').innerHTML = `<div class="stats">
+      <div class="stat"><div class="l">매입 건수</div><div class="v">${rows.filter(r=>r.status!=='cancel').length}건</div></div>
+      <div class="stat"><div class="l">매입 금액</div><div class="v">${num(buy)}</div></div>
+      <div class="stat"><div class="l">아직 안 준 돈</div>
+        <div class="v" style="color:${unpaid > 0 ? 'var(--red)' : 'var(--ok)'}">${num(unpaid)}</div></div></div>`;
+
+    if (!rows.length) { $('#poTbl').innerHTML = `<tr><td class="empty">매입 내역이 없습니다.</td></tr>`; return; }
+    const today = new Date().toISOString().slice(0, 10);
+    $('#poTbl').innerHTML = `
+      <tr><th>매입번호</th><th>매입처</th><th>내용</th><th class="right">금액</th><th class="right">지급</th>
+          <th class="right">미지급</th><th>지급예정</th><th>상태</th></tr>
+      ${rows.map(r => `<tr class="clk" data-id="${r.id}">
+        <td><b>${esc(r.po_no)}</b><div class="muted">${esc(String(r.order_date))}</div></td>
+        <td>${esc(r.supplier_name || '')}</td>
+        <td class="muted">${esc((r.items_text || '').slice(0, 32))}</td>
+        <td class="n">${num(r.total)}</td>
+        <td class="n" style="color:var(--ok)">${num(r.paid_amount)}</td>
+        <td class="n" style="color:${r.unpaid > 0 ? 'var(--red)' : 'var(--sub)'}">${num(r.unpaid)}</td>
+        <td class="muted ${r.due_date && r.due_date <= today && r.unpaid > 0 ? 'low' : ''}">${r.due_date ? esc(String(r.due_date)) : '-'}</td>
+        <td><span class="bdg ${r.status === 'received' ? 'b-shipped' : r.status === 'cancel' ? 'b-cancel' : 'b-pending'}">${POST[r.status]}</span></td>
+      </tr>`).join('')}`;
+    $$('#poTbl tr.clk').forEach(tr => tr.onclick = () => openPO(tr.dataset.id));
+  } catch (e) { $('#poTbl').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+['poStatus','poSup','poYm'].forEach(id => $('#' + id).onchange = loadPO);
+$('#poAdd').onclick = () => poModal(null);
+
+function poItemRow(it, i) {
+  return `<tr data-r="${i}">
+    <td><select data-f="product_id" style="min-width:190px">
+      <option value="">— 상품 고르기 —</option>
+      ${PRODUCTS.map(p => `<option value="${p.id}" ${it && it.product_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+    </select></td>
+    <td><input type="number" data-f="qty" value="${it ? it.qty : ''}" style="width:80px;text-align:right"></td>
+    <td><input type="number" data-f="unit_price" value="${it ? it.unit_price : ''}" style="width:110px;text-align:right"></td>
+    <td class="n" data-f="amt">0</td>
+    <td><button class="btn s r" data-del="${i}">×</button></td></tr>`;
+}
+
+async function poModal(po) {
+  if (!PRODUCTS.length) { try { PRODUCTS = await api('aProducts', [TOKEN]); } catch (e) {} }
+  if (!SUPPLIERS.length) { try { SUPPLIERS = await api('aSuppliers', [TOKEN]); } catch (e) {} }
+  if (!SUPPLIERS.length) {
+    return openModal('매입처가 없습니다', `<p>매입을 등록하려면 먼저 <b>매입처</b>를 등록해야 합니다.</p>
+      <button class="btn w" onclick="closeModal();document.querySelector('#t-buy .chips [data-sub=sup]').click()">매입처 등록하러 가기</button>`);
+  }
+  const items = po ? po.items : [{}];
+  openModal(po ? '매입 수정 — ' + po.po_no : '매입 등록', `
+    <div class="g2">
+      <label class="f"><span>매입처 *</span><select id="po_sup">
+        ${SUPPLIERS.map(s => `<option value="${s.id}" ${po && po.supplier_id === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
+      </select></label>
+      <label class="f"><span>매입일</span><input type="date" id="po_date" value="${po ? po.order_date : new Date().toISOString().slice(0,10)}"></label>
+      <label class="f"><span>대금 지급 예정일</span><input type="date" id="po_due" value="${po && po.due_date ? po.due_date : ''}"></label>
+      <label class="f"><span>과세 구분</span><select id="po_tax">
+        <option value="free" ${!po || po.tax_type === 'free' ? 'selected' : ''}>면세 (미가공 축산물)</option>
+        <option value="taxed" ${po && po.tax_type === 'taxed' ? 'selected' : ''}>과세 (부가세 10% 별도)</option>
+      </select></label>
+    </div>
+    <h3 style="margin:6px 0 8px">매입 품목</h3>
+    <div class="tblwrap"><table id="poItems">
+      <tr><th>상품</th><th class="right">수량</th><th class="right">매입 단가</th><th class="right">금액</th><th></th></tr>
+      ${items.map((it, i) => poItemRow(it, i)).join('')}
+    </table></div>
+    <button class="btn s g" id="po_addrow" style="margin:8px 0">+ 줄 추가</button>
+    <div class="g2">
+      <label class="f"><span>부대비용 (운송비 등)</span><input type="number" id="po_extra" value="${po ? po.extra_cost : 0}"></label>
+      <label class="f"><span>계산서 번호</span><input type="text" id="po_inv" value="${po ? esc(po.invoice_no || '') : ''}"></label>
+    </div>
+    <div class="tip">부대비용은 품목 금액 비율로 나눠 <b>원가에 얹습니다</b>. 안 얹으면 마진이 실제보다 좋아 보입니다.</div>
+    <label class="f"><span>메모</span><textarea id="po_memo">${po ? esc(po.memo || '') : ''}</textarea></label>
+    <div class="card" style="box-shadow:none;margin-bottom:12px">
+      <div class="kv"><span class="k">품목 합계</span><span class="v" id="po_sub">0</span></div>
+      <div class="kv"><span class="k">부대비용</span><span class="v" id="po_ex">0</span></div>
+      <div class="kv"><span class="k">부가세</span><span class="v" id="po_vat">0</span></div>
+      <div class="tot"><span>매입 총액</span><b id="po_tot">0</b></div>
+    </div>
+    <button class="btn w" id="po_save">저장</button>
+  `, () => {
+    const recalc = () => {
+      let sub = 0;
+      $$('#poItems tr[data-r]').forEach(tr => {
+        const q = parseInt(tr.querySelector('[data-f=qty]').value || 0, 10);
+        const u = parseInt(tr.querySelector('[data-f=unit_price]').value || 0, 10);
+        tr.querySelector('[data-f=amt]').textContent = num(q * u);
+        sub += q * u;
+      });
+      const ex = parseInt($('#po_extra').value || 0, 10);
+      const vat = $('#po_tax').value === 'taxed' ? Math.round((sub + ex) * 0.1) : 0;
+      $('#po_sub').textContent = num(sub); $('#po_ex').textContent = num(ex);
+      $('#po_vat').textContent = num(vat); $('#po_tot').textContent = won(sub + ex + vat);
+    };
+    const bind = () => {
+      $$('#poItems input, #poItems select').forEach(el => el.oninput = recalc);
+      $$('#poItems [data-del]').forEach(b => b.onclick = () => {
+        if ($$('#poItems tr[data-r]').length <= 1) return toast('한 줄은 있어야 합니다');
+        b.closest('tr').remove(); recalc();
+      });
+      // 상품을 고르면 최근 매입가를 단가에 미리 채워준다
+      $$('#poItems [data-f=product_id]').forEach(sel => sel.onchange = () => {
+        const p = PRODUCTS.find(x => x.id === sel.value);
+        const inp = sel.closest('tr').querySelector('[data-f=unit_price]');
+        if (p && !inp.value) inp.value = p.last_cost || p.avg_cost || p.cost || '';
+        recalc();
+      });
+    };
+    bind(); recalc();
+    $('#po_extra').oninput = recalc; $('#po_tax').onchange = recalc;
+    $('#po_addrow').onclick = () => {
+      const i = Date.now();
+      $('#poItems').insertAdjacentHTML('beforeend', poItemRow(null, i));
+      bind(); recalc();
+    };
+    $('#po_save').onclick = async () => {
+      const its = $$('#poItems tr[data-r]').map(tr => {
+        const pid = tr.querySelector('[data-f=product_id]').value;
+        const p = PRODUCTS.find(x => x.id === pid);
+        return { product_id: pid, name: p ? p.name : '',
+                 qty: parseInt(tr.querySelector('[data-f=qty]').value || 0, 10),
+                 unit_price: parseInt(tr.querySelector('[data-f=unit_price]').value || 0, 10) };
+      }).filter(x => x.qty > 0);
+      if (!its.length) return toast('품목과 수량을 넣어 주세요.');
+      const body = { supplier_id: $('#po_sup').value, order_date: $('#po_date').value,
+        due_date: $('#po_due').value, extra_cost: parseInt($('#po_extra').value || 0, 10),
+        tax_type: $('#po_tax').value, invoice_no: $('#po_inv').value.trim(),
+        memo: $('#po_memo').value, items: its };
+      if (po) body.id = po.id;
+      try { await api('aPurchaseSave', [TOKEN, body]); closeModal(); toast('저장했습니다'); loadPO(); }
+      catch (e) { toast(e.message); }
+    };
+  }, true);
+}
+
+async function openPO(id) {
+  let po;
+  try { po = await api('aPurchaseGet', [TOKEN, id]); } catch (e) { return toast(e.message); }
+  const unpaid = po.total - (po.paid_amount || 0);
+  openModal(po.po_no + ' · ' + (po.supplier_name || ''), `
+    <div class="row" style="margin-bottom:12px">
+      <span class="bdg ${po.status === 'received' ? 'b-shipped' : po.status === 'cancel' ? 'b-cancel' : 'b-pending'}">${POST[po.status]}</span>
+      <span class="muted">${esc(String(po.order_date))}</span>
+      <span class="muted" style="margin-left:auto">결제조건 ${PAYTERMS[po.pay_terms] || '-'}</span>
+    </div>
+    <div class="card" style="box-shadow:none;margin-bottom:12px">
+      ${po.items.map(i => `<div class="kv"><span class="k">${esc(i.name)} <b>${i.qty}</b>
+        <span style="color:#aeb4c0">× ${num(i.unit_price)}</span></span>
+        <span class="v">${num(i.amount)}</span></div>`).join('')}
+      <div class="kv"><span class="k">부대비용</span><span class="v">${num(po.extra_cost)}</span></div>
+      ${po.vat ? `<div class="kv"><span class="k">부가세</span><span class="v">${num(po.vat)}</span></div>` : ''}
+      <div class="tot"><span>매입 총액</span><b>${won(po.total)}</b></div>
+      <div class="kv" style="margin-top:8px"><span class="k">지급한 돈</span>
+        <span class="v" style="color:var(--ok)">${won(po.paid_amount)}</span></div>
+      <div class="kv"><span class="k">아직 줄 돈</span>
+        <span class="v" style="color:${unpaid > 0 ? 'var(--red)' : 'var(--ok)'}">${won(unpaid)}</span></div>
+      ${po.due_date ? `<div class="kv"><span class="k">지급 예정일</span><span class="v">${esc(String(po.due_date))}</span></div>` : ''}
+      ${po.invoice_no ? `<div class="kv"><span class="k">계산서</span><span class="v">${esc(po.invoice_no)}</span></div>` : ''}
+      ${po.memo ? `<div class="kv"><span class="k">메모</span><span class="v" style="font-weight:400">${esc(po.memo)}</span></div>` : ''}
+    </div>
+    ${po.payments.length ? `<h3 style="margin:0 0 8px">지급 내역</h3>
+      ${po.payments.map(p => `<div class="kv"><span class="k">${esc(String(p.paid_at))} ${esc(p.memo || '')}</span>
+        <span class="v" style="color:var(--ok)">${num(p.amount)}</span></div>`).join('')}` : ''}
+    <div class="row" style="flex-wrap:wrap;margin-top:12px">
+      ${po.status === 'ordered' ? `<button class="btn ok" id="po_recv">입고 처리</button>
+        <button class="btn g" id="po_edit">수정</button>` : ''}
+      ${po.status !== 'cancel' && unpaid > 0 ? `<button class="btn" id="po_pay">대금 지급</button>` : ''}
+      ${po.status !== 'cancel' ? `<button class="btn r" id="po_cancel">매입 취소</button>` : ''}
+    </div>
+    ${po.status === 'ordered' ? `<p class="muted" style="margin-top:10px">
+      입고 처리하면 재고가 늘고 <b>이동평균 원가</b>가 다시 계산됩니다.</p>` : ''}
+  `, () => {
+    const r = $('#po_recv');
+    if (r) r.onclick = async () => {
+      if (!confirm('입고 처리할까요? 재고가 늘고 원가가 다시 계산됩니다.')) return;
+      try { await api('aPurchaseReceive', [TOKEN, id]); closeModal(); toast('입고 처리했습니다'); loadPO(); PRODUCTS = []; }
+      catch (e) { toast(e.message); }
+    };
+    const ed = $('#po_edit'); if (ed) ed.onclick = () => poModal(po);
+    const pay = $('#po_pay'); if (pay) pay.onclick = () => supPayModal(null, po);
+    const cx = $('#po_cancel');
+    if (cx) cx.onclick = async () => {
+      if (!confirm('이 매입을 취소할까요? 입고된 건이면 재고가 되돌아갑니다.')) return;
+      try { await api('aPurchaseCancel', [TOKEN, id]); closeModal(); toast('취소했습니다'); loadPO(); }
+      catch (e) { toast(e.message); }
+    };
+  }, true);
+}
+
+/* ── 매입처 ── */
+function renderSuppliers() {
+  if (!SUPPLIERS.length) {
+    $('#supTbl').innerHTML = `<tr><td class="empty">매입처가 없습니다. 물건을 사오는 곳을 먼저 등록하세요.</td></tr>`; return;
+  }
+  $('#supTbl').innerHTML = `
+    <tr><th>코드</th><th>매입처</th><th>담당자</th><th>결제조건</th><th class="right">리드타임</th>
+        <th class="right">누적 매입</th><th class="right">지급</th><th class="right">미지급</th><th>최근매입</th><th></th></tr>
+    ${SUPPLIERS.map(s => `<tr>
+      <td class="muted">${esc(s.code || '')}</td>
+      <td><b>${esc(s.name)}</b>${s.biz_no ? `<div class="muted">${esc(s.biz_no)}</div>` : ''}</td>
+      <td>${esc(s.manager || '')}<div class="muted">${esc(s.phone || '')}</div></td>
+      <td>${PAYTERMS[s.pay_terms] || '-'}</td>
+      <td class="n muted">${s.lead_days}일</td>
+      <td class="n">${num(s.buy_total)}</td>
+      <td class="n" style="color:var(--ok)">${num(s.pay_total)}</td>
+      <td class="n" style="color:${s.unpaid > 0 ? 'var(--red)' : 'var(--sub)'}"><b>${num(s.unpaid)}</b></td>
+      <td class="muted">${s.last_buy ? esc(String(s.last_buy)) : '-'}</td>
+      <td><button class="btn s g" data-se="${s.id}">수정</button></td></tr>`).join('')}`;
+  $$('#supTbl [data-se]').forEach(b => b.onclick = () => supModal(SUPPLIERS.find(x => x.id === b.dataset.se)));
+}
+$('#supAdd').onclick = () => supModal(null);
+
+function supModal(s) {
+  const v = k => s ? esc(s[k] ?? '') : '';
+  openModal(s ? '매입처 수정 — ' + s.name : '매입처 등록', `
+    <div class="g2">
+      <label class="f"><span>상호 *</span><input type="text" id="sp_name" value="${v('name')}"></label>
+      <label class="f"><span>사업자등록번호</span><input type="text" id="sp_biz_no" value="${v('biz_no')}"></label>
+      <label class="f"><span>대표자</span><input type="text" id="sp_ceo" value="${v('ceo')}"></label>
+      <label class="f"><span>담당자</span><input type="text" id="sp_manager" value="${v('manager')}"></label>
+      <label class="f"><span>연락처</span><input type="text" id="sp_phone" value="${v('phone')}"></label>
+      <label class="f"><span>이메일</span><input type="text" id="sp_email" value="${v('email')}"></label>
+      <label class="f"><span>결제 조건</span><select id="sp_pay_terms">
+        ${Object.entries(PAYTERMS).map(([k,l]) => `<option value="${k}" ${s && s.pay_terms === k ? 'selected' : (!s && k === 'month_end' ? 'selected' : '')}>${l}</option>`).join('')}
+      </select></label>
+      <label class="f"><span>리드타임 (주문 후 며칠)</span><input type="number" id="sp_lead_days" value="${s ? s.lead_days : 3}"></label>
+    </div>
+    <label class="f"><span>주소</span><input type="text" id="sp_addr" value="${v('addr')}"></label>
+    <div class="g2">
+      <label class="f"><span>은행</span><input type="text" id="sp_bank_name" value="${v('bank_name')}"></label>
+      <label class="f"><span>계좌번호</span><input type="text" id="sp_bank_account" value="${v('bank_account')}"></label>
+      <label class="f"><span>예금주</span><input type="text" id="sp_bank_holder" value="${v('bank_holder')}"></label>
+    </div>
+    <label class="f"><span>메모</span><textarea id="sp_memo">${v('memo')}</textarea></label>
+    <div class="tip">리드타임은 <b>언제 다시 주문해야 하는지</b> 계산할 때 씁니다. 실제로 걸리는 날수를 넣으세요.</div>
+    <div class="row"><button class="btn grow" id="sp_save">저장</button>
+      ${s ? `<button class="btn r" id="sp_del">삭제</button>` : ''}</div>
+  `, () => {
+    $('#sp_save').onclick = async () => {
+      const body = { name: $('#sp_name').value.trim() };
+      ['biz_no','ceo','manager','phone','email','addr','bank_name','bank_account','bank_holder','memo']
+        .forEach(k => body[k] = $('#sp_' + k).value.trim());
+      body.pay_terms = $('#sp_pay_terms').value;
+      body.lead_days = parseInt($('#sp_lead_days').value || 3, 10);
+      if (s) body.id = s.id;
+      if (!body.name) return toast('상호를 입력해 주세요.');
+      try { await api('aSupplierSave', [TOKEN, body]); closeModal(); toast('저장했습니다'); loadBuy(); }
+      catch (e) { toast(e.message); }
+    };
+    const d = $('#sp_del');
+    if (d) d.onclick = async () => {
+      if (!confirm(`'${s.name}' 을(를) 삭제할까요? 지난 매입 기록은 남습니다.`)) return;
+      try { await api('aSupplierDelete', [TOKEN, s.id]); closeModal(); toast('삭제했습니다'); loadBuy(); }
+      catch (e) { toast(e.message); }
+    };
+  }, true);
+}
+
+/* ── 매입처 지급 ── */
+async function loadSupPays() {
+  $('#spTbl').innerHTML = `<tr><td class="empty">불러오는 중…</td></tr>`;
+  try {
+    const rows = await api('aSupPays', [TOKEN, { ym: $('#spYm').value, supplier_id: $('#spSup').value }]);
+    if (!rows.length) { $('#spTbl').innerHTML = `<tr><td class="empty">지급 내역이 없습니다.</td></tr>`; return; }
+    const sum = rows.reduce((a, r) => a + Number(r.amount || 0), 0);
+    $('#spTbl').innerHTML = `
+      <tr><th>지급일</th><th>매입처</th><th>매입번호</th><th>방법</th><th class="right">금액</th><th>메모</th><th></th></tr>
+      ${rows.map(p => `<tr>
+        <td>${esc(String(p.paid_at))}</td>
+        <td>${esc(p.supplier_name || '')}</td>
+        <td class="muted">${esc(p.po_no || '-')}</td>
+        <td class="muted">${({transfer:'계좌이체',cash:'현금',card:'카드',offset:'상계'})[p.method] || p.method}</td>
+        <td class="n"><b>${num(p.amount)}</b></td>
+        <td class="muted">${esc(p.memo || '')}</td>
+        <td><button class="btn s g" data-spe="${p.id}">수정</button></td></tr>`).join('')}
+      <tr><td colspan="4"><b>합계</b></td><td class="n"><b>${num(sum)}</b></td><td colspan="2"></td></tr>`;
+    $$('#spTbl [data-spe]').forEach(b => b.onclick = () => supPayModal(rows.find(r => r.id === b.dataset.spe), null));
+  } catch (e) { $('#spTbl').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+['spYm','spSup'].forEach(id => $('#' + id).onchange = loadSupPays);
+$('#spAdd').onclick = () => supPayModal(null, null);
+
+function supPayModal(p, po) {
+  const supId = p ? p.supplier_id : (po ? po.supplier_id : '');
+  const amt = p ? p.amount : (po ? po.total - (po.paid_amount || 0) : '');
+  openModal(p ? '지급 수정' : '매입처 대금 지급', `
+    ${po ? `<div class="tip">${esc(po.po_no)} · ${esc(po.supplier_name || '')} — 아직 줄 돈 ${won(po.total - (po.paid_amount||0))}</div>` : ''}
+    <label class="f"><span>매입처 *</span><select id="spp_sup" ${po ? 'disabled' : ''}>
+      <option value="">선택</option>
+      ${SUPPLIERS.map(s => `<option value="${s.id}" ${supId === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
+    </select></label>
+    <div class="g2">
+      <label class="f"><span>금액 *</span><input type="number" id="spp_amt" value="${amt}"></label>
+      <label class="f"><span>지급일</span><input type="date" id="spp_date" value="${p ? p.paid_at : new Date().toISOString().slice(0,10)}"></label>
+      <label class="f"><span>방법</span><select id="spp_m">
+        ${Object.entries({transfer:'계좌이체',cash:'현금',card:'카드',offset:'상계'})
+          .map(([k,v]) => `<option value="${k}" ${p && p.method === k ? 'selected' : ''}>${v}</option>`).join('')}
+      </select></label>
+      <label class="f"><span>메모</span><input type="text" id="spp_memo" value="${p ? esc(p.memo || '') : ''}"></label>
+    </div>
+    <div class="row"><button class="btn grow" id="spp_save">저장</button>
+      ${p ? `<button class="btn r" id="spp_del">삭제</button>` : ''}</div>
+  `, () => {
+    $('#spp_save').onclick = async () => {
+      const body = { supplier_id: supId || $('#spp_sup').value,
+        amount: parseInt($('#spp_amt').value || 0, 10), paid_at: $('#spp_date').value,
+        method: $('#spp_m').value, memo: $('#spp_memo').value.trim() };
+      if (po) body.purchase_id = po.id;
+      if (p) { body.id = p.id; body.purchase_id = p.purchase_id || ''; }
+      if (!body.supplier_id) return toast('매입처를 선택해 주세요.');
+      if (!body.amount) return toast('금액을 입력해 주세요.');
+      try {
+        await api('aSupPaySave', [TOKEN, body]);
+        closeModal(); toast('저장했습니다'); loadBuy();
+      } catch (e) { toast(e.message); }
+    };
+    const d = $('#spp_del');
+    if (d) d.onclick = async () => {
+      if (!confirm('이 지급 내역을 삭제할까요?')) return;
+      try { await api('aSupPayDelete', [TOKEN, p.id]); closeModal(); toast('삭제했습니다'); loadBuy(); }
+      catch (e) { toast(e.message); }
+    };
+  });
+}
+
+/* ═══════════ 상품·재고 (분석 포함) ═══════════ */
+let ANALYSIS = null;
+
 async function loadProducts() {
   $('#prTbl').innerHTML = `<tr><td class="empty">불러오는 중…</td></tr>`;
   try {
+    ANALYSIS = await api('aStockAnalysis', [TOKEN]);
     PRODUCTS = await api('aProducts', [TOKEN]);
     renderProducts();
   } catch (e) { $('#prTbl').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
 }
+
+// 소진일수 = 지금 재고 ÷ 하루 평균 출고. 쌓인 날수가 적으면 그만큼 거칠다.
+function coverOf(r, days) {
+  const win = Math.min(days, 30);
+  if (!win || !r.out30) return null;
+  const daily = Number(r.out30) / win;
+  if (daily <= 0) return null;
+  return Number(r.stock) / daily;
+}
+
 function renderProducts() {
+  if (!ANALYSIS) return;
+  const days = ANALYSIS.data_days || 0;
+  const t = ANALYSIS.total;
+
+  $('#anSum').innerHTML = `<div class="stats">
+      <div class="stat"><div class="l">재고 총 금액 (원가)</div><div class="v">${num(t.stock_value)}</div>
+        <div class="muted">팔면 ${num(t.sale_value)}</div></div>
+      <div class="stat"><div class="l">상품 / 수량</div><div class="v">${t.items} / ${num(t.units)}</div></div>
+      <div class="stat"><div class="l">예상 매출총이익</div>
+        <div class="v" style="color:var(--ok)">${num(t.sale_value - t.stock_value)}</div>
+        <div class="muted">${t.sale_value ? Math.round((t.sale_value - t.stock_value) / t.sale_value * 100) + '%' : '-'}</div></div>
+      <div class="stat"><div class="l">데이터 쌓인 날</div><div class="v">${days}일</div>
+        <div class="muted">${ANALYSIS.first_date ? esc(String(ANALYSIS.first_date)) + ' ~' : '-'}</div></div>
+    </div>
+    ${(t.no_cost || t.no_price) ? `<div class="warn">
+      ${t.no_cost ? `원가가 없는 상품 <b>${t.no_cost}개</b> — 재고 금액이 그만큼 빠져 있습니다. ` : ''}
+      ${t.no_price ? `공급가가 없는 상품 <b>${t.no_price}개</b>. ` : ''}
+      매입을 등록해 입고 처리하면 원가가 자동으로 잡힙니다.</div>` : ''}
+    ${days < 3 ? `<div class="tip">창고 재고표가 <b>${days}일치</b>뿐이라 출고 속도·소진일수는 아직 참고용입니다.
+      지난 날짜 파일들을 <b>재고 업로드</b> 탭에 올리면 바로 정확해집니다.</div>` : ''}`;
+
   const q = $('#prQ').value.trim().toLowerCase();
-  const rows = PRODUCTS.filter(p => !q || (p.name + ' ' + (p.sku||'') + ' ' + (p.category||'')).toLowerCase().includes(q));
-  if (!rows.length) { $('#prTbl').innerHTML = `<tr><td class="empty">상품이 없습니다. 오른쪽 위 &lsquo;상품 등록&rsquo;으로 추가하세요.</td></tr>`; return; }
+  let rows = (ANALYSIS.rows || []).filter(r =>
+    !q || (r.name + ' ' + (r.sku||'') + ' ' + (r.category||'')).toLowerCase().includes(q));
+
+  const sort = $('#prSort').value;
+  rows = rows.slice().sort((a, b) => {
+    if (sort === 'name')  return a.name.localeCompare(b.name, 'ko');
+    if (sort === 'out30') return Number(b.out30) - Number(a.out30);
+    if (sort === 'cover') {
+      const ca = coverOf(a, days), cb = coverOf(b, days);
+      return (ca == null ? 1e9 : ca) - (cb == null ? 1e9 : cb);
+    }
+    if (sort === 'dead') { // 안 나가는데 재고 금액 큰 것 = 묶인 돈
+      const da = Number(a.out30) === 0 ? Number(a.stock_value) : -1;
+      const db = Number(b.out30) === 0 ? Number(b.stock_value) : -1;
+      return db - da;
+    }
+    return Number(b.stock_value) - Number(a.stock_value);
+  });
+
+  if (!rows.length) { $('#prTbl').innerHTML = `<tr><td class="empty">상품이 없습니다.</td></tr>`; return; }
+
   $('#prTbl').innerHTML = `
-    <tr><th>상품코드</th><th>상품명</th><th class="right">원가</th><th class="right">기본 공급가</th>
-        <th class="right">마진</th><th class="right">재고</th><th>판매</th><th></th></tr>
-    ${rows.map(p => `<tr>
-      <td class="muted">${esc(p.sku || '-')}</td>
-      <td><b>${esc(p.name)}</b>${p.category || p.spec ? `<div class="muted">${esc([p.category, p.spec].filter(Boolean).join(' · '))}</div>` : ''}</td>
-      <td class="n ${p.cost ? '' : 'muted'}">${p.cost ? num(p.cost) : '-'}</td>
-      <td class="n ${p.price ? '' : 'low'}">${p.price ? '<b>' + num(p.price) + '</b>' : '미입력'}</td>
-      <td class="n muted">${p.cost && p.price ? Math.round((p.price - p.cost) / p.price * 100) + '%' : '-'}</td>
-      <td class="n ${p.safety_stock > 0 && p.stock <= p.safety_stock ? 'low' : ''}">${num(p.stock)} ${esc(p.unit || '')}</td>
-      <td>${p.active ? '<span class="bdg b-active">판매중</span>' : '<span class="bdg b-done">중지</span>'}</td>
-      <td class="row" style="gap:5px">
-        <button class="btn s g" data-in="${p.id}">입고</button>
-        <button class="btn s g" data-e="${p.id}">수정</button></td></tr>`).join('')}`;
+    <tr><th>상품</th><th class="right">재고</th><th class="right">재고금액</th>
+        <th class="right">원가</th><th class="right">공급가</th><th class="right">마진</th>
+        <th class="right">7일</th><th class="right">30일</th><th class="right">소진일수</th>
+        <th>매입처</th><th></th></tr>
+    ${rows.map(r => {
+      const cover = coverOf(r, days);
+      const lead = Number(r.lead_days) || 3;
+      let cls = 'muted', label = '-';
+      if (Number(r.stock) <= 0) { cls = 'low'; label = '품절'; }
+      else if (cover == null) { label = Number(r.out30) ? '-' : '안 나감'; }
+      else {
+        label = cover < 1 ? '1일 미만' : Math.round(cover) + '일';
+        if (cover <= lead) cls = 'low';
+        else if (cover <= lead * 2) cls = '';
+      }
+      return `<tr>
+        <td><b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')}${r.category ? ' · ' + esc(r.category) : ''}</div></td>
+        <td class="n ${Number(r.stock) <= 0 ? 'low' : ''}">${num(r.stock)}${Number(r.bad_stock) ? `<div class="muted">불용 ${num(r.bad_stock)}</div>` : ''}</td>
+        <td class="n"><b>${num(r.stock_value)}</b></td>
+        <td class="n ${Number(r.cost) ? '' : 'low'}">${Number(r.cost) ? num(r.cost) : '없음'}</td>
+        <td class="n ${Number(r.price) ? '' : 'low'}">${Number(r.price) ? num(r.price) : '없음'}</td>
+        <td class="n ${r.margin != null && Number(r.margin) < 0 ? 'low' : 'muted'}">${r.margin != null ? r.margin + '%' : '-'}</td>
+        <td class="n muted">${num(r.out7)}</td>
+        <td class="n">${num(r.out30)}</td>
+        <td class="n ${cls}">${label}</td>
+        <td class="muted">${esc(r.supplier || '-')}</td>
+        <td class="row" style="gap:5px">
+          <button class="btn s g" data-e="${r.id}">수정</button></td></tr>`;
+    }).join('')}`;
   $$('#prTbl [data-e]').forEach(b => b.onclick = () => productModal(PRODUCTS.find(x => x.id === b.dataset.e)));
-  $$('#prTbl [data-in]').forEach(b => b.onclick = () => stockModal(PRODUCTS.find(x => x.id === b.dataset.in)));
 }
 $('#prQ').oninput = renderProducts;
+$('#prSort').onchange = renderProducts;
 $('#prAdd').onclick = () => productModal(null);
 
 function productModal(p) {
@@ -773,6 +1331,11 @@ function productModal(p) {
       <label class="f"><span>최소 발주 수량</span><input type="number" id="pr_min_qty" value="${p ? p.min_qty : 1}"></label>
       <label class="f"><span>박스당 수량</span><input type="number" id="pr_box_qty" value="${p ? p.box_qty : 1}"></label>
       <label class="f"><span>정렬 순서 (작을수록 위)</span><input type="number" id="pr_sort" value="${p ? p.sort : 0}"></label>
+      <label class="f"><span>주 매입처</span><select id="pr_supplier_id">
+        <option value="">— 없음 —</option>
+        ${SUPPLIERS.map(s => `<option value="${s.id}" ${p && p.supplier_id === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
+      </select></label>
+      <label class="f"><span>리드타임 (0=매입처 값 사용)</span><input type="number" id="pr_lead_days" value="${p ? (p.lead_days || 0) : 0}"></label>
       <label class="f"><span>판매 상태</span><select id="pr_active">
         <option value="true" ${!p || p.active ? 'selected' : ''}>판매중</option>
         <option value="false" ${p && !p.active ? 'selected' : ''}>판매 중지</option></select></label>
@@ -782,13 +1345,14 @@ function productModal(p) {
     ${p ? `<div class="tip">공급가는 <b>단가를 따로 안 정한 거래처</b>에만 적용됩니다.
       업체별로 값을 박아두려면 아래 &lsquo;업체별 단가&rsquo; 를 쓰세요.</div>` : ''}
     <div class="row" style="flex-wrap:wrap"><button class="btn grow" id="pr_save">저장</button>
-      ${p ? `<button class="btn g" id="pr_pp">업체별 단가</button><button class="btn g" id="pr_ph">가격 이력</button><button class="btn g" id="pr_hist">재고 이력</button><button class="btn r" id="pr_del">삭제</button>` : ''}</div>
+      ${p ? `<button class="btn g" id="pr_pp">업체별 단가</button><button class="btn g" id="pr_buys">매입 이력</button><button class="btn g" id="pr_ph">가격 이력</button><button class="btn g" id="pr_hist">재고 이력</button><button class="btn g" id="pr_adj">재고 조정</button><button class="btn r" id="pr_del">삭제</button>` : ''}</div>
   `, () => {
     $('#pr_save').onclick = async () => {
       const body = { name: $('#pr_name').value.trim() };
       ['category','spec','unit','image_url','memo','sku','wms_code'].forEach(k => body[k] = $('#pr_' + k).value.trim());
-      ['list_price','price','cost','stock','safety_stock','min_qty','box_qty','sort']
+      ['list_price','price','cost','stock','safety_stock','min_qty','box_qty','sort','lead_days']
         .forEach(k => body[k] = parseInt($('#pr_' + k).value || 0, 10));
+      body.supplier_id = $('#pr_supplier_id').value;
       body.active = $('#pr_active').value === 'true';
       if (p) body.id = p.id;
       if (!body.name) return toast('상품명을 입력해 주세요.');
@@ -807,7 +1371,42 @@ function productModal(p) {
     if (pp) pp.onclick = () => productPriceModal(p);
     const ph = $('#pr_ph');
     if (ph) ph.onclick = () => priceHistModal(p);
+    const adj = $('#pr_adj');
+    if (adj) adj.onclick = () => stockModal(p);
+    const bys = $('#pr_buys');
+    if (bys) bys.onclick = () => productBuysModal(p);
   }, true);
+}
+
+// 이 상품을 언제 어디서 얼마에 샀는지 + 평균 원가가 어떻게 움직였는지
+async function productBuysModal(p) {
+  try {
+    const d = await api('aProductBuys', [TOKEN, p.id]);
+    openModal('매입 이력 — ' + p.name, `
+      <div class="card" style="box-shadow:none;margin-bottom:12px">
+        <div class="kv"><span class="k">지금 평균 원가</span><span class="v">${won(p.avg_cost || p.cost || 0)}</span></div>
+        <div class="kv"><span class="k">최근 매입 단가</span><span class="v">${p.last_cost ? won(p.last_cost) : '-'}</span></div>
+        <div class="kv"><span class="k">기본 공급가</span><span class="v">${won(p.price)}</span></div>
+      </div>
+      <h3 style="margin:0 0 8px">매입 건</h3>
+      ${d.buys.length ? `<div class="tblwrap"><table>
+        <tr><th>매입일</th><th>매입번호</th><th>매입처</th><th class="right">수량</th><th class="right">단가</th><th class="right">금액</th></tr>
+        ${d.buys.map(b => `<tr><td>${esc(String(b.date))}</td><td class="muted">${esc(b.po_no)}</td>
+          <td>${esc(b.supplier || '')}</td><td class="n">${num(b.qty)}</td>
+          <td class="n">${num(b.unit_price)}</td><td class="n">${num(b.amount)}</td></tr>`).join('')}
+        </table></div>` : `<div class="muted">아직 매입 기록이 없습니다. 매입 탭에서 등록하고 입고 처리하면 여기 쌓입니다.</div>`}
+      ${d.costs.length ? `<h3 style="margin:16px 0 8px">평균 원가 변화</h3>
+        <div class="tblwrap"><table>
+          <tr><th>일시</th><th class="right">들어온 수량</th><th class="right">이번 단가</th>
+              <th class="right">전 평균</th><th class="right">새 평균</th></tr>
+          ${d.costs.map(c => `<tr><td class="muted">${ymdt(c.at)}</td><td class="n">${num(c.in_qty)}</td>
+            <td class="n">${num(c.unit_cost)}</td><td class="n muted">${num(c.prev_avg)}</td>
+            <td class="n"><b>${num(c.new_avg)}</b></td></tr>`).join('')}
+        </table></div>
+        <p class="muted" style="margin-top:8px">매입할 때마다 <b>(기존 재고×기존 평균 + 이번 수량×이번 단가) ÷ 총 수량</b> 으로 다시 계산합니다.
+        운송비 같은 부대비용도 품목 비율만큼 단가에 얹혀 있습니다.</p>` : ''}
+    `, null, true);
+  } catch (e) { toast(e.message); }
 }
 
 // 가격이 언제 얼마에서 얼마로 바뀌었는지
