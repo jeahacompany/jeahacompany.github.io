@@ -286,6 +286,42 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 
     <section id="t-upload" class="hide">
       <div id="ivBox"></div>
+      <div class="chips" style="margin-bottom:12px">
+        <button data-usub="stock" class="on">재고 현황</button>
+        <button data-usub="move">입출고 현황</button>
+        <button data-usub="check">대조</button>
+      </div>
+
+      <div id="usub-move" class="hide">
+        <div class="card">
+          <h3>입출고 현황 올리기</h3>
+          <div class="tip">창고에서 받은 <b>입출고 현황 (상품별 출고/입고 전체)</b> 엑셀을 그대로 올리세요.
+            <b>기간 전체가 한 파일에</b> 들어있어서 지난 날짜를 한 번에 채웁니다.<br>
+            같은 상품·같은 날짜는 덮어쓰니 여러 번 올려도 안전합니다.</div>
+          <div id="mvDrop" style="border:2px dashed var(--line);border-radius:14px;padding:30px 16px;text-align:center;background:#fbfcfe;cursor:pointer">
+            <div style="font-size:34px;line-height:1">📥</div>
+            <div style="font-weight:700;margin-top:6px">입출고 현황 파일을 끌어다 놓거나 눌러서 고르세요</div>
+            <div class="muted">.xlsx · .csv</div>
+            <input type="file" id="mvFile" accept=".xlsx,.csv" class="hide">
+          </div>
+          <div id="mvPrev"></div>
+        </div>
+        <div class="card">
+          <h3>업로드 이력<span class="sp"><button class="btn s g" id="mvRefresh">새로고침</button></span></h3>
+          <div class="tblwrap" id="mvHist"></div>
+        </div>
+      </div>
+
+      <div id="usub-check" class="hide">
+        <div class="card">
+          <h3>두 자료 대조<span class="sp"><button class="btn s g" id="ckRefresh">새로고침</button></span></h3>
+          <div class="tip">같은 날짜의 출고량이 <b>재고 현황</b>과 <b>입출고 현황</b>에서 맞는지 봅니다.
+            차이가 나면 한쪽 파일이 빠졌거나 기간이 안 맞는 것입니다.</div>
+          <div class="tblwrap" id="ckTbl"></div>
+        </div>
+      </div>
+
+      <div id="usub-stock">
       <div class="card">
         <h3>창고 재고표 올리기</h3>
         <div class="tip">3PL에서 받은 <b>상품별 재고_요약본</b> 엑셀(.xlsx)을 그대로 올리면 됩니다.
@@ -302,6 +338,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       <div class="card">
         <h3>업로드 이력<span class="sp"><button class="btn s g" id="upRefresh">새로고침</button></span></h3>
         <div class="tblwrap" id="upHist"></div>
+      </div>
       </div>
     </section>
 
@@ -2737,6 +2774,190 @@ async function loadUpload() {
   } catch (e) { $('#upHist').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
 $('#upRefresh').onclick = loadUpload;
+
+/* ═══════════ 입출고 현황 업로드 ═══════════
+   ⚠️ 이 파일은 헤더가 11칸인데 데이터는 10칸이다.
+   '입출고 구분' 열이 헤더에만 있고 데이터엔 셀이 없어서 그 뒤가 한 칸씩 밀린다.
+   그래서 **헤더 이름이 아니라 값의 생김새로** 날짜·수량 열을 찾는다. */
+let USUB = 'stock', MVROWS = null, MVFILE = '', MVKIND = 'out';
+
+$$('#t-upload .chips button').forEach(b => b.onclick = () => {
+  USUB = b.dataset.usub;
+  $$('#t-upload .chips button').forEach(x => x.classList.toggle('on', x === b));
+  ['stock','move','check'].forEach(k => $('#usub-' + k).classList.toggle('hide', k !== USUB));
+  if (USUB === 'move')  loadMoveHist();
+  if (USUB === 'check') loadCheck();
+});
+
+const isDate = v => /^\d{4}[-.\/]\d{1,2}[-.\/]\d{1,2}/.test(String(v ?? '').trim());
+const toDate = v => {
+  const m = String(v ?? '').trim().match(/^(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+  return m ? `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}` : '';
+};
+const toInt = v => { const s = String(v ?? '').replace(/[^\d.-]/g, ''); return s === '' ? 0 : Math.round(Number(s)) || 0; };
+
+$('#mvDrop').onclick = () => $('#mvFile').click();
+$('#mvDrop').addEventListener('dragover', e => { e.preventDefault(); $('#mvDrop').style.borderColor = 'var(--blue)'; });
+$('#mvDrop').addEventListener('dragleave', () => $('#mvDrop').style.borderColor = 'var(--line)');
+$('#mvDrop').addEventListener('drop', e => {
+  e.preventDefault(); $('#mvDrop').style.borderColor = 'var(--line)';
+  if (e.dataTransfer.files[0]) handleMoveFile(e.dataTransfer.files[0]);
+});
+$('#mvFile').onchange = e => { if (e.target.files[0]) handleMoveFile(e.target.files[0]); };
+
+async function handleMoveFile(file) {
+  MVFILE = file.name;
+  $('#mvPrev').innerHTML = `<div class="empty">읽는 중…</div>`;
+  try {
+    const rows = await readSheet(file);
+    if (rows.length < 2) throw new Error('내용이 있는 줄이 없습니다.');
+    const header = rows[0].map(h => String(h ?? '').replace(/\s+/g, ''));
+    const idxOf = (...names) => { for (const n of names) { const i = header.indexOf(n.replace(/\s+/g,'')); if (i >= 0) return i; } return -1; };
+    // 앞쪽(A~G)은 헤더가 맞다
+    const cSku  = idxOf('고객사 상품코드');
+    const cWms  = idxOf('상품코드');
+    const cName = idxOf('상품명');
+
+    // 날짜·수량은 **값으로** 찾는다 (헤더가 밀려 있을 수 있음)
+    const body = rows.slice(1).filter(r => r && r.some(v => String(v ?? '').trim() !== ''));
+    if (!body.length) throw new Error('데이터 줄이 없습니다.');
+    let cDate = -1;
+    for (let i = 0; i < 30; i++) {
+      const hit = body.filter(r => isDate(r[i])).length;
+      if (hit >= Math.max(1, Math.floor(body.length * 0.6))) { cDate = i; break; }
+    }
+    if (cDate < 0) throw new Error("날짜가 들어있는 열을 찾지 못했습니다. 창고에서 받은 원본 파일이 맞는지 확인해 주세요.");
+    const cQty = cDate + 1, cBad = cDate + 2;
+
+    // 구분: 값에 입고/출고가 있으면 그걸 쓰고, 없으면 파일 이름으로 짐작
+    let cKind = -1;
+    for (let i = 0; i < 30; i++) {
+      if (body.some(r => /^(입고|출고)$/.test(String(r[i] ?? '').trim()))) { cKind = i; break; }
+    }
+    MVKIND = cKind >= 0 ? 'mixed' : (/입고/.test(file.name) && !/출고/.test(file.name) ? 'in' : 'out');
+
+    MVROWS = body.map(r => ({
+      sku: String(r[cSku] ?? '').trim(), wms_code: String(r[cWms] ?? '').trim(),
+      name: String(r[cName] ?? '').trim(),
+      move_date: toDate(r[cDate]),
+      kind: cKind >= 0 ? (String(r[cKind]).trim() === '입고' ? 'in' : 'out') : MVKIND,
+      qty: toInt(r[cQty]), bad_qty: toInt(r[cBad])
+    })).filter(r => r.move_date && (r.sku || r.name));
+
+    const dates = [...new Set(MVROWS.map(r => r.move_date))].sort();
+    const total = MVROWS.reduce((a, r) => a + r.qty, 0);
+    const byDate = dates.map(d => ({ d, q: MVROWS.filter(r => r.move_date === d).reduce((a, r) => a + r.qty, 0) }));
+
+    $('#mvPrev').innerHTML = `
+      <div class="tip" style="margin-top:14px">
+        <b>${esc(file.name)}</b><br>
+        ${MVROWS.length}줄 · <b>${dates[0]} ~ ${dates[dates.length-1]}</b> (${dates.length}일치) ·
+        합계 <b>${num(total)}</b>개
+        ${cKind < 0 ? `<br><span style="color:var(--warn)">이 파일엔 입고/출고 구분 열이 비어 있어
+          <b>${MVKIND === 'in' ? '입고' : '출고'}</b>로 읽었습니다. 아래에서 바꿀 수 있습니다.</span>` : ''}
+      </div>
+      <div class="g2">
+        <label class="f"><span>이 파일의 구분</span><select id="mvKind" ${cKind >= 0 ? 'disabled' : ''}>
+          <option value="out" ${MVKIND === 'out' ? 'selected' : ''}>출고</option>
+          <option value="in"  ${MVKIND === 'in'  ? 'selected' : ''}>입고</option>
+          ${cKind >= 0 ? `<option value="mixed" selected>파일 안에 입고·출고 섞임</option>` : ''}
+        </select></label>
+      </div>
+      <div class="tblwrap"><table>
+        <tr><th>날짜</th><th class="right">수량</th></tr>
+        ${byDate.map(x => `<tr><td>${esc(x.d)}</td><td class="n"><b>${num(x.q)}</b></td></tr>`).join('')}
+      </table></div>
+      <div class="tblwrap" style="margin-top:10px"><table>
+        <tr><th>상품코드</th><th>상품명</th><th>날짜</th><th class="right">수량</th></tr>
+        ${MVROWS.slice(0, 6).map(r => `<tr><td class="muted">${esc(r.sku)}</td><td><b>${esc(r.name)}</b></td>
+          <td class="muted">${esc(r.move_date)}</td><td class="n">${num(r.qty)}</td></tr>`).join('')}
+        ${MVROWS.length > 6 ? `<tr><td colspan="4" class="muted">… 외 ${MVROWS.length - 6}줄</td></tr>` : ''}
+      </table></div>
+      <button class="btn w" style="margin-top:12px" id="mvGo">이 내용으로 반영하기</button>`;
+    $('#mvGo').onclick = doMoveUpload;
+  } catch (e) {
+    $('#mvPrev').innerHTML = `<div class="err" style="margin-top:14px">${esc(e.message)}</div>`;
+  }
+}
+
+async function doMoveUpload() {
+  const btn = $('#mvGo'); btn.disabled = true; btn.textContent = '반영 중…';
+  try {
+    const kind = $('#mvKind') ? $('#mvKind').value : MVKIND;
+    const rows = MVROWS.map(r => ({ ...r, kind: kind === 'mixed' ? r.kind : kind }));
+    const r = await api('aMoveUpload', [TOKEN, { file_name: MVFILE, kind, rows }]);
+    const miss = r.unmatched_rows || [];
+    openModal('입출고 반영 완료', `
+      <div class="stats" style="margin-bottom:12px">
+        <div class="stat"><div class="l">읽은 줄</div><div class="v">${r.total}</div></div>
+        <div class="stat"><div class="l">맞춘 상품</div><div class="v" style="color:var(--ok)">${r.matched}</div></div>
+        <div class="stat"><div class="l">못 찾음</div>
+          <div class="v" style="color:${r.unmatched ? 'var(--red)' : 'inherit'}">${r.unmatched}</div></div>
+        <div class="stat"><div class="l">합계 수량</div><div class="v">${num(r.qty)}</div></div>
+      </div>
+      <div class="muted" style="margin-bottom:10px">${esc(String(r.from_date))} ~ ${esc(String(r.to_date))}</div>
+      ${miss.length ? `<div class="warn"><b>못 찾은 상품 ${miss.length}개</b> — 매칭 탭에서 이어주세요<br>
+        ${miss.slice(0,10).map(x => esc(x.sku || '-') + ' ' + esc(x.name || '')).join('<br>')}</div>` : ''}
+      <div class="tblwrap"><table>
+        <tr><th>날짜</th><th class="right">수량</th><th class="right">품목</th></tr>
+        ${(r.by_date || []).map(x => `<tr><td>${esc(String(x.d))}</td>
+          <td class="n"><b>${num(x.qty)}</b></td><td class="n muted">${x.items}</td></tr>`).join('')}
+      </table></div>
+      <button class="btn w" style="margin-top:12px" onclick="closeModal()">확인</button>`, null, true);
+    $('#mvPrev').innerHTML = ''; $('#mvFile').value = '';
+    loadMoveHist(); loadUpload();
+  } catch (e) {
+    toast(e.message); btn.disabled = false; btn.textContent = '이 내용으로 반영하기';
+  }
+}
+
+async function loadMoveHist() {
+  try {
+    const rows = await api('aMoveUploads', [TOKEN]);
+    $('#mvHist').innerHTML = rows.length ? `<table>
+      <tr><th>기간</th><th>파일</th><th>구분</th><th class="right">줄</th><th class="right">맞춤</th>
+          <th class="right">못찾음</th><th class="right">수량</th><th>올린 사람</th><th>올린 시각</th></tr>
+      ${rows.map(u => `<tr>
+        <td><b>${esc(String(u.from_date))}</b>${u.from_date !== u.to_date ? ` ~ ${esc(String(u.to_date))}` : ''}</td>
+        <td class="muted">${esc(u.file_name || '')}</td>
+        <td>${u.kind === 'in' ? '입고' : u.kind === 'mixed' ? '입·출고' : '출고'}</td>
+        <td class="n">${u.rows_total}</td>
+        <td class="n" style="color:var(--ok)">${u.matched}</td>
+        <td class="n" style="color:${u.unmatched ? 'var(--red)' : 'var(--sub)'}">${u.unmatched}</td>
+        <td class="n">${num(u.total_qty)}</td>
+        <td class="muted">${esc(u.actor || '')}</td>
+        <td class="muted">${ymdt(u.created_at)}</td></tr>`).join('')}
+    </table>` : `<div class="empty">아직 올린 파일이 없습니다.</div>`;
+  } catch (e) { $('#mvHist').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$('#mvRefresh').onclick = loadMoveHist;
+
+async function loadCheck() {
+  $('#ckTbl').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const rows = await api('aMoveCheck', [TOKEN]);
+    if (!rows.length) { $('#ckTbl').innerHTML = `<div class="empty">대조할 자료가 없습니다.</div>`; return; }
+    const bad = rows.filter(r => r.snap != null && r.move != null && r.diff !== 0).length;
+    $('#ckTbl').innerHTML = `<table>
+      <tr><th>날짜</th><th class="right">재고표 출고</th><th class="right">입출고표 출고</th><th class="right">차이</th><th></th></tr>
+      ${rows.map(r => {
+        const both = r.snap != null && r.move != null;
+        return `<tr>
+          <td><b>${esc(String(r.d))}</b></td>
+          <td class="n ${r.snap == null ? 'muted' : ''}">${r.snap == null ? '자료 없음' : num(r.snap)}</td>
+          <td class="n ${r.move == null ? 'muted' : ''}">${r.move == null ? '자료 없음' : num(r.move)}</td>
+          <td class="n ${both && r.diff !== 0 ? 'low' : 'muted'}">${both ? (r.diff > 0 ? '+' : '') + num(r.diff) : '-'}</td>
+          <td>${!both ? '<span class="bdg b-pending">한쪽만 있음</span>'
+                : r.diff === 0 ? '<span class="bdg b-shipped">일치</span>'
+                : '<span class="bdg b-cancel">불일치</span>'}</td></tr>`;
+      }).join('')}
+    </table>
+    <div class="${bad ? 'warn' : 'tip'}" style="margin-top:12px">
+      ${bad ? `<b>${bad}일치가 안 맞습니다.</b> 그 날짜 파일을 다시 받아 올려보세요.`
+            : '두 자료가 겹치는 날짜는 모두 일치합니다. 자료를 믿고 쓰셔도 됩니다.'}</div>`;
+  } catch (e) { $('#ckTbl').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$('#ckRefresh').onclick = loadCheck;
 
 /* ═══════════ 단가표 (업체별 커스텀 단가) ═══════════ */
 let MX = null;            // {products, partners, cells}
