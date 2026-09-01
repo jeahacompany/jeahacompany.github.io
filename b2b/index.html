@@ -155,6 +155,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     </div>
     <nav class="tabs" id="tabs">
       <button data-tab="dash" class="on">대시보드</button>
+      <button data-tab="match">매칭<span class="dot hide" id="dotMatch"></span></button>
       <button data-tab="orders">발주<span class="dot hide" id="dotOrders"></span></button>
       <button data-tab="pays">입금</button>
       <button data-tab="buy">매입<span class="dot hide" id="dotBuy"></span></button>
@@ -169,6 +170,19 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 
   <main>
     <section id="t-dash"></section>
+
+    <section id="t-match" class="hide">
+      <div class="tip">자료가 안 맞거나 빠진 게 있으면 <b>여기로 모입니다.</b>
+        여기서 한 번 이어주면 그 뒤로는 저절로 맞춰집니다 — 같은 일을 두 번 하지 않게요.
+        지금 못 고칠 건 <b>보류</b>로 치워두되 사유를 적어두세요.</div>
+      <div id="mqSum"></div>
+      <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
+        <button class="btn g" id="mqRefresh">새로고침</button>
+        <button class="btn g" id="mqAlias">코드 연결 기록</button>
+        <button class="btn g" id="mqHold">보류함</button>
+      </div>
+      <div id="mqBox"></div>
+    </section>
 
     <section id="t-orders" class="hide">
       <div class="filt">
@@ -506,6 +520,25 @@ async function boot() {
   fillSettings();
   renderDash();
   updateDots();
+  refreshMatchDot();
+}
+
+// 매칭 탭에 급한 게 있으면 빨간 점 (어느 탭에 있든 보이게)
+async function refreshMatchDot() {
+  try {
+    const q = await api('aMatchQueue', [TOKEN]);
+    MQ = q;
+    const red = MKINDS.filter(m => m.sev === 'red').reduce((a, m) => a + (q[m.k] || []).length, 0);
+    $('#dotMatch').classList.toggle('hide', red === 0);
+    const tot = MKINDS.reduce((a, m) => a + (q[m.k] || []).length, 0);
+    const el = $('#dashMatchLink');
+    if (el) el.innerHTML = tot ? `<div class="card act" id="dashMatchGo" style="cursor:pointer;border-color:${red ? '#f8c9c9' : 'var(--line)'}">
+      <h3>🔗 맞춰야 할 자료 ${tot}건${red ? ` <span class="bdg b-cancel">급한 것 ${red}</span>` : ''}</h3>
+      <div class="muted">코드가 안 맞거나, 매입처·원가·가격이 빠졌거나, 입금이 어느 발주인지 모르는 것들입니다.
+        <b>매칭 탭</b>에서 한 번 이어주면 다음부터는 저절로 맞춰집니다.</div></div>` : '';
+    const go = $('#dashMatchGo');
+    if (go) go.onclick = () => goTab('match');
+  } catch (e) {}
 }
 
 let DASH = null;
@@ -519,10 +552,10 @@ function updateDots() {
 $$('#tabs button').forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
   $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['dash','orders','pays','buy','products','upload','prices','partners','settle','setting']
+  ['dash','match','orders','pays','buy','products','upload','prices','partners','settle','setting']
     .forEach(t => $('#t-' + t).classList.toggle('hide', t !== TAB));
-  ({ dash: renderDash, orders: loadOrders, pays: loadPays, buy: loadBuy, products: loadProducts,
-     upload: loadUpload, prices: loadMatrix, partners: loadPartners,
+  ({ dash: renderDash, match: loadMatch, orders: loadOrders, pays: loadPays, buy: loadBuy,
+     products: loadProducts, upload: loadUpload, prices: loadMatrix, partners: loadPartners,
      settle: loadSettle, setting: loadSetting })[TAB]?.();
   window.scrollTo(0, 0);
 });
@@ -583,6 +616,7 @@ async function renderDash() {
       ${al.no_price ? `공급가가 아직 없는 상품 <b>${al.no_price}개</b>. ` : ''}
       ${al.no_cost ? `원가가 아직 없는 상품 <b>${al.no_cost}개</b>. ` : ''}
       이게 채워져야 재고 금액과 마진이 제대로 나옵니다. → <b>상품·재고</b> 탭</div>` : ''}
+    <div id="dashMatchLink"></div>
     <div id="dashMargin"></div>
 
     <div class="card">
@@ -638,6 +672,7 @@ async function renderDash() {
   });
   $('#dashAll').onclick = () => goTab('orders', () => { $('#oStatus').value = ''; });
   renderMarginAlerts();
+  refreshMatchDot();
 
   try {
     const rows = await api('aOrders', [TOKEN, { limit: 15 }]);
@@ -701,6 +736,376 @@ async function renderMarginAlerts() {
     } catch (e) { toast(e.message); }
   });
 }
+
+/* ═══════════ 매칭 — 꼬인 자료가 모이는 곳 ═══════════ */
+let MQ = null;
+
+// 종류별로: 제목 / 왜 문제인지 / 어떻게 푸는지
+const MKINDS = [
+  { k:'stock_unmatched', t:'창고에는 있는데 우리 목록에 없는 상품', sev:'red',
+    why:'물류사가 준 코드가 우리 코드와 다르거나 새로 들어온 상품입니다. 이 재고는 지금 금액에도 안 잡힙니다.',
+    act:'이어붙이기' },
+  { k:'partner_pending', t:'승인 기다리는 거래처', sev:'red',
+    why:'가입 신청해두고 발주를 못 하고 있는 곳입니다.', act:'승인' },
+  { k:'pay_unlinked', t:'어느 발주인지 모르는 입금', sev:'red',
+    why:'돈은 들어왔는데 어느 발주 건인지 안 붙어 있습니다. 정산이 어긋납니다.', act:'발주 연결' },
+  { k:'po_overdue', t:'결제일 지난 매입', sev:'red',
+    why:'매입처에 줄 돈인데 약속한 날짜가 지났습니다.', act:'지급' },
+  { k:'partner_incomplete', t:'정보가 빈 거래처', sev:'warn',
+    why:'세금계산서·배송·연락에 필요한 정보가 비어 있습니다.', act:'채우기' },
+  { k:'no_supplier', t:'어디서 사오는지 모르는 상품', sev:'warn',
+    why:'매입처가 안 정해져 있어 재발주 때 누구에게 시킬지 알 수 없습니다.', act:'매입처 지정' },
+  { k:'no_cost', t:'원가를 모르는 상품', sev:'warn',
+    why:'원가가 없으면 재고 금액과 마진이 안 나옵니다.', act:'원가 입력' },
+  { k:'no_price', t:'파는 가격이 없는 상품', sev:'warn',
+    why:'업체 화면에 0원으로 뜹니다.', act:'공급가 입력' },
+  { k:'po_not_received', t:'입고 처리 안 한 매입', sev:'warn',
+    why:'물건은 왔는데 처리를 안 해서 재고·원가에 안 잡혀 있습니다.', act:'입고 처리' },
+  { k:'sup_pay_unlinked', t:'어느 매입인지 모르는 지급', sev:'warn',
+    why:'매입처에 준 돈인데 어느 건인지 안 붙어 있습니다.', act:'매입 연결' },
+  { k:'not_in_wms', t:'우리 목록엔 있는데 창고 재고표에 없는 상품', sev:'info',
+    why:'창고에서 빠졌거나 코드가 바뀐 것일 수 있습니다.', act:null }
+];
+
+async function loadMatch() {
+  $('#mqBox').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    MQ = await api('aMatchQueue', [TOKEN]);
+    if (!PRODUCTS.length)  { try { PRODUCTS = await api('aProducts', [TOKEN]); } catch(e){} }
+    if (!SUPPLIERS.length) { try { SUPPLIERS = await api('aSuppliers', [TOKEN]); } catch(e){} }
+    renderMatch();
+  } catch (e) { $('#mqBox').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$('#mqRefresh').onclick = loadMatch;
+
+function mqCount() {
+  if (!MQ) return 0;
+  return MKINDS.reduce((a, m) => a + (MQ[m.k] || []).length, 0);
+}
+
+function renderMatch() {
+  const total = mqCount();
+  const red = MKINDS.filter(m => m.sev === 'red').reduce((a, m) => a + (MQ[m.k] || []).length, 0);
+  $('#dotMatch').classList.toggle('hide', red === 0);
+
+  $('#mqSum').innerHTML = `<div class="stats">
+    <div class="stat"><div class="l">지금 맞춰야 할 것</div>
+      <div class="v" style="color:${total ? 'var(--warn)' : 'var(--ok)'}">${total}건</div></div>
+    <div class="stat"><div class="l">급한 것</div>
+      <div class="v" style="color:${red ? 'var(--red)' : 'var(--ok)'}">${red}건</div></div>
+    <div class="stat"><div class="l">마지막 재고표</div>
+      <div class="v" style="font-size:17px">${MQ.last_stock_date ? esc(String(MQ.last_stock_date)) : '없음'}</div></div>
+  </div>`;
+
+  if (!total) {
+    $('#mqBox').innerHTML = `<div class="card"><div class="empty">
+      🎉 안 맞는 자료가 하나도 없습니다.<br>
+      <span class="muted">재고표를 올리거나 발주가 들어오면 여기서 다시 확인하세요.</span></div></div>`;
+    return;
+  }
+
+  $('#mqBox').innerHTML = MKINDS.map(m => {
+    const rows = MQ[m.k] || [];
+    if (!rows.length) return '';
+    const color = m.sev === 'red' ? 'var(--red)' : m.sev === 'warn' ? 'var(--warn)' : 'var(--sub)';
+    return `<div class="card" style="${m.sev === 'red' ? 'border-color:#f8c9c9' : ''}">
+      <h3><span style="color:${color}">●</span> ${esc(m.t)}
+        <span class="bdg ${m.sev === 'red' ? 'b-cancel' : m.sev === 'warn' ? 'b-pending' : 'b-done'}">${rows.length}</span></h3>
+      <div class="muted" style="margin:-6px 0 10px">${esc(m.why)}</div>
+      <div class="tblwrap"><table>
+        ${rows.slice(0, 30).map(r => `<tr>
+          <td>${mqLabel(m.k, r)}</td>
+          <td class="right" style="white-space:nowrap;width:1%">
+            ${m.act ? `<button class="btn s" data-fix="${m.k}" data-key="${esc(r.key)}">${esc(m.act)}</button>` : ''}
+            <button class="btn s g" data-hold="${m.k}" data-key="${esc(r.key)}">보류</button>
+          </td></tr>`).join('')}
+      </table></div>
+      ${rows.length > 30 ? `<div class="muted" style="margin-top:6px">… 외 ${rows.length - 30}건</div>` : ''}
+    </div>`;
+  }).join('');
+
+  $$('#mqBox [data-fix]').forEach(b => b.onclick = () => mqFix(b.dataset.fix, b.dataset.key));
+  $$('#mqBox [data-hold]').forEach(b => b.onclick = () => mqHold(b.dataset.hold, b.dataset.key));
+}
+
+function mqLabel(kind, r) {
+  const note = r.note ? `<div class="muted" style="color:var(--purple)">📝 ${esc(r.note)}</div>` : '';
+  switch (kind) {
+    case 'stock_unmatched':
+      return `<b>${esc(r.name || '(이름없음)')}</b>
+        <div class="muted">창고코드 ${esc(r.sku || '-')} · 재고 ${num(r.avail)}개 · ${esc(String(r.stock_date))}</div>${note}`;
+    case 'not_in_wms':
+      return `<b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')} · 우리 재고 ${num(r.stock)}</div>${note}`;
+    case 'no_supplier':
+      return `<b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')} · 재고 ${num(r.stock)}</div>${note}`;
+    case 'no_cost':
+      return `<b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')} · 재고 ${num(r.stock)}${r.supplier ? ' · ' + esc(r.supplier) : ''}</div>${note}`;
+    case 'no_price':
+      return `<b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')}${r.cost ? ' · 원가 ' + num(r.cost) : ''}</div>${note}`;
+    case 'partner_incomplete':
+      return `<b>${esc(r.name)}</b><div class="muted" style="color:var(--red)">빠진 것: ${esc(r.missing)}</div>
+        <div class="muted">발주 ${r.orders}건</div>${note}`;
+    case 'partner_pending':
+      return `<b>${esc(r.name)}</b><div class="muted">${esc(r.phone || '')} ${esc(r.biz_no || '')} · ${ymd(r.created_at)} 신청</div>`;
+    case 'pay_unlinked':
+      return `<b>${won(r.amount)}</b> <span class="muted">${esc(r.partner || '거래처 미상')}</span>
+        <div class="muted">${esc(String(r.paid_at))} · 입금자 ${esc(r.deposit_name || '-')}${r.memo ? ' · ' + esc(r.memo) : ''}</div>${note}`;
+    case 'sup_pay_unlinked':
+      return `<b>${won(r.amount)}</b> <span class="muted">${esc(r.supplier || '')}</span>
+        <div class="muted">${esc(String(r.paid_at))}${r.memo ? ' · ' + esc(r.memo) : ''}</div>${note}`;
+    case 'po_overdue':
+      return `<b>${esc(r.po_no)}</b> <span class="muted">${esc(r.supplier || '')}</span>
+        <div class="muted" style="color:var(--red)">${esc(String(r.due_date))} 지급 예정 · <b>${r.days_late}일 지남</b> · 미지급 ${won(r.unpaid)}</div>${note}`;
+    case 'po_not_received':
+      return `<b>${esc(r.po_no)}</b> <span class="muted">${esc(r.supplier || '')}</span>
+        <div class="muted">${esc(String(r.order_date))} 매입 · ${r.days}일째 · ${won(r.total)}</div>${note}`;
+    default: return esc(r.name || r.key);
+  }
+}
+
+/* ── 각 문제를 푸는 화면 ── */
+async function mqFix(kind, key) {
+  const r = (MQ[kind] || []).find(x => String(x.key) === String(key));
+  if (!r) return;
+  const done = async (body, msg) => {
+    try {
+      const res = await api('aMatchResolve', [TOKEN, { kind, key, ...body }]);
+      closeModal(); toast(msg || res.message || '처리했습니다');
+      PRODUCTS = []; SUPPLIERS = []; loadMatch();
+    } catch (e) { toast(e.message); }
+  };
+
+  if (kind === 'stock_unmatched') {
+    const opts = PRODUCTS.map(p => `<option value="${p.id}">${esc(p.name)}${p.sku ? ' (' + esc(p.sku) + ')' : ''}</option>`).join('');
+    // 이름이 비슷한 상품을 미리 골라준다
+    const guess = PRODUCTS.find(p => p.name && r.name &&
+      (p.name.replace(/\s/g,'') === r.name.replace(/\s/g,'') ||
+       p.name.replace(/\s/g,'').includes(r.name.replace(/\s/g,'').slice(0, 6))));
+    return openModal('창고 상품 이어붙이기', `
+      <div class="card" style="box-shadow:none;margin-bottom:12px">
+        <div class="kv"><span class="k">창고 코드</span><span class="v">${esc(r.sku || '-')}</span></div>
+        <div class="kv"><span class="k">창고 상품명</span><span class="v">${esc(r.name || '-')}</span></div>
+        <div class="kv"><span class="k">창고 재고</span><span class="v">${num(r.avail)}개</span></div>
+      </div>
+      <div class="chips" style="margin-bottom:12px">
+        <button data-m="link" class="on">이미 있는 상품에 붙이기</button>
+        <button data-m="new">새 상품으로 등록</button>
+      </div>
+      <div id="mq_link">
+        <label class="f"><span>어느 상품인가요?</span><select id="mq_pid">${opts}</select></label>
+        ${guess ? `<div class="tip">이름이 비슷한 <b>${esc(guess.name)}</b> 를 미리 골라뒀습니다. 맞는지 확인해 주세요.</div>` : ''}
+        <div class="warn">붙이면 창고 코드 <b>${esc(r.sku || '')}</b> 를 기억해서
+          <b>다음 업로드부터는 저절로 맞춰집니다.</b> 지금 재고도 ${num(r.avail)}개로 맞춥니다.</div>
+      </div>
+      <div id="mq_new" class="hide">
+        <div class="g2">
+          <label class="f"><span>상품명</span><input type="text" id="mq_name" value="${esc(r.name || '')}"></label>
+          <label class="f"><span>주 매입처</span><select id="mq_sup"><option value="">— 나중에 —</option>
+            ${SUPPLIERS.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></label>
+          <label class="f"><span>원가 (알면)</span><input type="number" id="mq_cost" value="0"></label>
+          <label class="f"><span>공급가 (알면)</span><input type="number" id="mq_price" value="0"></label>
+        </div>
+      </div>
+      <label class="f"><span>메모 (남겨두면 목록에 같이 보입니다)</span><input type="text" id="mq_note" value="${esc(r.note || '')}"></label>
+      <button class="btn w" id="mq_go">이대로 처리</button>
+    `, () => {
+      let mode = 'link';
+      if (guess) $('#mq_pid').value = guess.id;
+      $$('#modal .chips [data-m]').forEach(b => b.onclick = () => {
+        mode = b.dataset.m;
+        $$('#modal .chips [data-m]').forEach(x => x.classList.toggle('on', x === b));
+        $('#mq_link').classList.toggle('hide', mode !== 'link');
+        $('#mq_new').classList.toggle('hide', mode !== 'new');
+      });
+      $('#mq_go').onclick = () => mode === 'link'
+        ? done({ action: 'link', product_id: $('#mq_pid').value, note: $('#mq_note').value.trim() })
+        : done({ action: 'create', name: $('#mq_name').value.trim(), supplier_id: $('#mq_sup').value,
+                 cost: $('#mq_cost').value, price: $('#mq_price').value, note: $('#mq_note').value.trim() });
+    }, true);
+  }
+
+  if (kind === 'partner_pending')
+    return confirm(`'${r.name}' 을(를) 승인할까요?`) && done({}, '승인했습니다');
+
+  if (kind === 'no_supplier') {
+    if (!SUPPLIERS.length) return toast('먼저 매입 탭에서 매입처를 등록해 주세요.');
+    return openModal('매입처 지정 — ' + r.name, `
+      <label class="f"><span>이 상품은 어디서 사오나요?</span><select id="mq_sup">
+        ${SUPPLIERS.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></label>
+      <label class="f"><span>메모</span><input type="text" id="mq_note" value="${esc(r.note || '')}"></label>
+      <div class="tip">한 번 지정하면 매입 등록·재발주 때 이 매입처가 따라옵니다.</div>
+      <button class="btn w" id="mq_go">지정</button>`, () => {
+      $('#mq_go').onclick = () => done({ supplier_id: $('#mq_sup').value, note: $('#mq_note').value.trim() });
+    });
+  }
+
+  if (kind === 'no_cost')
+    return openModal('원가 입력 — ' + r.name, `
+      <div class="tip">매입을 등록해 <b>입고 처리</b>하면 원가가 저절로 잡힙니다.
+        아직 매입 기록을 넣기 전이라면 여기에 임시로 적어두세요.</div>
+      <label class="f"><span>원가 (개당)</span><input type="number" id="mq_cost" placeholder="예) 9000"></label>
+      <label class="f"><span>메모</span><input type="text" id="mq_note" value="${esc(r.note || '')}"></label>
+      <button class="btn w" id="mq_go">저장</button>`, () => {
+      $('#mq_go').onclick = () => {
+        if (!parseInt($('#mq_cost').value || 0, 10)) return toast('원가를 입력해 주세요.');
+        done({ cost: $('#mq_cost').value, note: $('#mq_note').value.trim() });
+      };
+    });
+
+  if (kind === 'no_price')
+    return openModal('공급가 입력 — ' + r.name, `
+      ${r.cost ? `<div class="tip">원가가 ${won(r.cost)} 입니다.
+        마진 25%면 <b>${won(Math.ceil(r.cost / 0.75 / 10) * 10)}</b>,
+        30%면 <b>${won(Math.ceil(r.cost / 0.7 / 10) * 10)}</b> 입니다.</div>` : ''}
+      <label class="f"><span>기본 공급가</span><input type="number" id="mq_price"></label>
+      <label class="f"><span>메모</span><input type="text" id="mq_note" value="${esc(r.note || '')}"></label>
+      <button class="btn w" id="mq_go">저장</button>`, () => {
+      $('#mq_go').onclick = () => {
+        if (!parseInt($('#mq_price').value || 0, 10)) return toast('공급가를 입력해 주세요.');
+        done({ price: $('#mq_price').value, note: $('#mq_note').value.trim() });
+      };
+    });
+
+  if (kind === 'partner_incomplete') {
+    const pt = PARTNERS.find(x => x.id === r.id) || {};
+    return openModal('거래처 정보 채우기 — ' + r.name, `
+      <div class="warn">빠진 것: ${esc(r.missing)}</div>
+      <div class="g2">
+        <label class="f"><span>담당자</span><input type="text" id="mq_manager" value="${esc(pt.manager || '')}"></label>
+        <label class="f"><span>연락처</span><input type="text" id="mq_phone" value="${esc(pt.phone || '')}"></label>
+        <label class="f"><span>사업자등록번호</span><input type="text" id="mq_biz" value="${esc(pt.biz_no || '')}"></label>
+      </div>
+      <label class="f"><span>배송지 주소</span><input type="text" id="mq_addr" value="${esc(pt.addr || '')}"></label>
+      <label class="f"><span>메모</span><input type="text" id="mq_note" value="${esc(r.note || '')}"></label>
+      <button class="btn w" id="mq_go">저장</button>`, () => {
+      $('#mq_go').onclick = () => done({ manager: $('#mq_manager').value.trim(), phone: $('#mq_phone').value.trim(),
+        biz_no: $('#mq_biz').value.trim(), addr: $('#mq_addr').value.trim(), note: $('#mq_note').value.trim() });
+    });
+  }
+
+  if (kind === 'pay_unlinked') {
+    let orders = [];
+    try { orders = await api('aOrders', [TOKEN, { partner_id: r.partner_id || '', limit: 100 }]); } catch (e) {}
+    const cand = orders.filter(o => o.status !== 'cancel');
+    if (!cand.length) return toast('연결할 발주가 없습니다. 발주를 먼저 등록하세요.');
+    // 금액이 딱 맞는 발주를 먼저 보여준다
+    cand.sort((a, b) => (Math.abs(a.total - r.amount)) - (Math.abs(b.total - r.amount)));
+    return openModal('입금을 발주에 연결', `
+      <div class="card" style="box-shadow:none;margin-bottom:12px">
+        <div class="kv"><span class="k">입금액</span><span class="v">${won(r.amount)}</span></div>
+        <div class="kv"><span class="k">입금자명</span><span class="v">${esc(r.deposit_name || '-')}</span></div>
+        <div class="kv"><span class="k">입금일</span><span class="v">${esc(String(r.paid_at))}</span></div>
+      </div>
+      <label class="f"><span>어느 발주인가요? (금액이 가까운 순)</span><select id="mq_ord">
+        ${cand.map(o => `<option value="${o.id}">${esc(o.order_no)} · ${esc(o.partner_name || '')} · ${num(o.total)}원
+          ${o.total === r.amount ? ' ← 금액 일치' : ''}</option>`).join('')}
+      </select></label>
+      <label class="f"><span>메모</span><input type="text" id="mq_note" value="${esc(r.note || '')}"></label>
+      <div class="tip">연결하면 발주의 입금액이 다시 계산되고, 금액이 다 차면 <b>입금확인</b> 상태로 올라갑니다.</div>
+      <button class="btn w" id="mq_go">연결</button>`, () => {
+      $('#mq_go').onclick = () => done({ order_id: $('#mq_ord').value, note: $('#mq_note').value.trim() });
+    }, true);
+  }
+
+  if (kind === 'sup_pay_unlinked') {
+    let pos = [];
+    try { pos = await api('aPurchases', [TOKEN, {}]); } catch (e) {}
+    const cand = pos.filter(o => o.status !== 'cancel');
+    if (!cand.length) return toast('연결할 매입 건이 없습니다.');
+    cand.sort((a, b) => (Math.abs(a.total - r.amount)) - (Math.abs(b.total - r.amount)));
+    return openModal('지급을 매입에 연결', `
+      <div class="card" style="box-shadow:none;margin-bottom:12px">
+        <div class="kv"><span class="k">지급액</span><span class="v">${won(r.amount)}</span></div>
+        <div class="kv"><span class="k">매입처</span><span class="v">${esc(r.supplier || '-')}</span></div>
+        <div class="kv"><span class="k">지급일</span><span class="v">${esc(String(r.paid_at))}</span></div>
+      </div>
+      <label class="f"><span>어느 매입인가요?</span><select id="mq_po">
+        ${cand.map(o => `<option value="${o.id}">${esc(o.po_no)} · ${esc(o.supplier_name || '')} · ${num(o.total)}원
+          ${o.total === r.amount ? ' ← 금액 일치' : ''}</option>`).join('')}
+      </select></label>
+      <label class="f"><span>메모</span><input type="text" id="mq_note" value="${esc(r.note || '')}"></label>
+      <button class="btn w" id="mq_go">연결</button>`, () => {
+      $('#mq_go').onclick = () => done({ purchase_id: $('#mq_po').value, note: $('#mq_note').value.trim() });
+    }, true);
+  }
+
+  if (kind === 'po_overdue') {
+    try {
+      const po = await api('aPurchaseGet', [TOKEN, r.id]);
+      closeModal(); return supPayModal(null, po);
+    } catch (e) { return toast(e.message); }
+  }
+
+  if (kind === 'po_not_received')
+    return confirm(`${r.po_no} 을(를) 입고 처리할까요?\n재고가 늘고 원가가 다시 계산됩니다.`) && done({}, '입고 처리했습니다');
+}
+
+/* ── 보류 / 메모 ── */
+function mqHold(kind, key) {
+  const r = (MQ[kind] || []).find(x => String(x.key) === String(key)) || {};
+  openModal('보류하기', `
+    <div class="tip">지금 못 고치는 건 보류로 치워두세요. <b>사유를 적어두면</b> 나중에 왜 미뤘는지 압니다.
+      보류함에서 언제든 다시 꺼낼 수 있습니다.</div>
+    <label class="f"><span>사유 · 메모</span><textarea id="mq_note" placeholder="예) 물류사에 코드 확인 요청함 (9/2 회신 예정)">${esc(r.note || '')}</textarea></label>
+    <div class="row">
+      <button class="btn grow" id="mq_hold">보류함으로</button>
+      <button class="btn g" id="mq_only">메모만 남기기</button>
+    </div>`, () => {
+    const send = async status => {
+      try {
+        await api('aMatchNote', [TOKEN, { kind, key, status, note: $('#mq_note').value.trim() }]);
+        closeModal(); toast(status === 'dismissed' ? '보류함으로 옮겼습니다' : '메모를 남겼습니다'); loadMatch();
+      } catch (e) { toast(e.message); }
+    };
+    $('#mq_hold').onclick = () => send('dismissed');
+    $('#mq_only').onclick = () => send('noted');
+  });
+}
+
+$('#mqHold').onclick = async () => {
+  try {
+    const rows = await api('aMatchDismissed', [TOKEN]);
+    const label = k => (MKINDS.find(m => m.k === k) || {}).t || k;
+    openModal('보류함', rows.length ? `
+      <div class="tblwrap"><table>
+        <tr><th>종류</th><th>메모</th><th>보류한 사람</th><th></th></tr>
+        ${rows.map(n => `<tr>
+          <td>${esc(label(n.kind))}</td>
+          <td class="muted">${esc(n.note || '-')}</td>
+          <td class="muted">${esc(n.actor || '')}<div class="muted">${ymd(n.at)}</div></td>
+          <td><button class="btn s g" data-undo="${esc(n.kind)}|${esc(n.key)}">다시 올리기</button></td></tr>`).join('')}
+      </table></div>` : `<div class="empty">보류해둔 것이 없습니다.</div>`, () => {
+      $$('#modal [data-undo]').forEach(b => b.onclick = async () => {
+        const [kind, key] = b.dataset.undo.split('|');
+        try { await api('aMatchNote', [TOKEN, { kind, key, undo: 'true' }]); closeModal(); toast('다시 목록에 올렸습니다'); loadMatch(); }
+        catch (e) { toast(e.message); }
+      });
+    }, true);
+  } catch (e) { toast(e.message); }
+};
+
+$('#mqAlias').onclick = async () => {
+  try {
+    const rows = await api('aAliases', [TOKEN]);
+    openModal('코드 연결 기록', `
+      <div class="tip">창고 코드와 우리 상품을 이어붙인 기록입니다.
+        이게 있으면 다음 재고표부터 <b>사람 손 없이</b> 맞춰집니다.</div>
+      ${rows.length ? `<div class="tblwrap"><table>
+        <tr><th>창고 코드</th><th>우리 상품</th><th>연결한 사람</th><th></th></tr>
+        ${rows.map(a => `<tr>
+          <td><b>${esc(a.alias)}</b></td>
+          <td>${esc(a.product || '(삭제된 상품)')}<div class="muted">${esc(a.sku || '')}</div></td>
+          <td class="muted">${esc(a.actor || '')}<div class="muted">${ymd(a.at)}</div></td>
+          <td><button class="btn s r" data-da="${esc(a.alias)}">연결 해제</button></td></tr>`).join('')}
+      </table></div>` : `<div class="empty">아직 연결 기록이 없습니다.</div>`}`, () => {
+      $$('#modal [data-da]').forEach(b => b.onclick = async () => {
+        if (!confirm(`'${b.dataset.da}' 연결을 풀까요? 다음 업로드 때 다시 매칭 목록에 뜹니다.`)) return;
+        try { await api('aAliasDelete', [TOKEN, b.dataset.da]); closeModal(); toast('연결을 풀었습니다'); loadMatch(); }
+        catch (e) { toast(e.message); }
+      });
+    }, true);
+  } catch (e) { toast(e.message); }
+};
 
 /* ═══════════ 발주 ═══════════ */
 async function loadOrders() {
@@ -1160,10 +1565,47 @@ function renderSuppliers() {
       <td class="n" style="color:var(--ok)">${num(s.pay_total)}</td>
       <td class="n" style="color:${s.unpaid > 0 ? 'var(--red)' : 'var(--sub)'}"><b>${num(s.unpaid)}</b></td>
       <td class="muted">${s.last_buy ? esc(String(s.last_buy)) : '-'}</td>
-      <td><button class="btn s g" data-se="${s.id}">수정</button></td></tr>`).join('')}`;
+      <td class="row" style="gap:5px">
+        <button class="btn s" data-sp="${s.id}">취급 상품 ${s.items}</button>
+        <button class="btn s g" data-se="${s.id}">수정</button></td></tr>`).join('')}`;
   $$('#supTbl [data-se]').forEach(b => b.onclick = () => supModal(SUPPLIERS.find(x => x.id === b.dataset.se)));
+  $$('#supTbl [data-sp]').forEach(b => b.onclick = () => supProductsModal(SUPPLIERS.find(x => x.id === b.dataset.sp)));
 }
 $('#supAdd').onclick = () => supModal(null);
+
+// 이 매입처에서 대는 상품들 — "재고마다 구매한 데가 뜨게"
+async function supProductsModal(s) {
+  try {
+    const d = await api('aSupplierProducts', [TOKEN, s.id]);
+    const items = d.items || [], other = d.bought_elsewhere || [];
+    const totVal = items.reduce((a, x) => a + Number(x.stock_value || 0), 0);
+    openModal('취급 상품 — ' + s.name, `
+      <div class="stats" style="margin-bottom:12px">
+        <div class="stat"><div class="l">상품</div><div class="v">${items.length}개</div></div>
+        <div class="stat"><div class="l">이 매입처 재고 금액</div><div class="v">${num(totVal)}</div></div>
+        <div class="stat"><div class="l">아직 줄 돈</div>
+          <div class="v" style="color:${s.unpaid > 0 ? 'var(--red)' : 'var(--ok)'}">${num(s.unpaid)}</div></div>
+      </div>
+      ${items.length ? `<div class="tblwrap"><table>
+        <tr><th>상품</th><th class="right">재고</th><th class="right">원가</th><th class="right">최근 매입가</th>
+            <th class="right">재고금액</th><th class="right">누적 매입</th><th>마지막 매입</th></tr>
+        ${items.map(i => `<tr>
+          <td><b>${esc(i.name)}</b><div class="muted">${esc(i.sku || '')}</div></td>
+          <td class="n">${num(i.stock)}</td>
+          <td class="n ${i.cost ? '' : 'low'}">${i.cost ? num(i.cost) : '없음'}</td>
+          <td class="n muted">${i.last_cost ? num(i.last_cost) : '-'}</td>
+          <td class="n">${num(i.stock_value)}</td>
+          <td class="n muted">${num(i.buy_qty)}</td>
+          <td class="muted">${i.last_buy ? esc(String(i.last_buy)) : '-'}</td></tr>`).join('')}
+      </table></div>` : `<div class="empty">이 매입처로 지정된 상품이 아직 없습니다.<br>
+        <span class="muted">매칭 탭의 &lsquo;어디서 사오는지 모르는 상품&rsquo;에서 지정하거나, 상품 수정에서 주 매입처를 고르세요.</span></div>`}
+      ${other.length ? `<div class="warn" style="margin-top:12px">
+        이 매입처에서 <b>산 적은 있는데</b> 주 매입처로는 안 걸린 상품 ${other.length}개:
+        ${other.slice(0,10).map(o => esc(o.name)).join(', ')}
+        <div class="muted" style="margin-top:4px">매칭 탭에서 주 매입처를 지정해두면 재발주가 편합니다.</div></div>` : ''}
+    `, null, true);
+  } catch (e) { toast(e.message); }
+}
 
 function supModal(s) {
   const v = k => s ? esc(s[k] ?? '') : '';
@@ -1409,7 +1851,7 @@ function productModal(p) {
     </div>
     <label class="f"><span>사진 주소 (선택)</span><input type="text" id="pr_image_url" value="${v('image_url')}"></label>
     <label class="f"><span>업체에 보일 안내</span><input type="text" id="pr_memo" value="${v('memo')}"></label>
-    ${p ? `<div id="pr_costbox"></div>
+    ${p ? `<div id="pr_srcbox"></div><div id="pr_costbox"></div>
     <div class="tip">공급가는 <b>단가를 따로 안 정한 거래처</b>에만 적용됩니다.
       업체별로 값을 박아두려면 아래 &lsquo;업체별 단가&rsquo; 를 쓰세요.</div>` : ''}
     <div class="row" style="flex-wrap:wrap"><button class="btn grow" id="pr_save">저장</button>
@@ -1444,8 +1886,41 @@ function productModal(p) {
     if (adj) adj.onclick = () => stockModal(p);
     const bys = $('#pr_buys');
     if (bys) bys.onclick = () => productBuysModal(p);
-    if (p) renderCostBox(p);
+    if (p) { renderSourcingBox(p); renderCostBox(p); }
   }, true);
+}
+
+/* ── 어디서 · 얼마에 · 언제 샀나 · 결제했나 (상품 한 눈에) ── */
+async function renderSourcingBox(p) {
+  const box = $('#pr_srcbox');
+  if (!box) return;
+  let d;
+  try { d = await api('aProductSourcing', [TOKEN, p.id]); } catch (e) { box.innerHTML = ''; return; }
+  const sp = d.supplier, lb = d.last_buy;
+  const payLabel = !lb ? '' :
+    lb.unpaid <= 0 ? `<span style="color:var(--ok)">결제 완료</span>`
+    : `<span style="color:var(--red)">미지급 ${won(lb.unpaid)}</span>${lb.due_date ? ` <span class="muted">(${esc(String(lb.due_date))} 예정)</span>` : ''}`;
+
+  box.innerHTML = `<div class="card" style="box-shadow:none;background:#f7fbff;margin:4px 0 12px">
+    <h3 style="margin-bottom:8px">이 상품, 어디서 사오나</h3>
+    ${sp ? `<div class="kv"><span class="k">주 매입처</span>
+        <span class="v">${esc(sp.name)} <span class="muted">${esc(sp.manager || '')} ${esc(sp.phone || '')}</span></span></div>
+      <div class="kv"><span class="k">결제 조건 · 리드타임</span>
+        <span class="v">${PAYTERMS[sp.pay_terms] || '-'} · ${sp.lead_days}일</span></div>`
+      : `<div class="warn" style="margin:0 0 8px">매입처가 아직 안 정해졌습니다.
+          <b>매칭 탭</b>에서 지정하거나 아래 &lsquo;주 매입처&rsquo;에서 고르세요.</div>`}
+    ${lb ? `<div class="kv"><span class="k">마지막 매입</span>
+        <span class="v">${esc(String(lb.date))} · ${esc(lb.po_no)} <span class="muted">${esc(lb.supplier || '')}</span></span></div>
+      <div class="kv"><span class="k">그때 수량 · 단가</span>
+        <span class="v">${num(lb.qty)}개 × ${won(lb.unit_price)}</span></div>
+      <div class="kv"><span class="k">그 매입 결제</span><span class="v">${payLabel}</span></div>
+      ${d.unpaid_total > 0 ? `<div class="kv"><span class="k">이 상품 관련 미지급 합계</span>
+        <span class="v" style="color:var(--red)">${won(d.unpaid_total)}</span></div>` : ''}
+      <div class="kv"><span class="k">총 매입 횟수</span><span class="v">${d.buy_count}회</span></div>`
+      : `<div class="muted">아직 매입 기록이 없습니다. 매입 탭에서 등록하면 여기에 다 뜹니다.</div>`}
+    ${(d.aliases || []).length ? `<div class="kv"><span class="k">연결된 창고 코드</span>
+      <span class="v">${(d.aliases).map(a => esc(a)).join(', ')}</span></div>` : ''}
+  </div>`;
 }
 
 /* ── 상품 폼 안의 '원가는 이렇게 움직였다' 패널 ── */
