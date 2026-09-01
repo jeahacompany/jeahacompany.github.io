@@ -158,6 +158,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       <button data-tab="dash" class="on">대시보드</button>
       <button data-tab="match">매칭<span class="dot hide" id="dotMatch"></span></button>
       <button data-tab="orders">발주<span class="dot hide" id="dotOrders"></span></button>
+      <button data-tab="ship">출고 배분<span class="dot hide" id="dotShip"></span></button>
       <button data-tab="pays">입금</button>
       <button data-tab="buy">매입<span class="dot hide" id="dotBuy"></span></button>
       <button data-tab="products">상품·재고</button>
@@ -203,6 +204,21 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       </div>
       <div class="card" style="padding:0">
         <div class="tblwrap" style="margin:0;padding:0"><table id="oTbl"></table></div>
+      </div>
+    </section>
+
+    <section id="t-ship" class="hide">
+      <div class="tip">창고에서 나간 수량을 <b>어느 거래처로 갔는지</b> 채우는 곳입니다.
+        채우면 그 거래처 <b>발주가 자동으로 만들어지고</b> — 단가·매출·미수금·정산까지 한 번에 붙습니다.
+        (거래처가 앱으로 직접 발주하면 이 작업은 필요 없습니다)</div>
+      <div id="alSum"></div>
+      <div class="filt">
+        <select id="alDate"></select>
+        <button class="btn" id="alAdd">+ 거래처로 배분</button>
+        <button class="btn g" id="alRefresh">새로고침</button>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="tblwrap" style="margin:0;padding:0"><table id="alTbl"></table></div>
       </div>
     </section>
 
@@ -609,9 +625,9 @@ function updateDots() {
 $$('#tabs button').forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
   $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['dash','match','orders','pays','buy','products','upload','prices','partners','settle','setting']
+  ['dash','match','orders','ship','pays','buy','products','upload','prices','partners','settle','setting']
     .forEach(t => $('#t-' + t).classList.toggle('hide', t !== TAB));
-  ({ dash: renderDash, match: loadMatch, orders: loadOrders, pays: loadPays, buy: loadBuy,
+  ({ dash: renderDash, match: loadMatch, orders: loadOrders, ship: loadShip, pays: loadPays, buy: loadBuy,
      products: loadProducts, upload: loadUpload, prices: loadMatrix, partners: loadPartners,
      settle: loadSettle, setting: loadSetting })[TAB]?.();
   window.scrollTo(0, 0);
@@ -810,6 +826,9 @@ const MKINDS = [
     why:'돈은 들어왔는데 어느 발주 건인지 안 붙어 있습니다. 정산이 어긋납니다.', act:'발주 연결' },
   { k:'po_overdue', t:'결제일 지난 매입', sev:'red',
     why:'매입처에 줄 돈인데 약속한 날짜가 지났습니다.', act:'지급' },
+  { k:'ship_unallocated', t:'행선지 모르는 출고', sev:'red',
+    why:'창고에서 나갔는데 어느 거래처로 갔는지 안 채워졌습니다. 그만큼 매출이 안 잡혀 있습니다.',
+    act:'행선지 채우기' },
   { k:'partner_incomplete', t:'정보가 빈 거래처', sev:'warn',
     why:'세금계산서·배송·연락에 필요한 정보가 비어 있습니다.', act:'채우기' },
   { k:'no_supplier', t:'어디서 사오는지 모르는 상품', sev:'warn',
@@ -832,6 +851,7 @@ async function loadMatch() {
   $('#mqBox').innerHTML = `<div class="empty">불러오는 중…</div>`;
   try {
     MQ = await api('aMatchQueue', [TOKEN]);
+    try { MQ.ship_unallocated = await api('aUnallocated', [TOKEN]); } catch (e) { MQ.ship_unallocated = []; }
     if (!PRODUCTS.length)  { try { PRODUCTS = await api('aProducts', [TOKEN]); } catch(e){} }
     if (!SUPPLIERS.length) { try { SUPPLIERS = await api('aSuppliers', [TOKEN]); } catch(e){} }
     renderMatch();
@@ -920,6 +940,11 @@ function mqLabel(kind, r) {
         <div class="muted">${esc(r.bank || '')} · ${ymdt(r.submitted_at)} 제출</div>`;
     case 'supplier_no_doc':
       return `<b>${esc(r.name)}</b><div class="muted">${esc(r.phone || '')} · 사업자등록증·통장사본 없음</div>${note}`;
+    case 'ship_unallocated':
+      return `<b>${esc(r.name)}</b> <span class="muted">${esc(r.sku || '')}</span>
+        <div class="muted">${esc(String(r.ship_date))} · 창고 출고 ${num(r.out_qty)}
+        ${r.alloc_qty ? `· 채운 것 ${num(r.alloc_qty)}` : ''}
+        · <b style="color:var(--red)">${num(r.rest)}개 행선지 모름</b></div>`;
     case 'pay_unlinked':
       return `<b>${won(r.amount)}</b> <span class="muted">${esc(r.partner || '거래처 미상')}</span>
         <div class="muted">${esc(String(r.paid_at))} · 입금자 ${esc(r.deposit_name || '-')}${r.memo ? ' · ' + esc(r.memo) : ''}</div>${note}`;
@@ -1001,6 +1026,18 @@ async function mqFix(kind, key) {
     return confirm(`'${r.name}' 을(를) 승인할까요?`) && done({}, '승인했습니다');
 
   if (kind === 'supplier_no_doc') { closeModal(); return inviteModal(); }
+
+  if (kind === 'ship_unallocated') {
+    closeModal();
+    goTab('ship');
+    setTimeout(() => {
+      const sel = $('#alDate');
+      if (sel && [...sel.options].some(o => o.value === String(r.ship_date))) {
+        sel.value = String(r.ship_date); loadShip();
+      }
+    }, 800);
+    return toast(`${r.ship_date} 출고 배분 화면으로 이동합니다`);
+  }
 
   if (kind === 'supplier_pending') {
     let docs = [];
@@ -1481,6 +1518,147 @@ async function statusAction(o, s) {
   } catch (e) { toast(e.message); }
 }
 async function renderDashQuiet() { try { BOOT = await api('aBoot', [TOKEN]); updateDots(); } catch (e) {} }
+
+/* ═══════════ 출고 배분 — 나간 물건의 행선지 채우기 ═══════════ */
+let SHIPDAY = null;
+
+async function loadShip() {
+  $('#alTbl').innerHTML = `<tr><td class="empty">불러오는 중…</td></tr>`;
+  if (!PARTNERS.length) { try { PARTNERS = await api('aPartners', [TOKEN]); } catch (e) {} }
+  try {
+    const sum = await api('aAllocSummary', [TOKEN]);
+    $('#alSum').innerHTML = `<div class="stats">
+      <div class="stat"><div class="l">창고에서 나간 총량</div><div class="v">${num(sum.total_out)}</div></div>
+      <div class="stat"><div class="l">행선지 채운 것</div>
+        <div class="v" style="color:var(--ok)">${num(sum.allocated)}</div>
+        <div class="muted">${sum.pct}%</div></div>
+      <div class="stat"><div class="l">아직 모르는 것</div>
+        <div class="v" style="color:${sum.rest > 0 ? 'var(--red)' : 'var(--ok)'}">${num(sum.rest)}</div></div>
+      <div class="stat"><div class="l">이렇게 잡힌 매출</div><div class="v">${num(sum.alloc_amount)}</div>
+        <div class="muted">${sum.alloc_orders}건</div></div>
+    </div>`;
+    $('#dotShip').classList.toggle('hide', !(sum.rest > 0));
+
+    const day = await api('aShipDay', [TOKEN, $('#alDate').value || '']);
+    SHIPDAY = day;
+    // 날짜 칸 채우기 (남은 게 있는 날을 먼저)
+    if (!$('#alDate').options.length) {
+      const ds = day.open_dates || [];
+      $('#alDate').innerHTML = ds.map(d =>
+        `<option value="${d.d}">${d.d} · 출고 ${num(d.out)} · 남음 ${num(d.rest)}</option>`).join('');
+      const first = ds.find(d => d.rest > 0) || ds[0];
+      if (first) { $('#alDate').value = first.d; return loadShip(); }
+    }
+    renderShip();
+  } catch (e) { $('#alTbl').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+$('#alRefresh').onclick = () => { $('#alDate').innerHTML = ''; loadShip(); };
+$('#alDate').onchange = loadShip;
+
+function renderShip() {
+  const d = SHIPDAY;
+  if (!d || !d.rows.length) {
+    $('#alTbl').innerHTML = `<tr><td class="empty">이 날짜엔 출고가 없습니다.</td></tr>`; return;
+  }
+  $('#alTbl').innerHTML = `
+    <tr><th>상품</th><th class="right">창고 출고</th><th class="right">채운 것</th><th class="right">남음</th>
+        <th>어디로 갔나</th></tr>
+    ${d.rows.map(r => `<tr>
+      <td><b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')}</div></td>
+      <td class="n"><b>${num(r.out_qty)}</b></td>
+      <td class="n" style="color:var(--ok)">${num(r.alloc_qty)}</td>
+      <td class="n ${r.rest > 0 ? 'low' : 'muted'}">${r.rest > 0 ? num(r.rest) : '완료'}</td>
+      <td>${r.allocs.length
+        ? r.allocs.map(a => `<span class="bdg b-paid" style="margin:1px 3px 1px 0;cursor:pointer"
+            data-edit="${a.partner_id}">${esc(a.partner || '')} ${num(a.qty)}</span>`).join('')
+        : '<span class="muted">아직 모름</span>'}</td></tr>`).join('')}`;
+  $$('#alTbl [data-edit]').forEach(b => b.onclick = () => allocModal(b.dataset.edit));
+}
+
+$('#alAdd').onclick = () => allocModal(null);
+
+async function allocModal(partnerId) {
+  const d = SHIPDAY;
+  if (!d) return;
+  const actives = PARTNERS.filter(p => p.status === 'active');
+  if (!actives.length) return toast('먼저 거래처를 등록하고 승인해 주세요.');
+
+  let cur = [];
+  if (partnerId) {
+    try { cur = await api('aShipAllocGet', [TOKEN, { ship_date: d.date, partner_id: partnerId }]); }
+    catch (e) {}
+  }
+  const curOf = pid => (cur.find(x => x.product_id === pid) || {}).qty || '';
+
+  openModal(`출고 배분 — ${d.date}`, `
+    <label class="f"><span>어느 거래처로 나갔나요? *</span><select id="al_ptn">
+      ${actives.map(p => `<option value="${p.id}" ${partnerId === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+    </select></label>
+    <div class="tip">수량을 넣으면 그 거래처 <b>단가로 매출이 잡히고 발주가 만들어집니다.</b>
+      0 으로 두면 배분에서 빠집니다.</div>
+    <div class="tblwrap"><table>
+      <tr><th>상품</th><th class="right">창고 출고</th><th class="right">남음</th><th class="right">이 거래처 몫</th></tr>
+      ${d.rows.map(r => {
+        const mine = curOf(r.product_id);
+        const canMax = r.rest + (Number(mine) || 0);
+        return `<tr>
+          <td><b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')}</div></td>
+          <td class="n muted">${num(r.out_qty)}</td>
+          <td class="n">${num(canMax)}</td>
+          <td class="n"><input type="number" data-p="${r.product_id}" value="${mine}"
+            max="${canMax}" placeholder="0" style="width:100px;text-align:right"></td></tr>`;
+      }).join('')}
+    </table></div>
+    <div class="row" style="margin:10px 0">
+      <button class="btn s g" id="al_fill">남은 것 전부 이 거래처로</button>
+      <button class="btn s g" id="al_clear">전부 비우기</button>
+    </div>
+    <label class="f"><span>메모</span><input type="text" id="al_memo" placeholder="예) 8/26 3PL 출고분"></label>
+    <div class="card" style="box-shadow:none;margin-bottom:12px">
+      <div class="tot"><span>이 거래처 매출</span><b id="al_amt">0원</b></div>
+    </div>
+    <button class="btn w" id="al_go">저장 (발주 만들기)</button>
+  `, () => {
+    const ptn = () => $('#al_ptn').value;
+    const priceOf = pid => {
+      // 화면에서 미리 금액을 보여주기 위한 계산 (실제 금액은 서버가 다시 계산한다)
+      const p = PRODUCTS.find(x => x.id === pid);
+      const pt = PARTNERS.find(x => x.id === ptn());
+      if (!p) return 0;
+      return Math.max(0, Math.round((p.price || 0) * (1 - (Number(pt?.discount_rate) || 0) / 100)));
+    };
+    const recalc = () => {
+      let sum = 0;
+      $$('#modal [data-p]').forEach(i => sum += (parseInt(i.value || 0, 10) || 0) * priceOf(i.dataset.p));
+      $('#al_amt').textContent = won(sum) + ' <span class="muted">(대략)</span>'.replace(/<[^>]+>/g,'');
+      $('#al_amt').innerHTML = won(sum) + ` <span class="muted" style="font-size:12px">개별단가는 저장 시 반영</span>`;
+    };
+    $$('#modal [data-p]').forEach(i => i.oninput = recalc);
+    $('#al_ptn').onchange = recalc;
+    $('#al_fill').onclick = () => {
+      d.rows.forEach(r => {
+        const el = $(`#modal [data-p="${r.product_id}"]`);
+        if (el) el.value = r.rest + (Number(curOf(r.product_id)) || 0);
+      });
+      recalc();
+    };
+    $('#al_clear').onclick = () => { $$('#modal [data-p]').forEach(i => i.value = ''); recalc(); };
+    recalc();
+    $('#al_go').onclick = async () => {
+      const rows = $$('#modal [data-p]').map(i => ({
+        product_id: i.dataset.p, qty: parseInt(i.value || 0, 10) || 0 }));
+      if (!rows.some(r => r.qty > 0) && !partnerId) return toast('수량을 넣어 주세요.');
+      try {
+        const r = await api('aShipAlloc', [TOKEN, {
+          ship_date: d.date, partner_id: ptn(), rows, memo: $('#al_memo').value.trim() }]);
+        closeModal();
+        toast(r.deleted ? '배분을 지웠습니다'
+              : `${r.order_no} 발주로 잡았습니다 — ${won(r.amount)}`);
+        $('#alDate').innerHTML = ''; loadShip(); refreshMatchDot();
+      } catch (e) { toast(e.message); }
+    };
+  }, true);
+}
 
 /* ═══════════ 입금 ═══════════ */
 async function loadPays() {
