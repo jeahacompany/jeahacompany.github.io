@@ -242,7 +242,10 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       </div>
 
       <div id="sub-sup" class="hide">
-        <div class="filt"><button class="btn" id="supAdd">+ 매입처 등록</button></div>
+        <div class="filt">
+          <button class="btn" id="supInvite">🔗 매입처 등록 요청 링크</button>
+          <button class="btn g" id="supAdd">+ 직접 등록</button>
+        </div>
         <div class="card" style="padding:0">
           <div class="tblwrap" style="margin:0;padding:0"><table id="supTbl"></table></div>
         </div>
@@ -747,6 +750,8 @@ const MKINDS = [
     act:'이어붙이기' },
   { k:'partner_pending', t:'승인 기다리는 거래처', sev:'red',
     why:'가입 신청해두고 발주를 못 하고 있는 곳입니다.', act:'승인' },
+  { k:'supplier_pending', t:'스스로 등록한 매입처 — 승인 대기', sev:'red',
+    why:'매입처가 링크로 정보를 직접 넣었습니다. 서류를 확인하고 승인하세요.', act:'확인·승인' },
   { k:'pay_unlinked', t:'어느 발주인지 모르는 입금', sev:'red',
     why:'돈은 들어왔는데 어느 발주 건인지 안 붙어 있습니다. 정산이 어긋납니다.', act:'발주 연결' },
   { k:'po_overdue', t:'결제일 지난 매입', sev:'red',
@@ -755,6 +760,8 @@ const MKINDS = [
     why:'세금계산서·배송·연락에 필요한 정보가 비어 있습니다.', act:'채우기' },
   { k:'no_supplier', t:'어디서 사오는지 모르는 상품', sev:'warn',
     why:'매입처가 안 정해져 있어 재발주 때 누구에게 시킬지 알 수 없습니다.', act:'매입처 지정' },
+  { k:'supplier_no_doc', t:'서류가 없는 매입처', sev:'warn',
+    why:'사업자등록증·통장사본이 없습니다. 등록 요청 링크를 보내면 매입처가 직접 올립니다.', act:'등록 요청' },
   { k:'no_cost', t:'원가를 모르는 상품', sev:'warn',
     why:'원가가 없으면 재고 금액과 마진이 안 나옵니다.', act:'원가 입력' },
   { k:'no_price', t:'파는 가격이 없는 상품', sev:'warn',
@@ -847,6 +854,13 @@ function mqLabel(kind, r) {
         <div class="muted">발주 ${r.orders}건</div>${note}`;
     case 'partner_pending':
       return `<b>${esc(r.name)}</b><div class="muted">${esc(r.phone || '')} ${esc(r.biz_no || '')} · ${ymd(r.created_at)} 신청</div>`;
+    case 'supplier_pending':
+      return `<b>${esc(r.name)}</b> ${r.docs ? `<span class="bdg b-shipped">서류 ${r.docs}장</span>` : `<span class="bdg b-cancel">서류 없음</span>`}
+        <div class="muted">${esc(r.biz_no || '')} · ${esc(r.manager || '')} ${esc(r.phone || '')}
+        ${r.category ? ' · ' + esc(r.category) : ''}</div>
+        <div class="muted">${esc(r.bank || '')} · ${ymdt(r.submitted_at)} 제출</div>`;
+    case 'supplier_no_doc':
+      return `<b>${esc(r.name)}</b><div class="muted">${esc(r.phone || '')} · 사업자등록증·통장사본 없음</div>${note}`;
     case 'pay_unlinked':
       return `<b>${won(r.amount)}</b> <span class="muted">${esc(r.partner || '거래처 미상')}</span>
         <div class="muted">${esc(String(r.paid_at))} · 입금자 ${esc(r.deposit_name || '-')}${r.memo ? ' · ' + esc(r.memo) : ''}</div>${note}`;
@@ -927,15 +941,73 @@ async function mqFix(kind, key) {
   if (kind === 'partner_pending')
     return confirm(`'${r.name}' 을(를) 승인할까요?`) && done({}, '승인했습니다');
 
+  if (kind === 'supplier_no_doc') { closeModal(); return inviteModal(); }
+
+  if (kind === 'supplier_pending') {
+    let docs = [];
+    try { docs = await api('aSupDocs', [TOKEN, r.id]); } catch (e) {}
+    const KL = { bizreg: '사업자등록증', bankbook: '통장 사본' };
+    return openModal('매입처 확인 — ' + r.name, `
+      <div class="card" style="box-shadow:none;margin-bottom:12px">
+        <div class="kv"><span class="k">상호</span><span class="v">${esc(r.name)}</span></div>
+        <div class="kv"><span class="k">사업자등록번호</span><span class="v">${esc(r.biz_no || '-')}</span></div>
+        <div class="kv"><span class="k">담당자 · 연락처</span><span class="v">${esc(r.manager || '-')} ${esc(r.phone || '')}</span></div>
+        <div class="kv"><span class="k">취급 품목</span><span class="v">${esc(r.category || '-')}</span></div>
+        <div class="kv"><span class="k">입금 계좌</span><span class="v">${esc(r.bank || '-')}</span></div>
+        <div class="kv"><span class="k">제출</span><span class="v">${ymdt(r.submitted_at)}</span></div>
+      </div>
+      ${docs.length ? `<h3 style="margin:0 0 8px">올린 서류</h3>
+        ${docs.map(d => `<div class="row" style="padding:8px 0;border-bottom:1px solid #f0f2f6">
+          <div class="grow"><b>${esc(KL[d.kind] || d.kind)}</b>
+            <div class="muted">${Math.round(d.size / 1400)}KB</div></div>
+          <button class="btn s g" data-dv="${d.id}">보기</button></div>`).join('')}
+        <div id="docView" style="margin-top:12px"></div>`
+        : `<div class="warn">서류를 안 올렸습니다. 승인은 가능하지만 사업자등록증·통장사본은 따로 받아두세요.</div>`}
+      <div class="row" style="margin-top:14px">
+        <button class="btn ok grow" id="mq_ok">승인</button>
+        <button class="btn g" id="mq_edit">정보 수정</button>
+      </div>`, () => {
+      $$('#modal [data-dv]').forEach(b => b.onclick = async () => {
+        $('#docView').innerHTML = `<div class="empty">여는 중…</div>`;
+        try {
+          const d = await api('aSupDocGet', [TOKEN, b.dataset.dv]);
+          $('#docView').innerHTML = (d.mime || '').startsWith('image/') || d.file_b64.startsWith('data:image')
+            ? `<img src="${d.file_b64}" style="max-width:100%;border-radius:12px;border:1px solid var(--line)">`
+            : `<div class="tip"><a href="${d.file_b64}" download="서류">내려받기</a></div>`;
+        } catch (e) { $('#docView').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+      });
+      $('#mq_ok').onclick = () => done({}, '매입처를 승인했습니다');
+      $('#mq_edit').onclick = async () => {
+        try { SUPPLIERS = await api('aSuppliers', [TOKEN]); } catch (e) {}
+        closeModal(); supModal(SUPPLIERS.find(x => x.id === r.id));
+      };
+    }, true);
+  }
+
   if (kind === 'no_supplier') {
-    if (!SUPPLIERS.length) return toast('먼저 매입 탭에서 매입처를 등록해 주세요.');
+    if (!SUPPLIERS.length) {
+      return openModal('매입처가 없습니다', `
+        <p>이 상품을 어디서 사오는지 지정하려면 먼저 <b>매입처</b>가 있어야 합니다.</p>
+        <div class="tip">매입처에게 <b>등록 요청 링크</b>를 보내면 상호·사업자등록증·통장사본·담당자를
+          거래처가 직접 적어줍니다. 손으로 옮겨 적을 필요가 없습니다.</div>
+        <button class="btn w" id="mq_inv">🔗 매입처 등록 요청 링크 받기</button>
+        <button class="btn w g" style="margin-top:8px" id="mq_man">직접 등록하기</button>`, () => {
+        $('#mq_inv').onclick = () => { closeModal(); inviteModal(); };
+        $('#mq_man').onclick = () => { closeModal(); goTab('buy'); setTimeout(() => {
+          document.querySelector('#t-buy .chips [data-sub=sup]').click(); supModal(null); }, 300); };
+      });
+    }
     return openModal('매입처 지정 — ' + r.name, `
       <label class="f"><span>이 상품은 어디서 사오나요?</span><select id="mq_sup">
-        ${SUPPLIERS.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></label>
+        ${SUPPLIERS.map(s => `<option value="${s.id}">${esc(s.name)}${s.status === 'pending' ? ' (승인대기)' : ''}</option>`).join('')}</select></label>
       <label class="f"><span>메모</span><input type="text" id="mq_note" value="${esc(r.note || '')}"></label>
       <div class="tip">한 번 지정하면 매입 등록·재발주 때 이 매입처가 따라옵니다.</div>
-      <button class="btn w" id="mq_go">지정</button>`, () => {
+      <button class="btn w" id="mq_go">지정</button>
+      <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+      <div class="muted" style="text-align:center;font-size:13.5px">찾는 매입처가 없나요?</div>
+      <button class="btn w g" style="margin-top:8px" id="mq_inv">🔗 매입처 등록 요청 링크 보내기</button>`, () => {
       $('#mq_go').onclick = () => done({ supplier_id: $('#mq_sup').value, note: $('#mq_note').value.trim() });
+      $('#mq_inv').onclick = () => { closeModal(); inviteModal(); };
     });
   }
 
@@ -1554,24 +1626,112 @@ function renderSuppliers() {
   }
   $('#supTbl').innerHTML = `
     <tr><th>코드</th><th>매입처</th><th>담당자</th><th>결제조건</th><th class="right">리드타임</th>
-        <th class="right">누적 매입</th><th class="right">지급</th><th class="right">미지급</th><th>최근매입</th><th></th></tr>
-    ${SUPPLIERS.map(s => `<tr>
+        <th class="right">누적 매입</th><th class="right">지급</th><th class="right">미지급</th><th>서류</th><th></th></tr>
+    ${SUPPLIERS.map(s => `<tr${s.status === 'pending' ? ' style="background:#fffbe6"' : ''}>
       <td class="muted">${esc(s.code || '')}</td>
-      <td><b>${esc(s.name)}</b>${s.biz_no ? `<div class="muted">${esc(s.biz_no)}</div>` : ''}</td>
+      <td><b>${esc(s.name)}</b>${s.status === 'pending' ? ' <span class="bdg b-pending">승인대기</span>' : ''}
+        ${s.biz_no ? `<div class="muted">${esc(s.biz_no)}</div>` : ''}</td>
       <td>${esc(s.manager || '')}<div class="muted">${esc(s.phone || '')}</div></td>
       <td>${PAYTERMS[s.pay_terms] || '-'}</td>
       <td class="n muted">${s.lead_days}일</td>
       <td class="n">${num(s.buy_total)}</td>
       <td class="n" style="color:var(--ok)">${num(s.pay_total)}</td>
       <td class="n" style="color:${s.unpaid > 0 ? 'var(--red)' : 'var(--sub)'}"><b>${num(s.unpaid)}</b></td>
-      <td class="muted">${s.last_buy ? esc(String(s.last_buy)) : '-'}</td>
+      <td>${s.docs ? `<button class="btn s g" data-sd="${s.id}">📄 ${s.docs}장</button>`
+            : `<span class="muted">없음</span>`}</td>
       <td class="row" style="gap:5px">
+        ${s.status === 'pending' ? `<button class="btn s ok" data-sap="${s.id}">승인</button>` : ''}
         <button class="btn s" data-sp="${s.id}">취급 상품 ${s.items}</button>
         <button class="btn s g" data-se="${s.id}">수정</button></td></tr>`).join('')}`;
+  $$('#supTbl [data-sd]').forEach(b => b.onclick = () => supDocsModal(SUPPLIERS.find(x => x.id === b.dataset.sd)));
+  $$('#supTbl [data-sap]').forEach(b => b.onclick = async () => {
+    const s = SUPPLIERS.find(x => x.id === b.dataset.sap);
+    if (!confirm(`'${s.name}' 을(를) 승인할까요?`)) return;
+    try { await api('aSupplierApprove', [TOKEN, s.id]); toast('승인했습니다'); loadBuy(); refreshMatchDot(); }
+    catch (e) { toast(e.message); }
+  });
   $$('#supTbl [data-se]').forEach(b => b.onclick = () => supModal(SUPPLIERS.find(x => x.id === b.dataset.se)));
   $$('#supTbl [data-sp]').forEach(b => b.onclick = () => supProductsModal(SUPPLIERS.find(x => x.id === b.dataset.sp)));
 }
 $('#supAdd').onclick = () => supModal(null);
+
+/* ── 매입처 등록 요청 링크 (자기 정보는 자기가 적게) ── */
+async function vendorLink(reset) {
+  const r = await api('aVendorCode', [TOKEN, !!reset]);
+  return location.href.replace(/[^/]*(\?.*)?$/, '') + 'supplier.html?s=' + r.code;
+}
+async function inviteModal() {
+  let url;
+  try { url = await vendorLink(false); } catch (e) { return toast(e.message); }
+  const msg = `[${BOOT.settings.company_name || '거래처'}] 매입처 정보 등록 요청드립니다.\n`
+    + `아래 링크에서 사업자등록증·통장사본·담당자 연락처를 남겨주시면\n`
+    + `발주와 정산이 훨씬 빨라집니다. 1~2분이면 끝납니다.\n\n${url}`;
+  openModal('매입처 등록 요청 링크', `
+    <div class="tip">이 링크를 매입처에 <b>카톡으로 보내면</b> 거래처가 직접 적습니다.
+      사업자등록증·통장사본까지 사진으로 받습니다.<br>
+      제출되면 <b>사업자번호로 기존 매입처를 찾아 자동으로 붙고</b>, 없으면 새로 만들어
+      <b>매칭 탭</b>에 승인 대기로 올라옵니다.</div>
+    <label class="f"><span>링크</span><input type="text" id="vl_url" readonly value="${esc(url)}"></label>
+    <label class="f"><span>보낼 문구 (그대로 복사해서 붙여넣으세요)</span>
+      <textarea id="vl_msg" style="min-height:120px">${esc(msg)}</textarea></label>
+    <div class="row" style="flex-wrap:wrap">
+      <button class="btn grow" id="vl_copy">문구 통째로 복사</button>
+      <button class="btn g" id="vl_copy2">링크만 복사</button>
+      <button class="btn g" id="vl_open">미리보기</button>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+    <div class="warn">이 링크를 아는 사람은 누구나 등록을 넣을 수 있습니다.
+      링크가 엉뚱한 데로 새면 아래 버튼으로 새로 발급하세요. <b>기존 링크는 즉시 못 쓰게 됩니다.</b></div>
+    <button class="btn r w" id="vl_reset">링크 새로 발급</button>
+  `, () => {
+    const cp = (t, m) => navigator.clipboard?.writeText(t)
+      .then(() => toast(m)).catch(() => toast('칸을 길게 눌러 복사해 주세요'));
+    $('#vl_copy').onclick  = () => cp($('#vl_msg').value, '문구를 복사했어요');
+    $('#vl_copy2').onclick = () => cp(url, '링크를 복사했어요');
+    $('#vl_open').onclick  = () => window.open(url, '_blank');
+    $('#vl_reset').onclick = async () => {
+      if (!confirm('링크를 새로 발급하면 지금 링크는 못 쓰게 됩니다.\n이미 보낸 매입처는 새 링크를 다시 받아야 합니다.\n\n진행할까요?')) return;
+      try { const u2 = await vendorLink(true); closeModal(); toast('새 링크를 발급했습니다'); inviteModal(); }
+      catch (e) { toast(e.message); }
+    };
+  });
+}
+$('#supInvite').onclick = inviteModal;
+
+/* ── 매입처가 올린 서류 보기 ── */
+async function supDocsModal(s) {
+  try {
+    const docs = await api('aSupDocs', [TOKEN, s.id]);
+    const KL = { bizreg: '사업자등록증', bankbook: '통장 사본' };
+    openModal('서류 — ' + s.name, docs.length ? `
+      <div class="tip">매입처가 직접 올린 서류입니다. 관리자만 볼 수 있습니다.</div>
+      ${docs.map(d => `<div class="row" style="padding:9px 0;border-bottom:1px solid #f0f2f6">
+        <div class="grow"><b>${esc(KL[d.kind] || d.kind)}</b>
+          <div class="muted">${ymdt(d.at)} · ${Math.round(d.size / 1400)}KB</div></div>
+        <button class="btn s" data-dv="${d.id}">보기</button>
+        <button class="btn s r" data-dd="${d.id}">삭제</button></div>`).join('')}
+      <div id="docView" style="margin-top:14px"></div>`
+      : `<div class="empty">아직 올라온 서류가 없습니다.<br>
+          <span class="muted">등록 요청 링크를 보내면 매입처가 직접 올립니다.</span></div>`, () => {
+      $$('#modal [data-dv]').forEach(b => b.onclick = async () => {
+        $('#docView').innerHTML = `<div class="empty">여는 중…</div>`;
+        try {
+          const d = await api('aSupDocGet', [TOKEN, b.dataset.dv]);
+          $('#docView').innerHTML = (d.mime || '').startsWith('image/') || d.file_b64.startsWith('data:image')
+            ? `<img src="${d.file_b64}" style="max-width:100%;border-radius:12px;border:1px solid var(--line)">
+               <div style="margin-top:8px"><a href="${d.file_b64}" download="${esc(KL[d.kind] || d.kind)}">내려받기</a></div>`
+            : `<div class="tip">이미지가 아닌 파일입니다.
+               <a href="${d.file_b64}" download="${esc(KL[d.kind] || d.kind)}">내려받기</a></div>`;
+        } catch (e) { $('#docView').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+      });
+      $$('#modal [data-dd]').forEach(b => b.onclick = async () => {
+        if (!confirm('이 서류를 지울까요?')) return;
+        try { await api('aSupDocDelete', [TOKEN, b.dataset.dd]); closeModal(); toast('삭제했습니다'); loadBuy(); }
+        catch (e) { toast(e.message); }
+      });
+    }, true);
+  } catch (e) { toast(e.message); }
+}
 
 // 이 매입처에서 대는 상품들 — "재고마다 구매한 데가 뜨게"
 async function supProductsModal(s) {
