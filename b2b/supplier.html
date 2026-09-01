@@ -158,15 +158,6 @@ textarea{resize:vertical;min-height:64px}
       <h3>거래 조건</h3>
       <p class="d">아는 만큼만 적어주셔도 됩니다.</p>
       <div class="g2">
-        <label class="f"><span>결제 조건</span><select id="f_pay_terms">
-          <option value="">선택 안 함</option>
-          <option value="immediate">즉시 결제</option>
-          <option value="days15">15일</option>
-          <option value="days30">30일</option>
-          <option value="days60">60일</option>
-          <option value="month_end">월말 정산</option>
-        </select></label>
-        <label class="f"><span>마감일</span><input type="text" id="f_close_day" placeholder="예) 매월 말일"></label>
         <label class="f"><span>주문 후 며칠 걸리나요</span><input type="number" id="f_lead_days" placeholder="예) 3"></label>
         <label class="f"><span>최소 주문금액</span><input type="number" id="f_min_order" placeholder="예) 100000"></label>
       </div>
@@ -346,7 +337,6 @@ $('#submit').onclick = async () => {
     phone: v('f_phone'), tax_email: v('f_tax_email'), email: v('f_tax_email'),
     manager: v('f_manager'), mgr_phone: v('f_mgr_phone'),
     sales_rep: v('f_sales_rep'), sales_phone: v('f_sales_phone'),
-    pay_terms: v('f_pay_terms'), close_day: v('f_close_day'),
     lead_days: v('f_lead_days') || null, min_order: v('f_min_order') || null,
     order_method: v('f_order_method'), delivery_days: v('f_delivery_days'),
     return_policy: v('f_return_policy'), memo: v('f_memo'),
