@@ -158,6 +158,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       <button data-tab="orders">발주<span class="dot hide" id="dotOrders"></span></button>
       <button data-tab="pays">입금</button>
       <button data-tab="products">상품·재고</button>
+      <button data-tab="prices">단가표</button>
       <button data-tab="partners">거래처<span class="dot hide" id="dotPartners"></span></button>
       <button data-tab="settle">정산</button>
       <button data-tab="setting">설정</button>
@@ -206,6 +207,22 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       </div>
       <div class="card" style="padding:0">
         <div class="tblwrap" style="margin:0;padding:0"><table id="prTbl"></table></div>
+      </div>
+    </section>
+
+    <section id="t-prices" class="hide">
+      <div class="filt">
+        <select id="mxPartner"><option value="">거래처 전체</option></select>
+        <input type="text" id="mxQ" placeholder="상품 검색" style="min-width:160px">
+        <button class="btn g" id="mxCopy">단가 복사</button>
+        <button class="btn" id="mxSave">변경분 저장 <span id="mxCnt"></span></button>
+      </div>
+      <div class="tip" id="mxTip">
+        칸에 금액을 넣으면 <b>그 업체만</b> 그 값으로 나갑니다. 비우면 기본 공급가(할인율 적용)로 돌아갑니다.
+        회색 숫자는 아직 따로 안 정해서 자동 계산된 값입니다.
+      </div>
+      <div class="card" style="padding:0">
+        <div class="tblwrap" id="mxWrap" style="margin:0;padding:0;max-height:70vh;overflow:auto"></div>
       </div>
     </section>
 
@@ -416,10 +433,10 @@ function updateDots() {
 $$('#tabs button').forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
   $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['dash','orders','pays','products','partners','settle','setting']
+  ['dash','orders','pays','products','prices','partners','settle','setting']
     .forEach(t => $('#t-' + t).classList.toggle('hide', t !== TAB));
   ({ dash: renderDash, orders: loadOrders, pays: loadPays, products: loadProducts,
-     partners: loadPartners, settle: loadSettle, setting: loadSetting })[TAB]?.();
+     prices: loadMatrix, partners: loadPartners, settle: loadSettle, setting: loadSetting })[TAB]?.();
   window.scrollTo(0, 0);
 });
 function goTab(t, prep) {
@@ -696,7 +713,7 @@ function renderProducts() {
   const rows = PRODUCTS.filter(p => !q || (p.name + ' ' + (p.sku||'') + ' ' + (p.category||'')).toLowerCase().includes(q));
   if (!rows.length) { $('#prTbl').innerHTML = `<tr><td class="empty">상품이 없습니다. 오른쪽 위 &lsquo;상품 등록&rsquo;으로 추가하세요.</td></tr>`; return; }
   $('#prTbl').innerHTML = `
-    <tr><th>상품명</th><th>분류</th><th class="right">소비자가</th><th class="right">공급가</th>
+    <tr><th>상품명</th><th>분류</th><th class="right">소비자가</th><th class="right">기본 공급가</th>
         <th class="right">재고</th><th>판매</th><th></th></tr>
     ${rows.map(p => `<tr>
       <td><b>${esc(p.name)}</b>${p.spec ? `<div class="muted">${esc(p.spec)}</div>` : ''}</td>
@@ -735,8 +752,10 @@ function productModal(p) {
     </div>
     <label class="f"><span>사진 주소 (선택)</span><input type="text" id="pr_image_url" value="${v('image_url')}"></label>
     <label class="f"><span>업체에 보일 안내</span><input type="text" id="pr_memo" value="${v('memo')}"></label>
-    <div class="row"><button class="btn grow" id="pr_save">저장</button>
-      ${p ? `<button class="btn g" id="pr_hist">재고 이력</button><button class="btn r" id="pr_del">삭제</button>` : ''}</div>
+    ${p ? `<div class="tip">공급가는 <b>단가를 따로 안 정한 거래처</b>에만 적용됩니다.
+      업체별로 값을 박아두려면 아래 &lsquo;업체별 단가&rsquo; 를 쓰세요.</div>` : ''}
+    <div class="row" style="flex-wrap:wrap"><button class="btn grow" id="pr_save">저장</button>
+      ${p ? `<button class="btn g" id="pr_pp">업체별 단가</button><button class="btn g" id="pr_hist">재고 이력</button><button class="btn r" id="pr_del">삭제</button>` : ''}</div>
   `, () => {
     $('#pr_save').onclick = async () => {
       const body = { name: $('#pr_name').value.trim() };
@@ -757,7 +776,43 @@ function productModal(p) {
     };
     const h = $('#pr_hist');
     if (h) h.onclick = () => histModal(p);
+    const pp = $('#pr_pp');
+    if (pp) pp.onclick = () => productPriceModal(p);
   }, true);
+}
+
+// 한 상품이 거래처별로 얼마에 나가는지 — 여기서 바로 고칠 수 있다
+async function productPriceModal(p) {
+  try {
+    const rows = await api('aProductPrices', [TOKEN, p.id]);
+    if (!rows.length) return toast('등록된 거래처가 없습니다.');
+    openModal('업체별 단가 — ' + p.name, `
+      <div class="tip">비워두면 기본 공급가 ${num(p.price)}원에서 그 업체 할인율을 적용합니다.</div>
+      <div class="tblwrap"><table>
+        <tr><th>거래처</th><th class="right">할인율</th><th class="right">개별 단가</th><th class="right">적용가</th></tr>
+        ${rows.map(r => `<tr>
+          <td><b>${esc(r.name)}</b><div class="muted">${esc(r.code || '')}</div></td>
+          <td class="n muted">${r.discount_rate > 0 ? r.discount_rate + '%' : '-'}</td>
+          <td class="n"><input type="number" style="width:110px;text-align:right"
+            data-pt="${r.partner_id}" value="${r.my_price ?? ''}"
+            placeholder="${num(Math.max(0, Math.round(p.price * (1 - (Number(r.discount_rate)||0)/100))))}"></td>
+          <td class="n">${num(r.final_price)}</td></tr>`).join('')}
+      </table></div>
+      <button class="btn w" style="margin-top:12px" id="ppm_save">저장</button>`, () => {
+      const before = {};
+      $$('#modal [data-pt]').forEach(i => before[i.dataset.pt] = i.value.trim());
+      $('#ppm_save').onclick = async () => {
+        const changed = $$('#modal [data-pt]')
+          .filter(i => i.value.trim() !== before[i.dataset.pt])
+          .map(i => ({ partner_id: i.dataset.pt, product_id: p.id, price: i.value.trim() }));
+        if (!changed.length) { closeModal(); return toast('바뀐 게 없습니다'); }
+        try {
+          const r = await api('aPricesBulkSave', [TOKEN, changed]);
+          closeModal(); toast(`단가 ${r.set}칸 저장, ${r.cleared}칸 되돌림`);
+        } catch (e) { toast(e.message); }
+      };
+    }, true);
+  } catch (e) { toast(e.message); }
 }
 
 function stockModal(p) {
@@ -791,6 +846,120 @@ async function histModal(p) {
       </table></div>` : `<div class="empty">이력이 없습니다.</div>`, null, true);
   } catch (e) { toast(e.message); }
 }
+
+/* ═══════════ 단가표 (업체별 커스텀 단가) ═══════════ */
+let MX = null;            // {products, partners, cells}
+let MXMAP = {};           // 'partnerId|productId' -> 개별단가
+let MXDIRTY = {};         // 바뀐 칸만 모아뒀다가 한 번에 저장
+
+const mxKey = (pt, pr) => pt + '|' + pr;
+// 개별단가가 없을 때 자동으로 계산되는 값 (기본 공급가 - 업체 할인율)
+const mxAuto = (partner, prod) => Math.max(0, Math.round(prod.base * (1 - (Number(partner.discount_rate) || 0) / 100)));
+
+async function loadMatrix() {
+  $('#mxWrap').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    MX = await api('aPriceMatrix', [TOKEN]);
+    MXMAP = {}; MXDIRTY = {};
+    (MX.cells || []).forEach(c => MXMAP[mxKey(c.p, c.i)] = c.v);
+    const sel = $('#mxPartner'), keep = sel.value;
+    sel.innerHTML = `<option value="">거래처 전체</option>` +
+      MX.partners.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    sel.value = keep;
+    renderMatrix();
+  } catch (e) { $('#mxWrap').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+function renderMatrix() {
+  if (!MX) return;
+  if (!MX.products.length || !MX.partners.length) {
+    $('#mxWrap').innerHTML = `<div class="empty">
+      ${!MX.products.length ? '먼저 상품·재고 탭에서 상품을 등록해 주세요.' : '먼저 거래처 탭에서 거래처를 등록해 주세요.'}</div>`;
+    updateDirty(); return;
+  }
+  const q = $('#mxQ').value.trim().toLowerCase();
+  const one = $('#mxPartner').value;
+  const prods = MX.products.filter(p => !q || (p.name + ' ' + (p.spec||'') + ' ' + (p.category||'')).toLowerCase().includes(q));
+  const parts = one ? MX.partners.filter(p => p.id === one) : MX.partners;
+
+  $('#mxWrap').innerHTML = `<table style="min-width:${260 + parts.length * 130}px">
+    <tr>
+      <th style="position:sticky;left:0;z-index:3;background:#fbfcfe;min-width:190px">상품</th>
+      <th class="right" style="min-width:90px">기본 공급가</th>
+      ${parts.map(p => `<th class="right" style="min-width:120px">${esc(p.name)}
+        ${p.discount_rate > 0 ? `<div class="muted" style="font-weight:400">기본 ${p.discount_rate}% 할인</div>` : ''}
+        ${p.status === 'pending' ? `<div class="muted" style="font-weight:400;color:var(--warn)">승인대기</div>` : ''}</th>`).join('')}
+    </tr>
+    ${prods.map(pr => `<tr>
+      <td style="position:sticky;left:0;z-index:2;background:#fff">
+        <b>${esc(pr.name)}</b>${pr.spec ? `<div class="muted">${esc(pr.spec)}</div>` : ''}</td>
+      <td class="n muted">${num(pr.base)}</td>
+      ${parts.map(pt => {
+        const k = mxKey(pt.id, pr.id), has = MXMAP[k] != null;
+        return `<td class="n"><input type="number" data-k="${k}" value="${has ? MXMAP[k] : ''}"
+          placeholder="${num(mxAuto(pt, pr))}"
+          style="width:105px;text-align:right;${has ? '' : 'color:var(--sub);background:#fbfcfe'}"></td>`;
+      }).join('')}
+    </tr>`).join('')}
+  </table>`;
+
+  $$('#mxWrap input[data-k]').forEach(inp => {
+    inp.oninput = () => {
+      MXDIRTY[inp.dataset.k] = inp.value.trim();
+      inp.style.color = ''; inp.style.background = inp.value.trim() ? '#fffbe6' : '#fbfcfe';
+      updateDirty();
+    };
+  });
+  updateDirty();
+}
+$('#mxQ').oninput = renderMatrix;
+$('#mxPartner').onchange = renderMatrix;
+
+function updateDirty() {
+  const n = Object.keys(MXDIRTY).length;
+  $('#mxCnt').textContent = n ? `(${n})` : '';
+  $('#mxSave').disabled = n === 0;
+}
+
+$('#mxSave').onclick = async () => {
+  const rows = Object.entries(MXDIRTY).map(([k, price]) => {
+    const [partner_id, product_id] = k.split('|');
+    return { partner_id, product_id, price };
+  });
+  if (!rows.length) return;
+  $('#mxSave').disabled = true;
+  try {
+    const r = await api('aPricesBulkSave', [TOKEN, rows]);
+    toast(`단가 ${r.set}칸 저장, ${r.cleared}칸 되돌림`);
+    await loadMatrix();
+  } catch (e) { toast(e.message); $('#mxSave').disabled = false; }
+};
+
+$('#mxCopy').onclick = () => {
+  if (!MX || MX.partners.length < 2) return toast('거래처가 2곳 이상이어야 복사할 수 있어요.');
+  const opts = MX.partners.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  openModal('단가 복사', `
+    <div class="tip">한 거래처의 지금 적용가를 다른 거래처에 그대로 박아넣습니다.
+      비슷한 조건의 업체가 새로 들어왔을 때 쓰세요.</div>
+    <div class="g2">
+      <label class="f"><span>가져올 곳 (원본)</span><select id="cp_from">${opts}</select></label>
+      <label class="f"><span>넣을 곳 (대상)</span><select id="cp_to">${opts}</select></label>
+    </div>
+    <p class="muted">대상 거래처에 이미 정해둔 단가가 있으면 <b>덮어씁니다.</b></p>
+    <button class="btn w" id="cp_go" style="margin-top:8px">복사하기</button>`, () => {
+    $('#cp_to').selectedIndex = 1;
+    $('#cp_go').onclick = async () => {
+      const from = $('#cp_from').value, to = $('#cp_to').value;
+      const fromName = MX.partners.find(p => p.id === from)?.name, toName = MX.partners.find(p => p.id === to)?.name;
+      if (from === to) return toast('서로 다른 거래처를 골라 주세요.');
+      if (!confirm(`'${fromName}' 의 단가를 '${toName}' 에 덮어씁니다. 진행할까요?`)) return;
+      try {
+        const r = await api('aPriceCopy', [TOKEN, { from, to }]);
+        closeModal(); toast(`${r.rows}개 상품 단가를 복사했습니다`); loadMatrix();
+      } catch (e) { toast(e.message); }
+    };
+  });
+};
 
 /* ═══════════ 거래처 ═══════════ */
 async function loadPartners() {
@@ -905,12 +1074,17 @@ async function priceModal(p) {
           <td class="n" data-f="${r.product_id}">${num(r.final_price)}</td></tr>`).join('')}
       </table></div>
       <button class="btn w" style="margin-top:12px" id="pp_save">단가 저장</button>`, () => {
+      const before = {};
+      $$('#modal [data-p]').forEach(i => before[i.dataset.p] = i.value.trim());
       $('#pp_save').onclick = async () => {
+        // 바뀐 칸만 골라서 한 번에 보낸다 (칸마다 호출하면 상품이 많을 때 하염없이 느려진다)
+        const rows = $$('#modal [data-p]')
+          .filter(i => i.value.trim() !== before[i.dataset.p])
+          .map(i => ({ partner_id: p.id, product_id: i.dataset.p, price: i.value.trim() }));
+        if (!rows.length) { closeModal(); return toast('바뀐 게 없습니다'); }
         try {
-          for (const inp of $$('#modal [data-p]')) {
-            await api('aPartnerPriceSave', [TOKEN, { partner_id: p.id, product_id: inp.dataset.p, price: inp.value.trim() }]);
-          }
-          closeModal(); toast('단가를 저장했습니다');
+          const r = await api('aPricesBulkSave', [TOKEN, rows]);
+          closeModal(); toast(`단가 ${r.set}칸 저장, ${r.cleared}칸 되돌림`);
         } catch (e) { toast(e.message); }
       };
     }, true);
