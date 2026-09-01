@@ -117,6 +117,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chips button{padding:6px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--sub)}
 .chips button.on{background:var(--txt);border-color:var(--txt);color:#fff}
+.clkrow:hover{background:#f7f9fd}
 </style>
 </head>
 <body>
@@ -243,6 +244,8 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 
       <div id="sub-sup" class="hide">
         <div class="filt">
+          <input type="text" id="supQ" placeholder="매입처 검색" class="grow">
+          <select id="supCat"><option value="">전체 분류</option></select>
           <button class="btn" id="supInvite">🔗 매입처 등록 요청 링크</button>
           <button class="btn g" id="supAdd">+ 직접 등록</button>
         </div>
@@ -997,18 +1000,69 @@ async function mqFix(kind, key) {
           document.querySelector('#t-buy .chips [data-sub=sup]').click(); supModal(null); }, 300); };
       });
     }
+    // 흐름을 끊지 않는 게 핵심: 목록에서 고르거나, 없으면 이름만 쳐서 바로 만든다.
+    let NAMES = [];
+    try { NAMES = await api('aSupplierNames', [TOKEN]); } catch (e) { NAMES = SUPPLIERS; }
+    const others = (MQ.no_supplier || []).filter(x => x.key !== r.key);
     return openModal('매입처 지정 — ' + r.name, `
-      <label class="f"><span>이 상품은 어디서 사오나요?</span><select id="mq_sup">
-        ${SUPPLIERS.map(s => `<option value="${s.id}">${esc(s.name)}${s.status === 'pending' ? ' (승인대기)' : ''}</option>`).join('')}</select></label>
+      <label class="f"><span>어디서 사오나요? — 이름을 치면 찾아주고, 없으면 바로 만듭니다</span>
+        <input type="text" id="mq_q" placeholder="예) 마루푸드" autocomplete="off"></label>
+      <div id="mq_list" style="max-height:230px;overflow:auto;border:1px solid var(--line);
+        border-radius:11px;margin-bottom:12px"></div>
+      <div id="mq_new" class="hide"></div>
+      ${others.length ? `<details style="margin-bottom:12px">
+        <summary class="muted" style="cursor:pointer;padding:6px 0">
+          같은 곳에서 사오는 상품이 더 있나요? (${others.length}개 중 고르기)</summary>
+        <div style="max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:11px;padding:8px;margin-top:8px">
+          ${others.map(o => `<label class="row" style="gap:8px;padding:4px 2px">
+            <input type="checkbox" data-also="${esc(o.key)}" style="width:17px;height:17px;flex:none">
+            <span class="grow">${esc(o.name)} <span class="muted">${esc(o.sku || '')}</span></span></label>`).join('')}
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn s g" id="mq_all">전체 선택</button>
+          <button class="btn s g" id="mq_none">전체 해제</button>
+        </div></details>` : ''}
       <label class="f"><span>메모</span><input type="text" id="mq_note" value="${esc(r.note || '')}"></label>
-      <div class="tip">한 번 지정하면 매입 등록·재발주 때 이 매입처가 따라옵니다.</div>
-      <button class="btn w" id="mq_go">지정</button>
-      <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
-      <div class="muted" style="text-align:center;font-size:13.5px">찾는 매입처가 없나요?</div>
-      <button class="btn w g" style="margin-top:8px" id="mq_inv">🔗 매입처 등록 요청 링크 보내기</button>`, () => {
-      $('#mq_go').onclick = () => done({ supplier_id: $('#mq_sup').value, note: $('#mq_note').value.trim() });
+      <div class="tip">지금은 <b>이름만</b> 있으면 됩니다. 사업자등록증·계좌·서류는
+        나중에 매입처 탭에서 채우거나 <b>등록 요청 링크</b>로 받으면 됩니다.</div>
+      <button class="btn w g" id="mq_inv">🔗 매입처 등록 요청 링크 보내기</button>`, () => {
+      const q = $('#mq_q'), list = $('#mq_list'), box = $('#mq_new');
+      const also = () => $$('#modal [data-also]').filter(c => c.checked).map(c => c.dataset.also);
+
+      const draw = () => {
+        const t = q.value.trim().toLowerCase();
+        const hit = NAMES.filter(s => !t || s.name.toLowerCase().includes(t)).slice(0, 60);
+        list.innerHTML = hit.length ? hit.map(s => `
+          <div class="row clkrow" data-pick="${s.id}" style="padding:9px 12px;border-bottom:1px solid #f0f2f6;cursor:pointer">
+            <div class="grow"><b>${esc(s.name)}</b>
+              <span class="muted">${s.category ? ' · ' + esc(s.category) : ''}${s.items ? ' · 상품 ' + s.items : ''}</span></div>
+            <span class="btn s">지정</span></div>`).join('')
+          : `<div class="empty" style="padding:22px">찾는 이름이 없습니다. 아래 버튼으로 새로 만드세요.</div>`;
+        const exact = NAMES.some(s => s.name.replace(/\s/g,'').toLowerCase() === t.replace(/\s/g,''));
+        box.classList.toggle('hide', !t || exact);
+        if (t && !exact) box.innerHTML =
+          `<button class="btn w" id="mq_mk">➕ '${esc(q.value.trim())}' 새로 만들고 지정</button>`;
+        $$('#mq_list [data-pick]').forEach(el => el.onclick = () =>
+          done({ supplier_id: el.dataset.pick, also: also(), note: $('#mq_note').value.trim() }));
+        const mk = $('#mq_mk');
+        if (mk) mk.onclick = () =>
+          done({ supplier_name: q.value.trim(), also: also(), note: $('#mq_note').value.trim() });
+      };
+      q.oninput = draw;
+      q.onkeydown = e => {
+        if (e.key !== 'Enter') return;
+        const mk = $('#mq_mk');
+        if (mk) return mk.click();
+        const first = $('#mq_list [data-pick]');
+        if (first) first.click();
+      };
+      draw();
+      setTimeout(() => q.focus(), 100);
+      const a = $('#mq_all'), n = $('#mq_none');
+      if (a) a.onclick = () => $$('#modal [data-also]').forEach(c => c.checked = true);
+      if (n) n.onclick = () => $$('#modal [data-also]').forEach(c => c.checked = false);
       $('#mq_inv').onclick = () => { closeModal(); inviteModal(); };
-    });
+    }, true);
   }
 
   if (kind === 'no_cost')
@@ -1624,18 +1678,29 @@ function renderSuppliers() {
   if (!SUPPLIERS.length) {
     $('#supTbl').innerHTML = `<tr><td class="empty">매입처가 없습니다. 물건을 사오는 곳을 먼저 등록하세요.</td></tr>`; return;
   }
+  // 분류 칸 채우기 (거래처가 많아지면 골라 보는 게 필수)
+  const cats = [...new Set(SUPPLIERS.map(s => s.category).filter(Boolean))].sort();
+  const keep = $('#supCat').value;
+  $('#supCat').innerHTML = `<option value="">전체 분류 (${SUPPLIERS.length})</option>` +
+    cats.map(c => `<option value="${esc(c)}">${esc(c)} (${SUPPLIERS.filter(s => s.category === c).length})</option>`).join('');
+  $('#supCat').value = keep;
+
+  const q = $('#supQ').value.trim().toLowerCase(), cat = $('#supCat').value;
+  const rows = SUPPLIERS.filter(s =>
+    (!cat || s.category === cat) &&
+    (!q || (s.name + ' ' + (s.biz_no||'') + ' ' + (s.manager||'') + ' ' + (s.erp_code||'')).toLowerCase().includes(q)));
+  if (!rows.length) { $('#supTbl').innerHTML = `<tr><td class="empty">해당하는 매입처가 없습니다.</td></tr>`; return; }
   $('#supTbl').innerHTML = `
-    <tr><th>코드</th><th>매입처</th><th>담당자</th><th>결제조건</th><th class="right">리드타임</th>
-        <th class="right">누적 매입</th><th class="right">지급</th><th class="right">미지급</th><th>서류</th><th></th></tr>
-    ${SUPPLIERS.map(s => `<tr${s.status === 'pending' ? ' style="background:#fffbe6"' : ''}>
-      <td class="muted">${esc(s.code || '')}</td>
+    <tr><th>코드</th><th>매입처</th><th>분류</th><th>담당자</th><th>결제조건</th>
+        <th class="right">누적 매입</th><th class="right">미지급</th><th>서류</th><th></th></tr>
+    ${rows.map(s => `<tr${s.status === 'pending' ? ' style="background:#fffbe6"' : ''}>
+      <td class="muted">${esc(s.code || '')}${s.erp_code ? `<div class="muted">ERP ${esc(s.erp_code)}</div>` : ''}</td>
       <td><b>${esc(s.name)}</b>${s.status === 'pending' ? ' <span class="bdg b-pending">승인대기</span>' : ''}
         ${s.biz_no ? `<div class="muted">${esc(s.biz_no)}</div>` : ''}</td>
-      <td>${esc(s.manager || '')}<div class="muted">${esc(s.phone || '')}</div></td>
-      <td>${PAYTERMS[s.pay_terms] || '-'}</td>
-      <td class="n muted">${s.lead_days}일</td>
+      <td class="muted">${esc(s.category || '-')}</td>
+      <td>${esc(s.manager || '')}<div class="muted">${esc(s.phone || s.phone2 || '')}</div></td>
+      <td class="muted">${PAYTERMS[s.pay_terms] || '-'}<div class="muted">리드 ${s.lead_days}일</div></td>
       <td class="n">${num(s.buy_total)}</td>
-      <td class="n" style="color:var(--ok)">${num(s.pay_total)}</td>
       <td class="n" style="color:${s.unpaid > 0 ? 'var(--red)' : 'var(--sub)'}"><b>${num(s.unpaid)}</b></td>
       <td>${s.docs ? `<button class="btn s g" data-sd="${s.id}">📄 ${s.docs}장</button>`
             : `<span class="muted">없음</span>`}</td>
@@ -1654,6 +1719,8 @@ function renderSuppliers() {
   $$('#supTbl [data-sp]').forEach(b => b.onclick = () => supProductsModal(SUPPLIERS.find(x => x.id === b.dataset.sp)));
 }
 $('#supAdd').onclick = () => supModal(null);
+$('#supQ').oninput = renderSuppliers;
+$('#supCat').onchange = renderSuppliers;
 
 /* ── 매입처 등록 요청 링크 (자기 정보는 자기가 적게) ── */
 async function vendorLink(reset) {
