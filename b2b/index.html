@@ -342,6 +342,12 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
           <label class="f"><span>무료배송 기준액 (0=안씀)</span><input type="number" id="s_free_ship_over"></label>
           <label class="f"><span>최소 주문금액 (0=제한없음)</span><input type="number" id="s_min_order"></label>
         </div>
+        <div class="warn">아래 두 값이 <b>원가가 올랐을 때 알려주는 기준</b>입니다.
+          목표 마진 밑으로 떨어진 상품은 대시보드에 경고로 뜹니다.</div>
+        <div class="g2">
+          <label class="f"><span>목표 마진율 % (상품별로 따로 정할 수 있음)</span><input type="number" id="s_target_margin" step="0.1"></label>
+          <label class="f"><span>매입가 변동 경고 기준 %</span><input type="number" id="s_cost_alert_pct" step="0.1"></label>
+        </div>
         <label class="f"><span>업체 화면 상단 안내문</span><textarea id="s_notice"></textarea></label>
         <label class="f"><span>발주 완료 후 안내문</span><textarea id="s_order_guide" placeholder="예) 오후 2시 이전 입금 건은 당일 출고됩니다."></textarea></label>
         <button class="btn" id="setSave">설정 저장</button>
@@ -577,6 +583,7 @@ async function renderDash() {
       ${al.no_price ? `공급가가 아직 없는 상품 <b>${al.no_price}개</b>. ` : ''}
       ${al.no_cost ? `원가가 아직 없는 상품 <b>${al.no_cost}개</b>. ` : ''}
       이게 채워져야 재고 금액과 마진이 제대로 나옵니다. → <b>상품·재고</b> 탭</div>` : ''}
+    <div id="dashMargin"></div>
 
     <div class="card">
       <h3>지금 할 일</h3>
@@ -630,6 +637,7 @@ async function renderDash() {
     goTab('orders', () => { $('#oStatus').value = g; $('#oYm').value = ''; });
   });
   $('#dashAll').onclick = () => goTab('orders', () => { $('#oStatus').value = ''; });
+  renderMarginAlerts();
 
   try {
     const rows = await api('aOrders', [TOKEN, { limit: 15 }]);
@@ -646,6 +654,52 @@ async function renderDash() {
       </table></div>` : `<div class="empty">처리할 발주가 없습니다. 👍</div>`;
     $$('#dashList tr.clk').forEach(tr => tr.onclick = () => openOrder(tr.dataset.id));
   } catch (e) { $('#dashList').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+/* ── 원가가 올라 마진이 깨진 품목 / 매입가가 확 뛴 품목 ── */
+async function renderMarginAlerts() {
+  const box = $('#dashMargin');
+  if (!box) return;
+  let d;
+  try { d = await api('aMarginAlerts', [TOKEN]); } catch (e) { box.innerHTML = ''; return; }
+  const rows = d.rows || [], jump = d.jumped || [];
+  if (!rows.length && !jump.length) { box.innerHTML = ''; return; }
+
+  box.innerHTML = `
+    ${rows.length ? `<div class="card" style="border-color:#f8c9c9">
+      <h3>⚠️ 원가가 올라 마진이 깨진 상품 ${rows.length}개</h3>
+      <div class="tblwrap"><table>
+        <tr><th>상품</th><th class="right">원가</th><th class="right">공급가</th>
+            <th class="right">지금 마진</th><th class="right">목표</th><th class="right">이 값이면 목표 유지</th><th></th></tr>
+        ${rows.slice(0, 10).map(r => `<tr>
+          <td><b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')}</div></td>
+          <td class="n">${num(r.cost)}${r.cost_change_pct ? `<div class="muted" style="color:${r.cost_change_pct>0?'var(--red)':'var(--ok)'}">${r.cost_change_pct>0?'▲':'▼'}${Math.abs(r.cost_change_pct)}%</div>` : ''}</td>
+          <td class="n">${num(r.price)}</td>
+          <td class="n low"><b>${r.margin}%</b></td>
+          <td class="n muted">${r.target}%</td>
+          <td class="n"><b>${num(r.suggested_price)}</b></td>
+          <td><button class="btn s" data-rp="${r.id}">판매가 조정</button></td></tr>`).join('')}
+      </table></div>
+      ${rows.length > 10 ? `<div class="muted" style="margin-top:6px">… 외 ${rows.length - 10}개</div>` : ''}
+    </div>` : ''}
+    ${jump.length ? `<div class="card">
+      <h3>📈 최근 매입가가 ${d.alert_pct}% 넘게 움직인 상품 ${jump.length}개</h3>
+      ${jump.slice(0, 8).map(j => `<div class="row" style="padding:5px 0;border-bottom:1px solid #f0f2f6">
+        <div class="grow"><b>${esc(j.name)}</b> <span class="muted">${esc(j.sku || '')}</span></div>
+        <div class="num muted">${num(j.prev)} →</div>
+        <div class="num" style="width:90px;text-align:right"><b>${num(j.now)}</b></div>
+        <div class="num" style="width:70px;text-align:right;color:${j.pct > 0 ? 'var(--red)' : 'var(--ok)'}">
+          ${j.pct > 0 ? '+' : ''}${j.pct}%</div></div>`).join('')}
+      <div class="muted" style="margin-top:8px">아직 마진이 깨지진 않았지만 시세가 움직이고 있습니다.</div>
+    </div>` : ''}`;
+
+  $$('#dashMargin [data-rp]').forEach(b => b.onclick = async () => {
+    try {
+      if (!PRODUCTS.length) PRODUCTS = await api('aProducts', [TOKEN]);
+      const p = PRODUCTS.find(x => x.id === b.dataset.rp);
+      if (p) repriceModal(p);
+    } catch (e) { toast(e.message); }
+  });
 }
 
 /* ═══════════ 발주 ═══════════ */
@@ -923,7 +977,8 @@ function poItemRow(it, i) {
       ${PRODUCTS.map(p => `<option value="${p.id}" ${it && it.product_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
     </select></td>
     <td><input type="number" data-f="qty" value="${it ? it.qty : ''}" style="width:80px;text-align:right"></td>
-    <td><input type="number" data-f="unit_price" value="${it ? it.unit_price : ''}" style="width:110px;text-align:right"></td>
+    <td><input type="number" data-f="unit_price" value="${it ? it.unit_price : ''}" style="width:110px;text-align:right">
+      <div class="muted" data-f="hint" style="font-size:11.5px;white-space:nowrap"></div></td>
     <td class="n" data-f="amt">0</td>
     <td><button class="btn s r" data-del="${i}">×</button></td></tr>`;
 }
@@ -975,6 +1030,17 @@ async function poModal(po) {
         const u = parseInt(tr.querySelector('[data-f=unit_price]').value || 0, 10);
         tr.querySelector('[data-f=amt]').textContent = num(q * u);
         sub += q * u;
+        // 지난번 매입가와 얼마나 다른지 바로 보여준다 — 시세가 뛴 걸 등록 시점에 알아야 한다
+        const hint = tr.querySelector('[data-f=hint]');
+        const prod = PRODUCTS.find(x => x.id === tr.querySelector('[data-f=product_id]').value);
+        const prev = prod ? (prod.last_cost || 0) : 0;
+        if (prod && prev > 0 && u > 0) {
+          const pct = Math.round((u - prev) / prev * 1000) / 10;
+          hint.innerHTML = pct === 0 ? `지난번과 같음 (${num(prev)})`
+            : `지난번 ${num(prev)} → <b style="color:${pct > 0 ? 'var(--red)' : 'var(--ok)'}">${pct > 0 ? '+' : ''}${pct}%</b>`;
+        } else if (prod && prev > 0) {
+          hint.textContent = `지난번 ${num(prev)}`;
+        } else { hint.textContent = prod ? '첫 매입' : ''; }
       });
       const ex = parseInt($('#po_extra').value || 0, 10);
       const vat = $('#po_tax').value === 'taxed' ? Math.round((sub + ex) * 0.1) : 0;
@@ -1321,9 +1387,10 @@ function productModal(p) {
       <label class="f"><span>분류</span><input type="text" id="pr_category" value="${v('category')}" placeholder="예) 냉동"></label>
       <label class="f"><span>규격·옵션</span><input type="text" id="pr_spec" value="${v('spec')}" placeholder="예) 1kg"></label>
       <label class="f"><span>단위</span><input type="text" id="pr_unit" value="${p ? esc(p.unit) : '개'}"></label>
-      <label class="f"><span>원가 (매입가)</span><input type="number" id="pr_cost" value="${p ? (p.cost || 0) : 0}"></label>
-      <label class="f"><span>소비자가 (참고)</span><input type="number" id="pr_list_price" value="${p ? p.list_price : 0}"></label>
       <label class="f"><span>기본 공급가 *</span><input type="number" id="pr_price" value="${p ? p.price : 0}"></label>
+      <label class="f"><span>목표 마진율 % (0=회사 기본값)</span><input type="number" id="pr_target_margin" step="0.1" value="${p ? (p.target_margin || 0) : 0}"></label>
+      <label class="f"><span>수동 원가 (매입 기록 없을 때만 씀)</span><input type="number" id="pr_cost" value="${p ? (p.cost || 0) : 0}"></label>
+      <label class="f"><span>소비자가 (참고)</span><input type="number" id="pr_list_price" value="${p ? p.list_price : 0}"></label>
       <label class="f"><span>고객사 상품코드 (창고 대조용)</span><input type="text" id="pr_sku" value="${v('sku')}" placeholder="예) DB0064"></label>
       <label class="f"><span>창고 상품코드</span><input type="text" id="pr_wms_code" value="${v('wms_code')}" placeholder="예) B901324784959"></label>
       <label class="f"><span>현재 재고</span><input type="number" id="pr_stock" value="${p ? p.stock : 0}"></label>
@@ -1342,7 +1409,8 @@ function productModal(p) {
     </div>
     <label class="f"><span>사진 주소 (선택)</span><input type="text" id="pr_image_url" value="${v('image_url')}"></label>
     <label class="f"><span>업체에 보일 안내</span><input type="text" id="pr_memo" value="${v('memo')}"></label>
-    ${p ? `<div class="tip">공급가는 <b>단가를 따로 안 정한 거래처</b>에만 적용됩니다.
+    ${p ? `<div id="pr_costbox"></div>
+    <div class="tip">공급가는 <b>단가를 따로 안 정한 거래처</b>에만 적용됩니다.
       업체별로 값을 박아두려면 아래 &lsquo;업체별 단가&rsquo; 를 쓰세요.</div>` : ''}
     <div class="row" style="flex-wrap:wrap"><button class="btn grow" id="pr_save">저장</button>
       ${p ? `<button class="btn g" id="pr_pp">업체별 단가</button><button class="btn g" id="pr_buys">매입 이력</button><button class="btn g" id="pr_ph">가격 이력</button><button class="btn g" id="pr_hist">재고 이력</button><button class="btn g" id="pr_adj">재고 조정</button><button class="btn r" id="pr_del">삭제</button>` : ''}</div>
@@ -1353,6 +1421,7 @@ function productModal(p) {
       ['list_price','price','cost','stock','safety_stock','min_qty','box_qty','sort','lead_days']
         .forEach(k => body[k] = parseInt($('#pr_' + k).value || 0, 10));
       body.supplier_id = $('#pr_supplier_id').value;
+      body.target_margin = parseFloat($('#pr_target_margin').value || 0);
       body.active = $('#pr_active').value === 'true';
       if (p) body.id = p.id;
       if (!body.name) return toast('상품명을 입력해 주세요.');
@@ -1375,6 +1444,126 @@ function productModal(p) {
     if (adj) adj.onclick = () => stockModal(p);
     const bys = $('#pr_buys');
     if (bys) bys.onclick = () => productBuysModal(p);
+    if (p) renderCostBox(p);
+  }, true);
+}
+
+/* ── 상품 폼 안의 '원가는 이렇게 움직였다' 패널 ── */
+function costSpark(points, w = 300, h = 44) {
+  if (points.length < 2) return '';
+  const vs = points.map(p => Number(p.unit_cost));
+  const mn = Math.min(...vs), mx = Math.max(...vs), rng = (mx - mn) || 1;
+  const step = w / (points.length - 1);
+  const pts = vs.map((v, i) => `${(i * step).toFixed(1)},${(h - ((v - mn) / rng) * (h - 10) - 5).toFixed(1)}`);
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px;margin-top:6px">
+    <polyline points="${pts.join(' ')}" fill="none" stroke="var(--warn)" stroke-width="2" stroke-linejoin="round"/>
+    ${pts.map(pt => `<circle cx="${pt.split(',')[0]}" cy="${pt.split(',')[1]}" r="2.5" fill="var(--warn)"/>`).join('')}
+  </svg>`;
+}
+
+async function renderCostBox(p) {
+  const box = $('#pr_costbox');
+  if (!box) return;
+  let t;
+  try { t = await api('aCostTrend', [TOKEN, p.id]); } catch (e) { box.innerHTML = ''; return; }
+
+  const chg = t.change_pct;
+  const arrow = chg == null ? '' : (chg > 0 ? `<span style="color:var(--red)">▲ ${chg}%</span>`
+                    : chg < 0 ? `<span style="color:var(--ok)">▼ ${Math.abs(chg)}%</span>`
+                    : `<span class="muted">변동 없음</span>`);
+  const marginBad = t.margin != null && t.margin < t.target_margin;
+
+  box.innerHTML = `<div class="card" style="box-shadow:none;background:#fbfcfe;margin:4px 0 12px">
+    <h3 style="margin-bottom:8px">원가는 이렇게 움직였습니다</h3>
+    ${t.buy_count > 0 ? `
+      <div class="kv"><span class="k">지금 쓰는 원가 (이동평균)</span><span class="v">${won(t.eff_cost)}</span></div>
+      <div class="kv"><span class="k">최근 매입 단가</span><span class="v">${won(t.last_cost)} ${arrow}</span></div>
+      <div class="kv"><span class="k">매입 단가 범위</span>
+        <span class="v">${won(t.min_cost)} ~ ${won(t.max_cost)} <span class="muted">(${t.buy_count}회)</span></span></div>
+      ${t.total_change_pct != null ? `<div class="kv"><span class="k">첫 매입 대비</span>
+        <span class="v" style="color:${t.total_change_pct > 0 ? 'var(--red)' : 'var(--ok)'}">
+        ${t.total_change_pct > 0 ? '+' : ''}${t.total_change_pct}%</span></div>` : ''}
+      ${costSpark(t.points)}
+    ` : `<div class="muted">아직 매입 기록이 없어 <b>수동 원가</b>를 씁니다.
+        매입 탭에서 매입을 등록하고 입고 처리하면 그때부터 <b>이동평균 원가</b>가 자동으로 잡히고,
+        매입가가 바뀔 때마다 여기에 쌓입니다.</div>`}
+    <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
+    <div class="kv"><span class="k">지금 마진율</span>
+      <span class="v" style="color:${marginBad ? 'var(--red)' : 'var(--ok)'}">
+        ${t.margin != null ? t.margin + '%' : '-'} <span class="muted">(목표 ${t.target_margin}%)</span></span></div>
+    ${t.suggested_price ? `<div class="kv"><span class="k">목표 마진 지키려면</span>
+      <span class="v">${won(t.suggested_price)}</span></div>` : ''}
+    ${marginBad ? `<div class="warn" style="margin:10px 0 0">원가가 올라 목표 마진이 깨졌습니다.
+      아래 버튼으로 판매가를 다시 잡아보세요.</div>` : ''}
+    ${t.eff_cost > 0 ? `<button class="btn ${marginBad ? '' : 'g'} w" style="margin-top:10px" id="pr_reprice">판매가 다시 잡기</button>` : ''}
+  </div>`;
+  const rb = $('#pr_reprice');
+  if (rb) rb.onclick = () => repriceModal(p);
+}
+
+/* ── 판매가 재산정 ── */
+async function repriceModal(p, mode) {
+  mode = mode || 'target';
+  let d;
+  try { d = await api('aRepricePreview', [TOKEN, { product_id: p.id, mode }]); }
+  catch (e) { return toast(e.message); }
+
+  const arrow = (a, b) => b > a ? `<span style="color:var(--red)">▲</span>`
+                        : b < a ? `<span style="color:var(--ok)">▼</span>` : '';
+  openModal('판매가 다시 잡기 — ' + p.name, `
+    <div class="card" style="box-shadow:none;margin-bottom:12px">
+      <div class="kv"><span class="k">지금 원가</span><span class="v">${won(d.product.cost)}</span></div>
+      <div class="kv"><span class="k">지금 기본 공급가</span>
+        <span class="v">${won(d.product.price)} <span class="muted">(마진 ${d.product.margin ?? '-'}%)</span></span></div>
+    </div>
+    <div class="chips" style="margin-bottom:12px">
+      <button data-mode="target" class="${mode === 'target' ? 'on' : ''}">목표 마진율로 맞추기</button>
+      <button data-mode="keep" class="${mode === 'keep' ? 'on' : ''}">업체별 지금 마진율 그대로 유지</button>
+    </div>
+    ${mode === 'target' ? `<label class="f"><span>목표 마진율 %</span>
+      <input type="number" id="rp_margin" step="0.1" value="${d.margin}" style="max-width:160px"></label>`
+      : `<div class="tip">원가가 오른 만큼만 각 업체 판매가를 올립니다. <b>업체별로 보던 마진율은 그대로</b> 유지돼요.</div>`}
+    <div class="tblwrap"><table>
+      <tr><th>대상</th><th class="right">지금</th><th class="right">바꿀 값</th><th class="right">차이</th><th>적용</th></tr>
+      <tr style="background:#fbfcfe">
+        <td><b>기본 공급가</b><div class="muted">단가 안 정한 업체용</div></td>
+        <td class="n">${num(d.base.now)}</td>
+        <td class="n"><input type="number" id="rp_base" value="${d.base.new}" style="width:110px;text-align:right"></td>
+        <td class="n">${arrow(d.base.now, d.base.new)} ${d.base.new - d.base.now > 0 ? '+' : ''}${num(d.base.new - d.base.now)}</td>
+        <td><input type="checkbox" id="rp_base_on" checked style="width:18px;height:18px"></td></tr>
+      ${d.partners.map(pt => `<tr>
+        <td>${esc(pt.name)}${pt.has_own ? '' : '<div class="muted">개별단가 없음 → 새로 생김</div>'}</td>
+        <td class="n">${num(pt.now)}<div class="muted">${pt.now_margin ?? '-'}%</div></td>
+        <td class="n"><input type="number" data-pt="${pt.partner_id}" value="${pt.new}" style="width:110px;text-align:right"></td>
+        <td class="n">${arrow(pt.now, pt.new)} ${pt.new - pt.now > 0 ? '+' : ''}${num(pt.new - pt.now)}</td>
+        <td><input type="checkbox" data-on="${pt.partner_id}" style="width:18px;height:18px"></td></tr>`).join('')}
+    </table></div>
+    <div class="warn" style="margin-top:12px">거래처와 약속한 가격입니다. <b>체크한 것만</b> 바뀌고,
+      업체별 단가는 기본적으로 꺼져 있습니다. 올릴 곳을 직접 고르세요.</div>
+    <button class="btn w" style="margin-top:10px" id="rp_go">체크한 것만 적용</button>
+  `, () => {
+    $$('#modal .chips [data-mode]').forEach(b => b.onclick = () => repriceModal(p, b.dataset.mode));
+    const mi = $('#rp_margin');
+    if (mi) mi.onchange = async () => {
+      try {
+        const d2 = await api('aRepricePreview', [TOKEN, { product_id: p.id, mode, margin: mi.value }]);
+        $('#rp_base').value = d2.base.new;
+        d2.partners.forEach(pt => { const el = $(`#modal [data-pt="${pt.partner_id}"]`); if (el) el.value = pt.new; });
+      } catch (e) { toast(e.message); }
+    };
+    $('#rp_go').onclick = async () => {
+      const body = { product_id: p.id, partners: [] };
+      if ($('#rp_base_on').checked) body.base_price = $('#rp_base').value;
+      $$('#modal [data-on]').forEach(cb => {
+        if (cb.checked) body.partners.push({ partner_id: cb.dataset.on,
+          price: $(`#modal [data-pt="${cb.dataset.on}"]`).value });
+      });
+      if (!body.base_price && !body.partners.length) return toast('적용할 항목을 체크해 주세요.');
+      try {
+        const r = await api('aRepriceApply', [TOKEN, body]);
+        closeModal(); toast(`${r.changed}개 가격을 바꿨습니다`); loadProducts();
+      } catch (e) { toast(e.message); }
+    };
   }, true);
 }
 
@@ -2077,7 +2266,8 @@ $('#seYm').onchange = loadSettle;
 function fillSettings() {
   const s = BOOT.settings;
   ['company_name','biz_no','ceo','addr','phone','email','bank_name','bank_account','bank_holder',
-   'ship_fee','free_ship_over','min_order','tax_mode','notice','order_guide']
+   'ship_fee','free_ship_over','min_order','tax_mode','notice','order_guide',
+   'target_margin','cost_alert_pct']
     .forEach(k => { const el = $('#s_' + k); if (el) el.value = s[k] ?? ''; });
 }
 $('#setSave').onclick = async () => {
@@ -2085,6 +2275,7 @@ $('#setSave').onclick = async () => {
   ['company_name','biz_no','ceo','addr','phone','email','bank_name','bank_account','bank_holder','tax_mode','notice','order_guide']
     .forEach(k => body[k] = $('#s_' + k).value.trim());
   ['ship_fee','free_ship_over','min_order'].forEach(k => body[k] = parseInt($('#s_' + k).value || 0, 10));
+  ['target_margin','cost_alert_pct'].forEach(k => body[k] = parseFloat($('#s_' + k).value || 0));
   showErr('#setSaveErr', '');
   try {
     await api('aSettingsSave', [TOKEN, body]);
