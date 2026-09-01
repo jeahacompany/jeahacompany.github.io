@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>공급처 주문</title>
+<meta name="theme-color" content="#12a150">
+<style>
+:root{
+  --bg:#f4f6f9; --card:#fff; --line:#e4e8ef; --txt:#1a1f2b; --sub:#6b7484;
+  --grn:#12a150; --grn-d:#0b7a3c; --blue:#1b6ef3; --warn:#f08c00; --red:#e03131;
+  --r:14px; --sh:0 1px 3px rgba(20,30,50,.07),0 6px 18px rgba(20,30,50,.05);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;
+  font-size:15px;line-height:1.55;padding-bottom:env(safe-area-inset-bottom)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+.hide{display:none!important}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--sub);font-size:13px}
+.row{display:flex;gap:8px;align-items:center}
+.grow{flex:1;min-width:0}
+
+header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--line)}
+.hd{display:flex;align-items:center;gap:10px;padding:12px 16px;max-width:860px;margin:0 auto}
+.hd b{font-size:17px;letter-spacing:-.3px}
+.hd .who{margin-left:auto;font-size:13px;color:var(--sub);text-align:right;line-height:1.3}
+.tabs{display:flex;max-width:860px;margin:0 auto;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:1;min-width:86px;padding:11px 6px 10px;font-size:14px;font-weight:600;color:var(--sub);
+  border-bottom:2.5px solid transparent;white-space:nowrap;position:relative}
+.tabs button.on{color:var(--grn);border-bottom-color:var(--grn)}
+.tabs .dot{position:absolute;top:6px;right:8px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;
+  background:var(--red);color:#fff;font-size:11px;line-height:18px;font-weight:700}
+
+main{max-width:860px;margin:0 auto;padding:14px 14px 90px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);
+  padding:16px;margin-bottom:12px}
+.card h3{margin:0 0 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+.card h3 .sp{margin-left:auto;font-weight:400}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh)}
+.stat .l{font-size:12.5px;color:var(--sub);font-weight:600}
+.stat .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:3px}
+
+label.f{display:block;margin-bottom:11px}
+label.f span{display:block;font-size:12.5px;color:var(--sub);margin-bottom:4px;font-weight:600}
+input[type=text],input[type=password],input[type=tel],select{
+  width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;outline:none}
+input:focus,select:focus{border-color:var(--grn);box-shadow:0 0 0 3px rgba(18,161,80,.14)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;border-radius:10px;
+  background:var(--grn);color:#fff;font-weight:700;font-size:14.5px}
+.btn:active{background:var(--grn-d)}
+.btn.g{background:#eef1f6;color:#3a4356}
+.btn.r{background:#fdecec;color:var(--red)}
+.btn.w{width:100%}
+.btn.s{padding:7px 12px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.45}
+
+.bdg{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700}
+.b-pending{background:#fff3e0;color:#c76a00}
+.b-shipped{background:#e6f7ee;color:#0b7a3c}
+.b-soldout{background:#fdecec;color:#c92a2a}
+
+.oitem{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--sh);margin-bottom:10px}
+.oitem.todo{border-color:#ffd8a8;background:#fffdf5}
+.oitem .top{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.oitem .no{font-weight:800;font-variant-numeric:tabular-nums}
+.pname{font-weight:700;font-size:16px}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.kv:last-child{border:0}
+.kv .k{color:var(--sub);flex:none}
+.kv .v{font-weight:600;text-align:right}
+.addr{background:#f7f9fc;border:1px dashed var(--line);border-radius:11px;padding:11px 13px;margin:8px 0}
+.addr .n{font-weight:700;font-size:15px}
+.copy{color:var(--blue);font-size:12.5px;text-decoration:underline;margin-left:6px}
+
+.wrap{max-width:400px;margin:0 auto;padding:56px 18px}
+.logo{text-align:center;margin-bottom:24px}
+.logo b{display:block;font-size:23px;letter-spacing:-.5px}
+.logo span{font-size:13.5px;color:var(--sub)}
+.err{background:#fdecec;border:1px solid #f8c9c9;color:#c92a2a;border-radius:10px;padding:10px 12px;font-size:13.5px;margin-bottom:10px}
+.tip{background:#f0fbf4;border:1px solid #b7e4c7;color:#0b7a3c;border-radius:12px;padding:12px 14px;font-size:13.5px;margin-bottom:12px}
+.empty{text-align:center;color:var(--sub);padding:40px 10px;font-size:14px}
+#toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);background:#1a1f2b;color:#fff;
+  padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:300;opacity:0;
+  transition:opacity .18s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.on{opacity:.95}
+.modal{position:fixed;inset:0;z-index:200;background:rgba(15,20,30,.5);display:flex;align-items:flex-end;justify-content:center}
+.modal .box{background:#fff;width:100%;max-width:520px;max-height:92vh;overflow:auto;
+  border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:640px){.modal{align-items:center}.modal .box{border-radius:18px}}
+.mhd{display:flex;align-items:center;margin:-2px 0 14px}
+.mhd h3{margin:0;font-size:17px}
+.mhd .x{margin-left:auto;font-size:24px;color:var(--sub);line-height:1}
+.sw{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f2f6}
+.sw:last-child{border:0}
+.sw .t{flex:1}
+.tg{width:52px;height:30px;border-radius:15px;background:#dfe3ea;position:relative;flex:none;transition:.18s}
+.tg::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.2);transition:.18s}
+.tg.on{background:var(--red)}
+.tg.on::after{left:25px}
+</style>
+</head>
+<body>
+
+<div id="gate" class="wrap">
+  <div class="logo"><b id="gateName">공급처 주문</b><span>주문 확인 · 송장 입력 · 정산</span></div>
+  <div class="card">
+    <div id="gateErr" class="err hide"></div>
+    <label class="f"><span>아이디</span><input type="text" id="lgId" autocomplete="username" autocapitalize="off"></label>
+    <label class="f"><span>비밀번호</span><input type="password" id="lgPw" autocomplete="current-password"></label>
+    <button class="btn w" id="lgBtn">로그인</button>
+    <p class="muted" style="text-align:center;margin:14px 0 0">계정은 담당자에게 요청해 주세요.</p>
+  </div>
+</div>
+
+<div id="app" class="hide">
+  <header>
+    <div class="hd">
+      <b id="appName">공급처 주문</b>
+      <div class="who"><span id="meName"></span><br>
+        <button class="muted" id="logout" style="text-decoration:underline">로그아웃</button></div>
+    </div>
+    <nav class="tabs">
+      <button data-tab="todo" class="on">보낼 주문<span class="dot hide" id="dotTodo"></span></button>
+      <button data-tab="done">보낸 것</button>
+      <button data-tab="prod">내 상품</button>
+      <button data-tab="settle">정산</button>
+    </nav>
+  </header>
+  <main>
+    <section id="t-todo"><div id="todoBox"></div></section>
+    <section id="t-done" class="hide"><div id="doneBox"></div></section>
+    <section id="t-prod" class="hide"><div id="prodBox"></div></section>
+    <section id="t-settle" class="hide">
+      <div class="row" style="margin-bottom:10px"><select id="stYm" class="grow"></select></div>
+      <div id="stBox"></div>
+    </section>
+  </main>
+</div>
+
+<div id="modal"></div>
+<div id="toast"></div>
+
+<script>
+const SB  = 'https://zcjvriedzememkiltqfa.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjanZyaWVkemVtZW1raWx0cWZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMjg2MTIsImV4cCI6MjA5OTYwNDYxMn0.2nZh82xFUNORqcKObAHUnz8K5EjjL-Nym0T4YkDHxMk';
+const LS = 'b2b_vendor_token';
+let TOKEN = localStorage.getItem(LS) || '', BOOT = null, TAB = 'todo';
+
+async function api(fn, args = []) {
+  const r = await fetch(SB + '/rest/v1/rpc/b2b_api', {
+    method: 'POST',
+    headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_fn: fn, p_args: args })
+  });
+  if (!r.ok) throw new Error('연결이 원활하지 않습니다. 잠시 뒤 다시 시도해 주세요.');
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || '알 수 없는 오류');
+  return j.result;
+}
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const won = n => (Number(n) || 0).toLocaleString('ko-KR') + '원';
+const num = n => (Number(n) || 0).toLocaleString('ko-KR');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const ymd = d => { if (!d) return '-'; const t = new Date(d);
+  return `${String(t.getFullYear()).slice(2)}.${String(t.getMonth()+1).padStart(2,'0')}.${String(t.getDate()).padStart(2,'0')}`; };
+const ymdt = d => { if (!d) return '-'; const t = new Date(d);
+  return `${ymd(d)} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`; };
+let tT; function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on');
+  clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('on'),2300); }
+function showErr(sel,m){ const e=$(sel); if(!m){e.classList.add('hide');return;} e.textContent=m; e.classList.remove('hide'); }
+function closeModal(){ $('#modal').innerHTML=''; }
+window.closeModal = closeModal;
+function openModal(title, html, onOpen){
+  $('#modal').innerHTML = `<div class="modal"><div class="box">
+    <div class="mhd"><h3>${esc(title)}</h3><button class="x" onclick="closeModal()">&times;</button></div>${html}</div></div>`;
+  $('#modal .modal').addEventListener('click', e => { if (e.target.classList.contains('modal')) closeModal(); });
+  if (onOpen) onOpen();
+}
+const cp = (t, m) => navigator.clipboard?.writeText(t).then(()=>toast(m)).catch(()=>toast('길게 눌러 복사해 주세요'));
+
+/* ── 로그인 ── */
+$('#lgBtn').onclick = async () => {
+  const id = $('#lgId').value.trim(), pw = $('#lgPw').value;
+  if (!id || !pw) return showErr('#gateErr', '아이디와 비밀번호를 입력해 주세요.');
+  showErr('#gateErr',''); $('#lgBtn').disabled = true;
+  try {
+    const r = await api('login', [id, pw]);
+    if (r.type !== 'supplier') throw new Error('공급처 계정이 아닙니다. 받으신 주소가 맞는지 확인해 주세요.');
+    TOKEN = r.token; localStorage.setItem(LS, TOKEN);
+    await boot();
+  } catch (e) { showErr('#gateErr', e.message); }
+  $('#lgBtn').disabled = false;
+};
+$('#lgPw').addEventListener('keydown', e => { if (e.key === 'Enter') $('#lgBtn').click(); });
+$('#logout').onclick = async () => {
+  try { await api('logout',[TOKEN]); } catch(e){}
+  localStorage.removeItem(LS); location.reload();
+};
+
+/* ── 부트 ── */
+async function boot() {
+  if (!TOKEN) { $('#gate').classList.remove('hide'); $('#app').classList.add('hide'); return; }
+  try { BOOT = await api('svBoot', [TOKEN]); }
+  catch (e) {
+    localStorage.removeItem(LS); TOKEN='';
+    $('#gate').classList.remove('hide'); $('#app').classList.add('hide');
+    showErr('#gateErr', e.message); return;
+  }
+  $('#gate').classList.add('hide'); $('#app').classList.remove('hide');
+  $('#appName').textContent = (BOOT.company.name || '') + ' 공급처';
+  document.title = BOOT.me.name + ' — 공급처 주문';
+  $('#meName').textContent = BOOT.me.name;
+  const n = BOOT.stat.todo;
+  $('#dotTodo').textContent = n; $('#dotTodo').classList.toggle('hide', !n);
+  const now = new Date(), out = [];
+  for (let i=0;i<12;i++){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+    out.push(`<option value="${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}">${d.getFullYear()}년 ${d.getMonth()+1}월</option>`); }
+  $('#stYm').innerHTML = out.join('');
+  loadTodo();
+}
+
+$$('.tabs button').forEach(b => b.onclick = () => {
+  TAB = b.dataset.tab;
+  $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  ['todo','done','prod','settle'].forEach(t => $('#t-'+t).classList.toggle('hide', t !== TAB));
+  ({ todo: loadTodo, done: loadDone, prod: loadProd, settle: loadSettle })[TAB]();
+  window.scrollTo(0,0);
+});
+
+/* ── 보낼 주문 ── */
+function orderCard(o, todo) {
+  const addr = [o.rzip ? '('+o.rzip+')' : '', o.raddr].filter(Boolean).join(' ');
+  return `<div class="oitem ${todo ? 'todo' : ''}">
+    <div class="top">
+      <span class="no">${esc(o.order_no)}</span>
+      <span class="bdg ${todo ? 'b-pending' : 'b-shipped'}">${todo ? '보내주세요' : '발송완료'}</span>
+      <span class="muted" style="margin-left:auto">${ymd(o.ordered_at)} 주문</span>
+    </div>
+    <div class="pname">${esc(o.name)}${o.spec ? ` <span class="muted">${esc(o.spec)}</span>` : ''}</div>
+    <div style="font-size:20px;font-weight:800;margin:2px 0 8px">${num(o.qty)}${esc(o.unit || '')}</div>
+    <div class="addr">
+      <div class="n">${esc(o.receiver || '')} <span class="muted">${esc(o.rphone || '')}</span>
+        ${o.rphone ? `<button class="copy" data-cp="${esc(o.rphone)}">번호복사</button>` : ''}</div>
+      <div>${esc(addr || '주소 없음')}
+        ${addr ? `<button class="copy" data-cp="${esc(addr)}">주소복사</button>` : ''}</div>
+      ${o.req_memo ? `<div class="muted" style="margin-top:4px">요청: ${esc(o.req_memo)}</div>` : ''}
+    </div>
+    ${todo
+      ? `<button class="btn w" data-ship="${o.item_id}">📦 발송 완료 · 송장 입력</button>`
+      : `<div class="kv"><span class="k">송장</span><span class="v">${esc(o.courier || '')} ${esc(o.tracking_no || '')}
+           <button class="copy" data-cp="${esc(o.tracking_no || '')}">복사</button></span></div>
+         <div class="kv"><span class="k">발송</span><span class="v">${ymdt(o.shipped_at)}</span></div>`}
+  </div>`;
+}
+function bindCards() {
+  $$('[data-cp]').forEach(b => b.onclick = () => cp(b.dataset.cp, '복사했어요'));
+  $$('[data-ship]').forEach(b => b.onclick = () => shipModal(b.dataset.ship));
+}
+
+async function loadTodo() {
+  $('#todoBox').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const rows = await api('svOrders', [TOKEN, 'pending']);
+    $('#todoBox').innerHTML = rows.length
+      ? `<div class="tip">아래 주소로 보내주시고, 보내신 뒤 <b>송장번호만</b> 넣어주세요.</div>`
+        + rows.map(o => orderCard(o, true)).join('')
+      : `<div class="card"><div class="empty">🎉 보낼 주문이 없습니다.</div></div>`;
+    bindCards();
+  } catch (e) { $('#todoBox').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+async function loadDone() {
+  $('#doneBox').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const rows = await api('svOrders', [TOKEN, 'shipped']);
+    $('#doneBox').innerHTML = rows.length ? rows.map(o => orderCard(o, false)).join('')
+      : `<div class="card"><div class="empty">보낸 주문이 아직 없습니다.</div></div>`;
+    bindCards();
+  } catch (e) { $('#doneBox').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+function shipModal(itemId) {
+  openModal('발송 완료 처리', `
+    <div class="tip">송장번호를 넣으면 <b>바로 발송완료</b>로 바뀌고 주문하신 곳에 전달됩니다.</div>
+    <label class="f"><span>택배사</span>
+      <input type="text" id="sh_c" list="couriers" placeholder="예) CJ대한통운">
+      <datalist id="couriers">
+        <option value="CJ대한통운"><option value="한진택배"><option value="롯데택배">
+        <option value="우체국택배"><option value="로젠택배"><option value="경동택배">
+        <option value="대신택배"><option value="일반화물">
+      </datalist></label>
+    <label class="f"><span>송장번호 *</span>
+      <input type="tel" id="sh_t" inputmode="numeric" placeholder="숫자만 적으셔도 됩니다"></label>
+    <button class="btn w" id="sh_go">발송 완료</button>
+  `, () => {
+    setTimeout(() => $('#sh_t').focus(), 120);
+    $('#sh_t').addEventListener('keydown', e => { if (e.key === 'Enter') $('#sh_go').click(); });
+    $('#sh_go').onclick = async () => {
+      const t = $('#sh_t').value.trim();
+      if (!t) return toast('송장번호를 입력해 주세요.');
+      $('#sh_go').disabled = true;
+      try {
+        await api('svShip', [TOKEN, { item_id: itemId, courier: $('#sh_c').value.trim(), tracking_no: t }]);
+        closeModal(); toast('발송 완료 처리했습니다');
+        BOOT = await api('svBoot', [TOKEN]);
+        const n = BOOT.stat.todo;
+        $('#dotTodo').textContent = n; $('#dotTodo').classList.toggle('hide', !n);
+        loadTodo();
+      } catch (e) { toast(e.message); $('#sh_go').disabled = false; }
+    };
+  });
+}
+
+/* ── 내 상품 (품절 토글) ── */
+async function loadProd() {
+  try { BOOT = await api('svBoot', [TOKEN]); } catch (e) { return toast(e.message); }
+  const ps = BOOT.products || [];
+  $('#prodBox').innerHTML = `
+    <div class="tip">품절이면 켜주세요. <b>켜두면 주문이 안 들어옵니다.</b> 다시 들어오면 꺼주세요.</div>
+    <div class="card">${ps.length ? ps.map(p => `
+      <div class="sw">
+        <div class="t"><b>${esc(p.name)}</b>${p.spec ? ` <span class="muted">${esc(p.spec)}</span>` : ''}
+          <div class="muted">공급가 ${won(p.cost)}</div></div>
+        <span class="bdg ${p.soldout ? 'b-soldout' : 'b-shipped'}">${p.soldout ? '품절' : '판매중'}</span>
+        <div class="tg ${p.soldout ? 'on' : ''}" data-tg="${p.id}"></div>
+      </div>`).join('') : `<div class="empty">등록된 상품이 없습니다.</div>`}</div>`;
+  $$('[data-tg]').forEach(el => el.onclick = async () => {
+    const next = !el.classList.contains('on');
+    el.classList.toggle('on', next);
+    try { await api('svSoldout', [TOKEN, { product_id: el.dataset.tg, soldout: next }]);
+      toast(next ? '품절로 바꿨습니다' : '판매중으로 바꿨습니다'); loadProd(); }
+    catch (e) { toast(e.message); el.classList.toggle('on', !next); }
+  });
+}
+
+/* ── 정산 ── */
+async function loadSettle() {
+  $('#stBox').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const s = await api('svSettle', [TOKEN, $('#stYm').value]);
+    $('#stBox').innerHTML = `
+      <div class="stats">
+        <div class="stat"><div class="l">${s.ym} 보내주신 금액</div><div class="v">${num(s.total)}</div></div>
+        <div class="stat"><div class="l">받으신 금액</div><div class="v" style="color:var(--grn)">${num(s.paid)}</div></div>
+        <div class="stat"><div class="l">남은 금액</div>
+          <div class="v" style="color:${s.total - s.paid > 0 ? 'var(--warn)' : 'var(--grn)'}">${num(s.total - s.paid)}</div></div>
+      </div>
+      <div class="card"><h3>보내신 내역</h3>
+        ${s.rows.length ? s.rows.map(r => `<div class="kv">
+          <span class="k">${ymd(r.shipped_at)} · ${esc(r.name)} ${num(r.qty)}</span>
+          <span class="v">${num(r.amount)}</span></div>`).join('')
+          : `<div class="empty">이 달 내역이 없습니다.</div>`}</div>`;
+  } catch (e) { $('#stBox').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$('#stYm').onchange = loadSettle;
+
+boot();
+</script>
+</body>
+</html>
