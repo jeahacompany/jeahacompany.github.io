@@ -261,6 +261,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       <div id="sub-sup" class="hide">
         <div class="filt">
           <input type="text" id="supQ" placeholder="매입처 검색" class="grow">
+          <select id="supDiv"><option value="">전체 부문</option></select>
           <select id="supCat"><option value="">전체 분류</option></select>
           <button class="btn" id="supInvite">🔗 매입처 등록 요청 링크</button>
           <button class="btn g" id="supAdd">+ 직접 등록</button>
@@ -378,6 +379,8 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     <section id="t-partners" class="hide">
       <div class="filt">
         <input type="text" id="ptQ" placeholder="거래처 검색" class="grow">
+        <select id="ptDiv"><option value="">전체 부문</option></select>
+        <select id="ptCat"><option value="">전체 분류</option></select>
         <select id="ptKind">
           <option value="">전체 형태</option>
           <option value="offline">오프라인</option>
@@ -2017,16 +2020,20 @@ function renderSuppliers() {
   if (!SUPPLIERS.length) {
     $('#supTbl').innerHTML = `<tr><td class="empty">매입처가 없습니다. 물건을 사오는 곳을 먼저 등록하세요.</td></tr>`; return;
   }
-  // 분류 칸 채우기 (거래처가 많아지면 골라 보는 게 필수)
-  const cats = [...new Set(SUPPLIERS.map(s => s.category).filter(Boolean))].sort();
-  const keep = $('#supCat').value;
-  $('#supCat').innerHTML = `<option value="">전체 분류 (${SUPPLIERS.length})</option>` +
-    cats.map(c => `<option value="${esc(c)}">${esc(c)} (${SUPPLIERS.filter(s => s.category === c).length})</option>`).join('');
-  $('#supCat').value = keep;
+  // 부문·분류 칸 채우기 (89곳이라 골라 보는 게 필수)
+  const fillS = (sel, key, allLabel, labels) => {
+    const keep = $(sel).value;
+    const vals = [...new Set(SUPPLIERS.map(s => s[key]).filter(Boolean))].sort();
+    $(sel).innerHTML = `<option value="">${allLabel} (${SUPPLIERS.length})</option>` +
+      vals.map(v => `<option value="${esc(v)}">${esc(labels?.[v] || v)} (${SUPPLIERS.filter(s => s[key] === v).length})</option>`).join('');
+    $(sel).value = keep;
+  };
+  fillS('#supDiv', 'division', '전체 부문', DIVL);
+  fillS('#supCat', 'category', '전체 분류');
 
-  const q = $('#supQ').value.trim().toLowerCase(), cat = $('#supCat').value;
+  const q = $('#supQ').value.trim().toLowerCase(), cat = $('#supCat').value, div = $('#supDiv').value;
   const rows = SUPPLIERS.filter(s =>
-    (!cat || s.category === cat) &&
+    (!cat || s.category === cat) && (!div || s.division === div) &&
     (!q || (s.name + ' ' + (s.biz_no||'') + ' ' + (s.manager||'') + ' ' + (s.erp_code||'')).toLowerCase().includes(q)));
   if (!rows.length) { $('#supTbl').innerHTML = `<tr><td class="empty">해당하는 매입처가 없습니다.</td></tr>`; return; }
   $('#supTbl').innerHTML = `
@@ -2036,7 +2043,7 @@ function renderSuppliers() {
       <td class="muted">${esc(s.code || '')}${s.erp_code ? `<div class="muted">ERP ${esc(s.erp_code)}</div>` : ''}</td>
       <td><b>${esc(s.name)}</b>${s.status === 'pending' ? ' <span class="bdg b-pending">승인대기</span>' : ''}
         ${s.biz_no ? `<div class="muted">${esc(s.biz_no)}</div>` : ''}</td>
-      <td class="muted">${esc(s.category || '-')}</td>
+      <td class="muted">${(DIVL[s.division] || '').split(' ')[0]} ${esc(s.category || '-')}</td>
       <td>${esc(s.manager || '')}<div class="muted">${esc(s.phone || s.phone2 || '')}</div></td>
       <td class="muted">${PAYTERMS[s.pay_terms] || '-'}<div class="muted">리드 ${s.lead_days}일</div></td>
       <td class="n">${num(s.buy_total)}</td>
@@ -2060,6 +2067,7 @@ function renderSuppliers() {
 $('#supAdd').onclick = () => supModal(null);
 $('#supQ').oninput = renderSuppliers;
 $('#supCat').onchange = renderSuppliers;
+$('#supDiv').onchange = renderSuppliers;
 
 /* ── 매입처 등록 요청 링크 (자기 정보는 자기가 적게) ── */
 async function vendorLink(reset) {
@@ -3354,10 +3362,23 @@ function renderPartners() {
   });
   $$('#ptPending [data-ed]').forEach(b => b.onclick = () => partnerModal(PARTNERS.find(x => x.id === b.dataset.ed)));
 
+  // 부문·분류 칸 채우기 (149곳이라 걸러 봐야 한다)
+  const fill = (sel, key, labels) => {
+    const keep = $(sel).value;
+    const vals = [...new Set(PARTNERS.map(p => p[key]).filter(Boolean))].sort();
+    $(sel).innerHTML = `<option value="">${labels.all} (${PARTNERS.length})</option>` +
+      vals.map(v => `<option value="${esc(v)}">${esc(labels.map?.[v] || v)} (${PARTNERS.filter(p => p[key] === v).length})</option>`).join('');
+    $(sel).value = keep;
+  };
+  fill('#ptDiv', 'division', { all: '전체 부문', map: DIVL });
+  fill('#ptCat', 'category', { all: '전체 분류' });
+
   const q = $('#ptQ').value.trim().toLowerCase(), kind = $('#ptKind').value;
+  const div = $('#ptDiv').value, cat = $('#ptCat').value;
   const rows = PARTNERS.filter(p =>
     (!kind || (p.biz_kind || 'offline') === kind) &&
-    (!q || (p.name + ' ' + (p.code||'') + ' ' + (p.phone||'') + ' ' + (p.username||'') + ' ' + (p.biz_no||'')).toLowerCase().includes(q)));
+    (!div || p.division === div) && (!cat || p.category === cat) &&
+    (!q || (p.name + ' ' + (p.code||'') + ' ' + (p.erp_code||'') + ' ' + (p.phone||'') + ' ' + (p.username||'') + ' ' + (p.biz_no||'')).toLowerCase().includes(q)));
   if (!rows.length) { $('#ptTbl').innerHTML = `<tr><td class="empty">거래처가 없습니다.</td></tr>`; return; }
   $('#ptTbl').innerHTML = `
     <tr><th>코드</th><th>상호</th><th>형태</th><th>담당자</th><th>아이디</th>
@@ -3367,7 +3388,7 @@ function renderPartners() {
       return `<tr${p.status === 'pending' ? ' style="background:#fffbe6"' : ''}>
         <td class="muted">${esc(p.code || '')}</td>
         <td><b>${esc(p.name)}</b>${p.biz_no ? `<div class="muted">${esc(p.biz_no)}</div>` : ''}</td>
-        <td class="muted">${KINDL[p.biz_kind || 'offline']}
+        <td class="muted">${(DIVL[p.division] || '').split(' ')[0]} ${esc(p.category || '')}
           ${p.store_type ? `<div class="muted">${esc(p.store_type)}</div>` : ''}
           ${p.channel ? `<div class="muted">${esc(String(p.channel).slice(0, 14))}</div>` : ''}</td>
         <td>${esc(p.manager || '')}<div class="muted">${esc(p.phone || p.mgr_phone || '')}</div></td>
@@ -3393,8 +3414,13 @@ function renderPartners() {
 }
 $('#ptQ').oninput = renderPartners;
 $('#ptKind').onchange = renderPartners;
+$('#ptDiv').onchange = renderPartners;
+$('#ptCat').onchange = renderPartners;
 
 const KINDL = { offline: '🏪 오프라인', online: '🛒 온라인', both: '🔀 둘 다' };
+// 도반글로벌은 한 법인으로 여러 장사를 한다. 거래처를 사업 부문으로 갈라 봐야 목록이 쓸모 있다.
+const DIVL = { b2b: '🥩 B2B 육류도매', d2c: '🛒 집먹 온라인',
+               marketing: '📣 마케팅·광고', common: '🏦 공통(금융·공과금·물류)' };
 
 /* ── 거래처 등록 요청 링크 ── */
 async function ptnInviteModal() {
