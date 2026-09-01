@@ -1560,18 +1560,28 @@ function renderShip() {
   if (!d || !d.rows.length) {
     $('#alTbl').innerHTML = `<tr><td class="empty">이 날짜엔 출고가 없습니다.</td></tr>`; return;
   }
+  const tm = d.total_amount > 0 ? Math.round((d.total_amount - d.total_cost) / d.total_amount * 1000) / 10 : null;
   $('#alTbl').innerHTML = `
-    <tr><th>상품</th><th class="right">창고 출고</th><th class="right">채운 것</th><th class="right">남음</th>
-        <th>어디로 갔나</th></tr>
+    <tr><th>상품</th><th class="right">평균원가</th><th class="right">창고 출고</th><th class="right">채운 것</th>
+        <th class="right">남음</th><th class="right">매출</th><th>어디로 갔나</th></tr>
     ${d.rows.map(r => `<tr>
       <td><b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')}</div></td>
+      <td class="n ${r.cost ? 'muted' : 'low'}">${r.cost ? num(r.cost) : '없음'}</td>
       <td class="n"><b>${num(r.out_qty)}</b></td>
       <td class="n" style="color:var(--ok)">${num(r.alloc_qty)}</td>
       <td class="n ${r.rest > 0 ? 'low' : 'muted'}">${r.rest > 0 ? num(r.rest) : '완료'}</td>
+      <td class="n">${r.amount ? num(r.amount) : '-'}</td>
       <td>${r.allocs.length
-        ? r.allocs.map(a => `<span class="bdg b-paid" style="margin:1px 3px 1px 0;cursor:pointer"
-            data-edit="${a.partner_id}">${esc(a.partner || '')} ${num(a.qty)}</span>`).join('')
-        : '<span class="muted">아직 모름</span>'}</td></tr>`).join('')}`;
+        ? r.allocs.map(a => `<span class="bdg ${a.custom ? 'b-pending' : 'b-paid'}"
+            style="margin:1px 3px 1px 0;cursor:pointer" data-edit="${a.partner_id}"
+            title="${a.custom ? '단가를 직접 정한 건' : '자동 단가'}">${esc(a.partner || '')} ${num(a.qty)}
+            <span style="opacity:.7">@${num(a.unit_price)}</span></span>`).join('')
+        : '<span class="muted">아직 모름</span>'}</td></tr>`).join('')}
+    ${d.total_amount ? `<tr style="background:#fbfcfe">
+      <td colspan="5"><b>이 날 합계</b> <span class="muted">배분된 것만</span></td>
+      <td class="n"><b>${num(d.total_amount)}</b>
+        <div class="muted">원가 ${num(d.total_cost)}</div></td>
+      <td>${tm != null ? `<b style="color:${tm < 0 ? 'var(--red)' : 'var(--ok)'}">마진 ${tm}%</b>` : ''}</td></tr>` : ''}`;
   $$('#alTbl [data-edit]').forEach(b => b.onclick = () => allocModal(b.dataset.edit));
 }
 
@@ -1582,82 +1592,114 @@ async function allocModal(partnerId) {
   if (!d) return;
   const actives = PARTNERS.filter(p => p.status === 'active');
   if (!actives.length) return toast('먼저 거래처를 등록하고 승인해 주세요.');
-
-  let cur = [];
-  if (partnerId) {
-    try { cur = await api('aShipAllocGet', [TOKEN, { ship_date: d.date, partner_id: partnerId }]); }
-    catch (e) {}
-  }
-  const curOf = pid => (cur.find(x => x.product_id === pid) || {}).qty || '';
+  const first = partnerId || actives[0].id;
 
   openModal(`출고 배분 — ${d.date}`, `
     <label class="f"><span>어느 거래처로 나갔나요? *</span><select id="al_ptn">
-      ${actives.map(p => `<option value="${p.id}" ${partnerId === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+      ${actives.map(p => `<option value="${p.id}" ${first === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
     </select></label>
-    <div class="tip">수량을 넣으면 그 거래처 <b>단가로 매출이 잡히고 발주가 만들어집니다.</b>
-      0 으로 두면 배분에서 빠집니다.</div>
+    <div class="tip"><b>단가는 고치실 수 있습니다.</b> 비워두면 그 거래처 자동 단가가 들어갑니다.
+      옆에 <b>평균원가와 마진</b>이 같이 보이니 밑지는 값은 바로 눈에 띕니다.</div>
+    <div id="al_body"><div class="empty">불러오는 중…</div></div>
+  `, () => {
+    $('#al_ptn').onchange = () => drawAllocBody(d);
+    drawAllocBody(d);
+  }, true);
+}
+
+async function drawAllocBody(d) {
+  const ptn = $('#al_ptn').value;
+  $('#al_body').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  let rows;
+  try { rows = await api('aShipAllocGet', [TOKEN, { ship_date: d.date, partner_id: ptn }]); }
+  catch (e) { $('#al_body').innerHTML = `<div class="err">${esc(e.message)}</div>`; return; }
+
+  $('#al_body').innerHTML = `
     <div class="tblwrap"><table>
-      <tr><th>상품</th><th class="right">창고 출고</th><th class="right">남음</th><th class="right">이 거래처 몫</th></tr>
-      ${d.rows.map(r => {
-        const mine = curOf(r.product_id);
-        const canMax = r.rest + (Number(mine) || 0);
-        return `<tr>
+      <tr><th>상품</th><th class="right">창고<br>출고</th><th class="right">쓸 수<br>있는 양</th>
+          <th class="right">평균원가</th><th class="right">수량</th><th class="right">출고 단가</th>
+          <th class="right">마진</th><th class="right">금액</th></tr>
+      ${rows.map(r => {
+        const canMax = r.out_qty - r.other_qty;
+        return `<tr data-row="${r.product_id}">
           <td><b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')}</div></td>
           <td class="n muted">${num(r.out_qty)}</td>
-          <td class="n">${num(canMax)}</td>
-          <td class="n"><input type="number" data-p="${r.product_id}" value="${mine}"
-            max="${canMax}" placeholder="0" style="width:100px;text-align:right"></td></tr>`;
+          <td class="n">${num(canMax)}${r.other_qty ? `<div class="muted">타처 ${num(r.other_qty)}</div>` : ''}</td>
+          <td class="n ${r.cost ? 'muted' : 'low'}">${r.cost ? num(r.cost) : '원가없음'}</td>
+          <td class="n"><input type="number" data-p="${r.product_id}" value="${r.qty || ''}"
+            max="${canMax}" placeholder="0" style="width:84px;text-align:right"></td>
+          <td class="n"><input type="number" data-up="${r.product_id}"
+            value="${r.unit_price ?? ''}" placeholder="${num(r.auto_price)}"
+            style="width:96px;text-align:right${r.unit_price != null ? ';background:#fffbe6' : ''}">
+            <div class="muted" style="font-size:11px">자동 ${num(r.auto_price)}</div></td>
+          <td class="n" data-mg="${r.product_id}">-</td>
+          <td class="n" data-am="${r.product_id}">0</td></tr>`;
       }).join('')}
     </table></div>
-    <div class="row" style="margin:10px 0">
+    <div class="row" style="margin:10px 0;flex-wrap:wrap">
       <button class="btn s g" id="al_fill">남은 것 전부 이 거래처로</button>
-      <button class="btn s g" id="al_clear">전부 비우기</button>
+      <button class="btn s g" id="al_clear">수량 비우기</button>
+      <button class="btn s g" id="al_reset">단가 자동으로 되돌리기</button>
     </div>
     <label class="f"><span>메모</span><input type="text" id="al_memo" placeholder="예) 8/26 3PL 출고분"></label>
     <div class="card" style="box-shadow:none;margin-bottom:12px">
+      <div class="kv"><span class="k">원가 합계</span><span class="v" id="al_cost">0</span></div>
+      <div class="kv"><span class="k">마진</span><span class="v" id="al_mg">-</span></div>
       <div class="tot"><span>이 거래처 매출</span><b id="al_amt">0원</b></div>
     </div>
-    <button class="btn w" id="al_go">저장 (발주 만들기)</button>
-  `, () => {
-    const ptn = () => $('#al_ptn').value;
-    const priceOf = pid => {
-      // 화면에서 미리 금액을 보여주기 위한 계산 (실제 금액은 서버가 다시 계산한다)
-      const p = PRODUCTS.find(x => x.id === pid);
-      const pt = PARTNERS.find(x => x.id === ptn());
-      if (!p) return 0;
-      return Math.max(0, Math.round((p.price || 0) * (1 - (Number(pt?.discount_rate) || 0) / 100)));
-    };
-    const recalc = () => {
-      let sum = 0;
-      $$('#modal [data-p]').forEach(i => sum += (parseInt(i.value || 0, 10) || 0) * priceOf(i.dataset.p));
-      $('#al_amt').textContent = won(sum) + ' <span class="muted">(대략)</span>'.replace(/<[^>]+>/g,'');
-      $('#al_amt').innerHTML = won(sum) + ` <span class="muted" style="font-size:12px">개별단가는 저장 시 반영</span>`;
-    };
-    $$('#modal [data-p]').forEach(i => i.oninput = recalc);
-    $('#al_ptn').onchange = recalc;
-    $('#al_fill').onclick = () => {
-      d.rows.forEach(r => {
-        const el = $(`#modal [data-p="${r.product_id}"]`);
-        if (el) el.value = r.rest + (Number(curOf(r.product_id)) || 0);
-      });
-      recalc();
-    };
-    $('#al_clear').onclick = () => { $$('#modal [data-p]').forEach(i => i.value = ''); recalc(); };
+    <button class="btn w" id="al_go">저장 (발주 만들기)</button>`;
+
+  const info = pid => rows.find(x => x.product_id === pid) || {};
+  const recalc = () => {
+    let sum = 0, cost = 0;
+    rows.forEach(r => {
+      const q = parseInt($(`#modal [data-p="${r.product_id}"]`).value || 0, 10) || 0;
+      const upEl = $(`#modal [data-up="${r.product_id}"]`);
+      const up = upEl.value.trim() === '' ? r.auto_price : (parseInt(upEl.value, 10) || 0);
+      const amt = q * up, c = q * (r.cost || 0);
+      sum += amt; cost += c;
+      $(`#modal [data-am="${r.product_id}"]`).textContent = num(amt);
+      const mg = up > 0 && r.cost ? Math.round((up - r.cost) / up * 1000) / 10 : null;
+      const mgEl = $(`#modal [data-mg="${r.product_id}"]`);
+      mgEl.textContent = mg == null ? '-' : mg + '%';
+      mgEl.className = 'n ' + (mg == null ? 'muted' : mg < 0 ? 'low' : mg < 10 ? '' : 'muted');
+      if (mg != null && mg < 0) mgEl.style.color = 'var(--red)';
+      else mgEl.style.color = '';
+      upEl.style.background = upEl.value.trim() === '' ? '' : '#fffbe6';
+    });
+    $('#al_amt').textContent = won(sum);
+    $('#al_cost').textContent = won(cost);
+    const tm = sum > 0 ? Math.round((sum - cost) / sum * 1000) / 10 : null;
+    $('#al_mg').innerHTML = tm == null ? '-'
+      : `<span style="color:${tm < 0 ? 'var(--red)' : 'var(--ok)'}">${tm}%</span>
+         <span class="muted">(${won(sum - cost)})</span>`;
+  };
+  $$('#modal [data-p], #modal [data-up]').forEach(i => i.oninput = recalc);
+  $('#al_fill').onclick = () => {
+    rows.forEach(r => { $(`#modal [data-p="${r.product_id}"]`).value = r.out_qty - r.other_qty; });
     recalc();
-    $('#al_go').onclick = async () => {
-      const rows = $$('#modal [data-p]').map(i => ({
-        product_id: i.dataset.p, qty: parseInt(i.value || 0, 10) || 0 }));
-      if (!rows.some(r => r.qty > 0) && !partnerId) return toast('수량을 넣어 주세요.');
-      try {
-        const r = await api('aShipAlloc', [TOKEN, {
-          ship_date: d.date, partner_id: ptn(), rows, memo: $('#al_memo').value.trim() }]);
-        closeModal();
-        toast(r.deleted ? '배분을 지웠습니다'
-              : `${r.order_no} 발주로 잡았습니다 — ${won(r.amount)}`);
-        $('#alDate').innerHTML = ''; loadShip(); refreshMatchDot();
-      } catch (e) { toast(e.message); }
-    };
-  }, true);
+  };
+  $('#al_clear').onclick = () => { $$('#modal [data-p]').forEach(i => i.value = ''); recalc(); };
+  $('#al_reset').onclick = () => { $$('#modal [data-up]').forEach(i => i.value = ''); recalc(); };
+  recalc();
+
+  $('#al_go').onclick = async () => {
+    const body = rows.map(r => {
+      const q = parseInt($(`#modal [data-p="${r.product_id}"]`).value || 0, 10) || 0;
+      const up = $(`#modal [data-up="${r.product_id}"]`).value.trim();
+      return { product_id: r.product_id, qty: q, unit_price: up };
+    });
+    if (!body.some(x => x.qty > 0) && !rows.some(r => r.qty > 0))
+      return toast('수량을 넣어 주세요.');
+    try {
+      const r = await api('aShipAlloc', [TOKEN, {
+        ship_date: d.date, partner_id: $('#al_ptn').value, rows: body,
+        memo: $('#al_memo').value.trim() }]);
+      closeModal();
+      toast(r.deleted ? '배분을 지웠습니다' : `${r.order_no} 발주로 잡았습니다 — ${won(r.amount)}`);
+      $('#alDate').innerHTML = ''; loadShip(); refreshMatchDot();
+    } catch (e) { toast(e.message); }
+  };
 }
 
 /* ═══════════ 입금 ═══════════ */
