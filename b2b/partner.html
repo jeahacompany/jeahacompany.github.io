@@ -655,7 +655,10 @@ function fillMy() {
   $('#sellerBox').innerHTML = `<h3>공급사 정보</h3>
     <div class="kv"><span class="k">상호</span><span class="v">${esc(st.company_name||'-')}</span></div>
     ${st.biz_no ? `<div class="kv"><span class="k">사업자번호</span><span class="v">${esc(st.biz_no)}</span></div>` : ''}
+    ${st.ceo ? `<div class="kv"><span class="k">대표자</span><span class="v">${esc(st.ceo)}</span></div>` : ''}
+    ${st.addr ? `<div class="kv"><span class="k">주소</span><span class="v" style="font-weight:400">${esc(st.addr)}</span></div>` : ''}
     ${st.phone ? `<div class="kv"><span class="k">연락처</span><span class="v">${esc(st.phone)}</span></div>` : ''}
+    ${st.email ? `<div class="kv"><span class="k">이메일</span><span class="v">${esc(st.email)}</span></div>` : ''}
     ${st.bank_account ? `<div class="kv"><span class="k">입금 계좌</span><span class="v">${esc(st.bank_name||'')} ${esc(st.bank_account)}</span></div>` : ''}
     ${st.bank_holder ? `<div class="kv"><span class="k">예금주</span><span class="v">${esc(st.bank_holder)}</span></div>` : ''}`;
 }
