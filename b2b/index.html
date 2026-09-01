@@ -367,7 +367,13 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
         <div class="g2">
           <label class="f"><span>목표 마진율 % (상품별로 따로 정할 수 있음)</span><input type="number" id="s_target_margin" step="0.1"></label>
           <label class="f"><span>매입가 변동 경고 기준 %</span><input type="number" id="s_cost_alert_pct" step="0.1"></label>
+          <label class="f"><span>원가를 어느 기준으로 볼지</span><select id="s_cost_vat">
+            <option value="include">부가세 포함가로 관리</option>
+            <option value="exclude">공급가액(부가세 별도)으로 관리</option>
+          </select></label>
         </div>
+        <div class="tip">과세/면세는 <b>상품마다</b> 정합니다 (상품·재고 탭에서 수정, 매칭 탭 원가 입력에서도 바로 지정).
+          매입 부가세는 <b>과세 품목만 골라</b> 계산하므로 한 매입에 과세·면세가 섞여도 금액이 맞습니다.</div>
         <label class="f"><span>업체 화면 상단 안내문</span><textarea id="s_notice"></textarea></label>
         <label class="f"><span>발주 완료 후 안내문</span><textarea id="s_order_guide" placeholder="예) 오후 2시 이전 입금 건은 당일 출고됩니다."></textarea></label>
         <button class="btn" id="setSave">설정 저장</button>
@@ -1065,18 +1071,68 @@ async function mqFix(kind, key) {
     }, true);
   }
 
-  if (kind === 'no_cost')
+  if (kind === 'no_cost') {
+    const inc = (BOOT?.settings?.cost_vat || 'include') === 'include';
+    const others = (MQ.no_cost || []).filter(x => x.key !== r.key);
+    const cur = (PRODUCTS.find(x => x.id === r.id) || {}).tax_type || 'taxed';
     return openModal('원가 입력 — ' + r.name, `
       <div class="tip">매입을 등록해 <b>입고 처리</b>하면 원가가 저절로 잡힙니다.
         아직 매입 기록을 넣기 전이라면 여기에 임시로 적어두세요.</div>
-      <label class="f"><span>원가 (개당)</span><input type="number" id="mq_cost" placeholder="예) 9000"></label>
+      <label class="f"><span>과세 구분</span></label>
+      <div class="chips" style="margin-bottom:14px">
+        <button type="button" data-tt="taxed" class="${cur === 'taxed' ? 'on' : ''}">과세</button>
+        <button type="button" data-tt="free"  class="${cur === 'free'  ? 'on' : ''}">면세</button>
+      </div>
+      <div id="mq_taxhint" class="muted" style="margin:-8px 0 12px"></div>
+      <label class="f"><span id="mq_costlabel">원가 (개당, ${inc ? '부가세 포함' : '부가세 별도'})</span>
+        <input type="number" id="mq_cost" placeholder="예) 9000"></label>
+      ${others.length ? `<details style="margin-bottom:12px">
+        <summary class="muted" style="cursor:pointer;padding:6px 0">
+          과세 구분이 같은 상품이 더 있나요? (${others.length}개 중 고르기 — 과세구분만 같이 바뀝니다)</summary>
+        <div style="max-height:170px;overflow:auto;border:1px solid var(--line);border-radius:11px;padding:8px;margin-top:8px">
+          ${others.map(o => `<label class="row" style="gap:8px;padding:4px 2px">
+            <input type="checkbox" data-also="${esc(o.key)}" style="width:17px;height:17px;flex:none">
+            <span class="grow">${esc(o.name)} <span class="muted">${esc(o.sku || '')}</span></span></label>`).join('')}
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn s g" id="mq_all">전체 선택</button>
+          <button class="btn s g" id="mq_none">전체 해제</button>
+        </div></details>` : ''}
       <label class="f"><span>메모</span><input type="text" id="mq_note" value="${esc(r.note || '')}"></label>
       <button class="btn w" id="mq_go">저장</button>`, () => {
-      $('#mq_go').onclick = () => {
-        if (!parseInt($('#mq_cost').value || 0, 10)) return toast('원가를 입력해 주세요.');
-        done({ cost: $('#mq_cost').value, note: $('#mq_note').value.trim() });
+      let tt = cur;
+      const hint = () => {
+        $('#mq_taxhint').innerHTML = tt === 'free'
+          ? '면세 상품은 부가세가 붙지 않습니다. <b>낸 금액 그대로</b> 적어주세요.'
+          : (inc ? '과세 상품입니다. <b>부가세까지 포함한 금액</b>으로 적어주세요. (계산서 총액 ÷ 수량)'
+                 : '과세 상품입니다. <b>공급가액(부가세 제외)</b>으로 적어주세요.');
+        $('#mq_costlabel').textContent = tt === 'free'
+          ? '원가 (개당)' : `원가 (개당, ${inc ? '부가세 포함' : '부가세 별도'})`;
       };
-    });
+      $$('#modal [data-tt]').forEach(b => b.onclick = () => {
+        tt = b.dataset.tt;
+        $$('#modal [data-tt]').forEach(x => x.classList.toggle('on', x === b));
+        hint();
+      });
+      hint();
+      const a = $('#mq_all'), n = $('#mq_none');
+      if (a) a.onclick = () => $$('#modal [data-also]').forEach(c => c.checked = true);
+      if (n) n.onclick = () => $$('#modal [data-also]').forEach(c => c.checked = false);
+      $('#mq_go').onclick = async () => {
+        if (!parseInt($('#mq_cost').value || 0, 10)) return toast('원가를 입력해 주세요.');
+        const also = $$('#modal [data-also]').filter(c => c.checked).map(c => c.dataset.also);
+        try {
+          const res = await api('aMatchSetCost', [TOKEN,
+            { key: r.key, cost: $('#mq_cost').value, tax_type: tt, also }]);
+          if ($('#mq_note').value.trim())
+            await api('aMatchNote', [TOKEN, { kind, key: r.key, status: 'noted', note: $('#mq_note').value.trim() }]);
+          closeModal();
+          toast(res.also ? `원가를 넣고 과세구분을 ${res.also + 1}개에 적용했습니다` : '원가를 넣었습니다');
+          PRODUCTS = []; loadMatch();
+        } catch (e) { toast(e.message); }
+      };
+    }, true);
+  }
 
   if (kind === 'no_price')
     return openModal('공급가 입력 — ' + r.name, `
@@ -1530,13 +1586,14 @@ async function poModal(po) {
       <label class="f"><span>매입일</span><input type="date" id="po_date" value="${po ? po.order_date : new Date().toISOString().slice(0,10)}"></label>
       <label class="f"><span>대금 지급 예정일</span><input type="date" id="po_due" value="${po && po.due_date ? po.due_date : ''}"></label>
       <label class="f"><span>과세 구분</span><select id="po_tax">
-        <option value="free" ${!po || po.tax_type === 'free' ? 'selected' : ''}>면세 (미가공 축산물)</option>
-        <option value="taxed" ${po && po.tax_type === 'taxed' ? 'selected' : ''}>과세 (부가세 10% 별도)</option>
+        <option value="auto"  ${!po || !po.tax_type || po.tax_type === 'auto' ? 'selected' : ''}>상품별 설정 따름 (권장)</option>
+        <option value="free"  ${po && po.tax_type === 'free' ? 'selected' : ''}>전부 면세로</option>
+        <option value="taxed" ${po && po.tax_type === 'taxed' ? 'selected' : ''}>전부 과세로</option>
       </select></label>
     </div>
     <h3 style="margin:6px 0 8px">매입 품목</h3>
     <div class="tblwrap"><table id="poItems">
-      <tr><th>상품</th><th class="right">수량</th><th class="right">매입 단가</th><th class="right">금액</th><th></th></tr>
+      <tr><th>상품</th><th class="right">수량</th><th class="right">매입 단가<div class="muted" style="font-weight:400">부가세 별도</div></th><th class="right">금액</th><th></th></tr>
       ${items.map((it, i) => poItemRow(it, i)).join('')}
     </table></div>
     <button class="btn s g" id="po_addrow" style="margin:8px 0">+ 줄 추가</button>
@@ -1574,9 +1631,21 @@ async function poModal(po) {
         } else { hint.textContent = prod ? '첫 매입' : ''; }
       });
       const ex = parseInt($('#po_extra').value || 0, 10);
-      const vat = $('#po_tax').value === 'taxed' ? Math.round((sub + ex) * 0.1) : 0;
+      // 부가세는 '과세 품목'만 골라 계산한다 (한 매입에 과세/면세가 섞일 수 있다)
+      const mode = $('#po_tax').value;
+      let taxable = 0;
+      $$('#poItems tr[data-r]').forEach(tr => {
+        const q = parseInt(tr.querySelector('[data-f=qty]').value || 0, 10);
+        const u = parseInt(tr.querySelector('[data-f=unit_price]').value || 0, 10);
+        const prod = PRODUCTS.find(x => x.id === tr.querySelector('[data-f=product_id]').value);
+        const tt = mode === 'free' ? 'free' : mode === 'taxed' ? 'taxed' : ((prod && prod.tax_type) || 'taxed');
+        if (tt === 'taxed') taxable += q * u;
+      });
+      const vat = sub > 0 ? Math.round((taxable + ex * (taxable / sub)) * 0.1) : 0;
       $('#po_sub').textContent = num(sub); $('#po_ex').textContent = num(ex);
-      $('#po_vat').textContent = num(vat); $('#po_tot').textContent = won(sub + ex + vat);
+      $('#po_vat').textContent = num(vat) + (mode === 'auto' && taxable !== sub && sub > 0
+        ? ` <span class="muted">(과세 ${num(taxable)} 기준)</span>` : '');
+      $('#po_tot').textContent = won(sub + ex + vat);
     };
     const bind = () => {
       $$('#poItems input, #poItems select').forEach(el => el.oninput = recalc);
@@ -2014,7 +2083,7 @@ function renderProducts() {
 
   $('#prTbl').innerHTML = `
     <tr><th>상품</th><th class="right">재고</th><th class="right">재고금액</th>
-        <th class="right">원가</th><th class="right">공급가</th><th class="right">마진</th>
+        <th>과세</th><th class="right">원가</th><th class="right">공급가</th><th class="right">마진</th>
         <th class="right">7일</th><th class="right">30일</th><th class="right">소진일수</th>
         <th>매입처</th><th></th></tr>
     ${rows.map(r => {
@@ -2032,6 +2101,7 @@ function renderProducts() {
         <td><b>${esc(r.name)}</b><div class="muted">${esc(r.sku || '')}${r.category ? ' · ' + esc(r.category) : ''}</div></td>
         <td class="n ${Number(r.stock) <= 0 ? 'low' : ''}">${num(r.stock)}${Number(r.bad_stock) ? `<div class="muted">불용 ${num(r.bad_stock)}</div>` : ''}</td>
         <td class="n"><b>${num(r.stock_value)}</b></td>
+        <td>${r.tax_type === 'free' ? '<span class="bdg b-done">면세</span>' : '<span class="bdg b-paid">과세</span>'}</td>
         <td class="n ${Number(r.cost) ? '' : 'low'}">${Number(r.cost) ? num(r.cost) : '없음'}</td>
         <td class="n ${Number(r.price) ? '' : 'low'}">${Number(r.price) ? num(r.price) : '없음'}</td>
         <td class="n ${r.margin != null && Number(r.margin) < 0 ? 'low' : 'muted'}">${r.margin != null ? r.margin + '%' : '-'}</td>
@@ -2056,9 +2126,14 @@ function productModal(p) {
       <label class="f"><span>분류</span><input type="text" id="pr_category" value="${v('category')}" placeholder="예) 냉동"></label>
       <label class="f"><span>규격·옵션</span><input type="text" id="pr_spec" value="${v('spec')}" placeholder="예) 1kg"></label>
       <label class="f"><span>단위</span><input type="text" id="pr_unit" value="${p ? esc(p.unit) : '개'}"></label>
+      <label class="f"><span>과세 구분</span><select id="pr_tax_type">
+        <option value="taxed" ${!p || (p.tax_type || 'taxed') === 'taxed' ? 'selected' : ''}>과세 (부가세 10%)</option>
+        <option value="free"  ${p && p.tax_type === 'free' ? 'selected' : ''}>면세 (미가공 축산물 등)</option>
+      </select></label>
       <label class="f"><span>기본 공급가 *</span><input type="number" id="pr_price" value="${p ? p.price : 0}"></label>
       <label class="f"><span>목표 마진율 % (0=회사 기본값)</span><input type="number" id="pr_target_margin" step="0.1" value="${p ? (p.target_margin || 0) : 0}"></label>
-      <label class="f"><span>수동 원가 (매입 기록 없을 때만 씀)</span><input type="number" id="pr_cost" value="${p ? (p.cost || 0) : 0}"></label>
+      <label class="f"><span>수동 원가 (${(BOOT?.settings?.cost_vat || 'include') === 'include' ? '부가세 포함' : '부가세 별도'}, 매입 기록 없을 때만 씀)</span>
+        <input type="number" id="pr_cost" value="${p ? (p.cost || 0) : 0}"></label>
       <label class="f"><span>소비자가 (참고)</span><input type="number" id="pr_list_price" value="${p ? p.list_price : 0}"></label>
       <label class="f"><span>고객사 상품코드 (창고 대조용)</span><input type="text" id="pr_sku" value="${v('sku')}" placeholder="예) DB0064"></label>
       <label class="f"><span>창고 상품코드</span><input type="text" id="pr_wms_code" value="${v('wms_code')}" placeholder="예) B901324784959"></label>
@@ -2087,6 +2162,7 @@ function productModal(p) {
     $('#pr_save').onclick = async () => {
       const body = { name: $('#pr_name').value.trim() };
       ['category','spec','unit','image_url','memo','sku','wms_code'].forEach(k => body[k] = $('#pr_' + k).value.trim());
+      body.tax_type = $('#pr_tax_type').value;
       ['list_price','price','cost','stock','safety_stock','min_qty','box_qty','sort','lead_days']
         .forEach(k => body[k] = parseInt($('#pr_' + k).value || 0, 10));
       body.supplier_id = $('#pr_supplier_id').value;
@@ -2969,12 +3045,13 @@ function fillSettings() {
   const s = BOOT.settings;
   ['company_name','biz_no','ceo','addr','phone','email','bank_name','bank_account','bank_holder',
    'ship_fee','free_ship_over','min_order','tax_mode','notice','order_guide',
-   'target_margin','cost_alert_pct']
+   'target_margin','cost_alert_pct','cost_vat']
     .forEach(k => { const el = $('#s_' + k); if (el) el.value = s[k] ?? ''; });
 }
 $('#setSave').onclick = async () => {
   const body = {};
-  ['company_name','biz_no','ceo','addr','phone','email','bank_name','bank_account','bank_holder','tax_mode','notice','order_guide']
+  ['company_name','biz_no','ceo','addr','phone','email','bank_name','bank_account','bank_holder',
+   'tax_mode','cost_vat','notice','order_guide']
     .forEach(k => body[k] = $('#s_' + k).value.trim());
   ['ship_fee','free_ship_over','min_order'].forEach(k => body[k] = parseInt($('#s_' + k).value || 0, 10));
   ['target_margin','cost_alert_pct'].forEach(k => body[k] = parseFloat($('#s_' + k).value || 0));
