@@ -285,6 +285,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     </section>
 
     <section id="t-upload" class="hide">
+      <div id="closeCheck"></div>
       <div id="ivBox"></div>
       <div class="chips" style="margin-bottom:12px">
         <button data-usub="stock" class="on">재고 현황</button>
@@ -2741,7 +2742,47 @@ async function doUpload() {
   }
 }
 
+/* ── 마감 체크: 오늘 올렸는지 / 빠진 날 없는지 ── */
+async function renderCloseCheck() {
+  const box = $('#closeCheck');
+  if (!box) return;
+  let st;
+  try { st = await api('aUploadStatus', [TOKEN]); } catch (e) { box.innerHTML = ''; return; }
+  const miss = st.missing_dates || [];
+  const ok = st.stock_done_today;
+
+  box.innerHTML = `<div class="card" style="border-color:${ok && !miss.length ? '#b7e4c7' : '#ffd8a8'};
+      background:${ok && !miss.length ? '#f4fbf6' : '#fffdf5'}">
+    <h3>${ok && !miss.length ? '✅' : '📌'} 오늘 마감 체크
+      <span class="sp muted">${esc(String(st.today))}</span></h3>
+    <div class="row" style="gap:10px;flex-wrap:wrap">
+      <div style="min-width:210px">
+        <div class="muted">① 재고 현황 <b>(매일)</b></div>
+        <div style="font-size:17px;font-weight:800;color:${ok ? 'var(--ok)' : 'var(--warn)'}">
+          ${ok ? '오늘 올렸습니다' : '아직 안 올렸습니다'}</div>
+        <div class="muted">마지막 기준일 ${st.last_stock_date ? esc(String(st.last_stock_date)) : '없음'}</div>
+      </div>
+      <div style="min-width:210px">
+        <div class="muted">② 입출고 현황 <b>(주 1회면 충분)</b></div>
+        <div style="font-size:17px;font-weight:800;color:${st.move_due ? 'var(--warn)' : 'var(--ok)'}">
+          ${st.last_move_upload == null ? '아직 없음'
+            : st.move_days_ago === 0 ? '오늘 올렸습니다'
+            : st.move_days_ago + '일 전'}</div>
+        <div class="muted">${st.move_covered_to ? esc(String(st.move_covered_to)) + ' 까지 채워짐' : ''}</div>
+      </div>
+    </div>
+    ${miss.length ? `<div class="warn" style="margin:12px 0 0">
+      <b>재고표가 빠진 날이 ${miss.length}일 있습니다</b> (주말 제외):
+      ${miss.map(d => esc(String(d))).join(', ')}<br>
+      그날 파일을 받아 올리시거나, <b>입출고 현황</b>으로 그 기간을 덮어 채우셔도 됩니다.</div>` : ''}
+    ${!ok ? `<div class="tip" style="margin:12px 0 0">
+      오늘 할 일은 <b>재고 현황 1장</b>뿐입니다. 여기에 그날 출고량까지 들어있어서
+      입출고 현황은 매일 안 올리셔도 됩니다.</div>` : ''}
+  </div>`;
+}
+
 async function loadUpload() {
+  renderCloseCheck();
   try {
     const iv = await api('aInventoryValue', [TOKEN]);
     $('#ivBox').innerHTML = `<div class="stats">
