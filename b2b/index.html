@@ -1590,23 +1590,72 @@ function renderShip() {
 
 $('#alAdd').onclick = () => allocModal(null);
 
+let ALLOC_NAMES = [];
+
 async function allocModal(partnerId) {
   const d = SHIPDAY;
   if (!d) return;
-  const actives = PARTNERS.filter(p => p.status === 'active');
-  if (!actives.length) return toast('먼저 거래처를 등록하고 승인해 주세요.');
-  const first = partnerId || actives[0].id;
+  // 거래처가 148곳이라 드롭다운으로는 못 찾는다 — 검색으로 고른다.
+  // 정렬은 서버가 해준다: 육류 B2B 계열 → 발주 많은 곳 → 이름순 (결제대행사는 맨 뒤)
+  if (!ALLOC_NAMES.length) {
+    try { ALLOC_NAMES = await api('aPartnerNames', [TOKEN]); }
+    catch (e) { ALLOC_NAMES = PARTNERS.filter(p => p.status === 'active'); }
+  }
+  if (!ALLOC_NAMES.length) return toast('먼저 거래처를 등록하고 승인해 주세요.');
 
   openModal(`출고 배분 — ${d.date}`, `
-    <label class="f"><span>어느 거래처로 나갔나요? *</span><select id="al_ptn">
-      ${actives.map(p => `<option value="${p.id}" ${first === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
-    </select></label>
-    <div class="tip"><b>단가는 고치실 수 있습니다.</b> 비워두면 그 거래처 자동 단가가 들어갑니다.
-      옆에 <b>평균원가와 마진</b>이 같이 보이니 밑지는 값은 바로 눈에 띕니다.</div>
-    <div id="al_body"><div class="empty">불러오는 중…</div></div>
+    <div id="al_pick">
+      <label class="f"><span>어느 거래처로 나갔나요? — 이름을 치면 찾아줍니다 *</span>
+        <input type="text" id="al_q" placeholder="예) 노리컴퍼니" autocomplete="off"></label>
+      <div id="al_list" style="max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:11px"></div>
+    </div>
+    <div id="al_chosen" class="hide"></div>
+    <input type="hidden" id="al_ptn">
+    <div id="al_body"></div>
   `, () => {
-    $('#al_ptn').onchange = () => drawAllocBody(d);
-    drawAllocBody(d);
+    const q = $('#al_q'), list = $('#al_list');
+    const draw = () => {
+      const t = q.value.trim().toLowerCase();
+      const hit = ALLOC_NAMES.filter(p => !t || (p.name + ' ' + (p.erp_code || '')).toLowerCase().includes(t)).slice(0, 80);
+      list.innerHTML = hit.length ? hit.map(p => `
+        <div class="row clkrow" data-pick="${p.id}" style="padding:9px 12px;border-bottom:1px solid #f0f2f6;cursor:pointer">
+          <div class="grow"><b>${esc(p.name)}</b>
+            <span class="muted">${p.category ? ' · ' + esc(p.category) : ''}${p.orders ? ' · 발주 ' + p.orders + '건' : ''}</span></div>
+          <span class="btn s">선택</span></div>`).join('')
+        : `<div class="empty" style="padding:22px">찾는 거래처가 없습니다.<br>
+            <span class="muted">거래처 탭에서 먼저 등록해 주세요.</span></div>`;
+      $$('#al_list [data-pick]').forEach(el => el.onclick = () => choose(el.dataset.pick));
+    };
+    const choose = id => {
+      const p = ALLOC_NAMES.find(x => x.id === id) || {};
+      $('#al_ptn').value = id;
+      $('#al_pick').classList.add('hide');
+      $('#al_chosen').classList.remove('hide');
+      $('#al_chosen').innerHTML = `
+        <div class="row" style="padding:12px 14px;background:#f0f6ff;border:1px solid #cfe0ff;border-radius:12px;margin-bottom:12px">
+          <div class="grow"><b style="font-size:16px">${esc(p.name)}</b>
+            <span class="muted">${p.category ? ' · ' + esc(p.category) : ''}</span></div>
+          <button class="btn s g" id="al_change">거래처 바꾸기</button>
+        </div>
+        <div class="tip"><b>단가는 고치실 수 있습니다.</b> 비워두면 그 거래처 자동 단가가 들어갑니다.
+          옆에 <b>평균원가와 마진</b>이 같이 보이니 밑지는 값은 바로 눈에 띕니다.</div>`;
+      $('#al_change').onclick = () => {
+        $('#al_chosen').classList.add('hide');
+        $('#al_pick').classList.remove('hide');
+        $('#al_body').innerHTML = '';
+        q.value = ''; draw(); setTimeout(() => q.focus(), 80);
+      };
+      drawAllocBody(d);
+    };
+    q.oninput = draw;
+    q.onkeydown = e => {
+      if (e.key !== 'Enter') return;
+      const first = $('#al_list [data-pick]');
+      if (first) first.click();
+    };
+    draw();
+    if (partnerId) choose(partnerId);
+    else setTimeout(() => q.focus(), 100);
   }, true);
 }
 
