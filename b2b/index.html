@@ -158,6 +158,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       <button data-tab="orders">발주<span class="dot hide" id="dotOrders"></span></button>
       <button data-tab="pays">입금</button>
       <button data-tab="products">상품·재고</button>
+      <button data-tab="upload">재고 업로드</button>
       <button data-tab="prices">단가표</button>
       <button data-tab="partners">거래처<span class="dot hide" id="dotPartners"></span></button>
       <button data-tab="settle">정산</button>
@@ -207,6 +208,27 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       </div>
       <div class="card" style="padding:0">
         <div class="tblwrap" style="margin:0;padding:0"><table id="prTbl"></table></div>
+      </div>
+    </section>
+
+    <section id="t-upload" class="hide">
+      <div id="ivBox"></div>
+      <div class="card">
+        <h3>창고 재고표 올리기</h3>
+        <div class="tip">3PL에서 받은 <b>상품별 재고_요약본</b> 엑셀(.xlsx)을 그대로 올리면 됩니다.
+          <b>고객사 상품코드</b>(DB0064 …)로 상품을 찾아 재고를 창고 숫자에 맞춥니다.
+          같은 날짜를 다시 올리면 덮어쓰니 마감 때 두 번 올려도 괜찮습니다.</div>
+        <div id="drop" style="border:2px dashed var(--line);border-radius:14px;padding:30px 16px;text-align:center;background:#fbfcfe;cursor:pointer">
+          <div style="font-size:34px;line-height:1">📄</div>
+          <div style="font-weight:700;margin-top:6px">엑셀 파일을 여기에 끌어다 놓거나 눌러서 고르세요</div>
+          <div class="muted">.xlsx · .csv</div>
+          <input type="file" id="upFile" accept=".xlsx,.csv" class="hide">
+        </div>
+        <div id="upPrev"></div>
+      </div>
+      <div class="card">
+        <h3>업로드 이력<span class="sp"><button class="btn s g" id="upRefresh">새로고침</button></span></h3>
+        <div class="tblwrap" id="upHist"></div>
       </div>
     </section>
 
@@ -433,10 +455,11 @@ function updateDots() {
 $$('#tabs button').forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
   $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['dash','orders','pays','products','prices','partners','settle','setting']
+  ['dash','orders','pays','products','upload','prices','partners','settle','setting']
     .forEach(t => $('#t-' + t).classList.toggle('hide', t !== TAB));
   ({ dash: renderDash, orders: loadOrders, pays: loadPays, products: loadProducts,
-     prices: loadMatrix, partners: loadPartners, settle: loadSettle, setting: loadSetting })[TAB]?.();
+     upload: loadUpload, prices: loadMatrix, partners: loadPartners,
+     settle: loadSettle, setting: loadSetting })[TAB]?.();
   window.scrollTo(0, 0);
 });
 function goTab(t, prep) {
@@ -713,13 +736,14 @@ function renderProducts() {
   const rows = PRODUCTS.filter(p => !q || (p.name + ' ' + (p.sku||'') + ' ' + (p.category||'')).toLowerCase().includes(q));
   if (!rows.length) { $('#prTbl').innerHTML = `<tr><td class="empty">상품이 없습니다. 오른쪽 위 &lsquo;상품 등록&rsquo;으로 추가하세요.</td></tr>`; return; }
   $('#prTbl').innerHTML = `
-    <tr><th>상품명</th><th>분류</th><th class="right">소비자가</th><th class="right">기본 공급가</th>
-        <th class="right">재고</th><th>판매</th><th></th></tr>
+    <tr><th>상품코드</th><th>상품명</th><th class="right">원가</th><th class="right">기본 공급가</th>
+        <th class="right">마진</th><th class="right">재고</th><th>판매</th><th></th></tr>
     ${rows.map(p => `<tr>
-      <td><b>${esc(p.name)}</b>${p.spec ? `<div class="muted">${esc(p.spec)}</div>` : ''}</td>
-      <td class="muted">${esc(p.category || '-')}</td>
-      <td class="n muted">${p.list_price ? num(p.list_price) : '-'}</td>
-      <td class="n"><b>${num(p.price)}</b></td>
+      <td class="muted">${esc(p.sku || '-')}</td>
+      <td><b>${esc(p.name)}</b>${p.category || p.spec ? `<div class="muted">${esc([p.category, p.spec].filter(Boolean).join(' · '))}</div>` : ''}</td>
+      <td class="n ${p.cost ? '' : 'muted'}">${p.cost ? num(p.cost) : '-'}</td>
+      <td class="n ${p.price ? '' : 'low'}">${p.price ? '<b>' + num(p.price) + '</b>' : '미입력'}</td>
+      <td class="n muted">${p.cost && p.price ? Math.round((p.price - p.cost) / p.price * 100) + '%' : '-'}</td>
       <td class="n ${p.safety_stock > 0 && p.stock <= p.safety_stock ? 'low' : ''}">${num(p.stock)} ${esc(p.unit || '')}</td>
       <td>${p.active ? '<span class="bdg b-active">판매중</span>' : '<span class="bdg b-done">중지</span>'}</td>
       <td class="row" style="gap:5px">
@@ -739,8 +763,11 @@ function productModal(p) {
       <label class="f"><span>분류</span><input type="text" id="pr_category" value="${v('category')}" placeholder="예) 냉동"></label>
       <label class="f"><span>규격·옵션</span><input type="text" id="pr_spec" value="${v('spec')}" placeholder="예) 1kg"></label>
       <label class="f"><span>단위</span><input type="text" id="pr_unit" value="${p ? esc(p.unit) : '개'}"></label>
+      <label class="f"><span>원가 (매입가)</span><input type="number" id="pr_cost" value="${p ? (p.cost || 0) : 0}"></label>
       <label class="f"><span>소비자가 (참고)</span><input type="number" id="pr_list_price" value="${p ? p.list_price : 0}"></label>
-      <label class="f"><span>공급가 (업체 단가) *</span><input type="number" id="pr_price" value="${p ? p.price : 0}"></label>
+      <label class="f"><span>기본 공급가 *</span><input type="number" id="pr_price" value="${p ? p.price : 0}"></label>
+      <label class="f"><span>고객사 상품코드 (창고 대조용)</span><input type="text" id="pr_sku" value="${v('sku')}" placeholder="예) DB0064"></label>
+      <label class="f"><span>창고 상품코드</span><input type="text" id="pr_wms_code" value="${v('wms_code')}" placeholder="예) B901324784959"></label>
       <label class="f"><span>현재 재고</span><input type="number" id="pr_stock" value="${p ? p.stock : 0}"></label>
       <label class="f"><span>안전재고 (경고 기준)</span><input type="number" id="pr_safety_stock" value="${p ? p.safety_stock : 0}"></label>
       <label class="f"><span>최소 발주 수량</span><input type="number" id="pr_min_qty" value="${p ? p.min_qty : 1}"></label>
@@ -755,12 +782,12 @@ function productModal(p) {
     ${p ? `<div class="tip">공급가는 <b>단가를 따로 안 정한 거래처</b>에만 적용됩니다.
       업체별로 값을 박아두려면 아래 &lsquo;업체별 단가&rsquo; 를 쓰세요.</div>` : ''}
     <div class="row" style="flex-wrap:wrap"><button class="btn grow" id="pr_save">저장</button>
-      ${p ? `<button class="btn g" id="pr_pp">업체별 단가</button><button class="btn g" id="pr_hist">재고 이력</button><button class="btn r" id="pr_del">삭제</button>` : ''}</div>
+      ${p ? `<button class="btn g" id="pr_pp">업체별 단가</button><button class="btn g" id="pr_ph">가격 이력</button><button class="btn g" id="pr_hist">재고 이력</button><button class="btn r" id="pr_del">삭제</button>` : ''}</div>
   `, () => {
     $('#pr_save').onclick = async () => {
       const body = { name: $('#pr_name').value.trim() };
-      ['category','spec','unit','image_url','memo'].forEach(k => body[k] = $('#pr_' + k).value.trim());
-      ['list_price','price','stock','safety_stock','min_qty','box_qty','sort']
+      ['category','spec','unit','image_url','memo','sku','wms_code'].forEach(k => body[k] = $('#pr_' + k).value.trim());
+      ['list_price','price','cost','stock','safety_stock','min_qty','box_qty','sort']
         .forEach(k => body[k] = parseInt($('#pr_' + k).value || 0, 10));
       body.active = $('#pr_active').value === 'true';
       if (p) body.id = p.id;
@@ -778,7 +805,31 @@ function productModal(p) {
     if (h) h.onclick = () => histModal(p);
     const pp = $('#pr_pp');
     if (pp) pp.onclick = () => productPriceModal(p);
+    const ph = $('#pr_ph');
+    if (ph) ph.onclick = () => priceHistModal(p);
   }, true);
+}
+
+// 가격이 언제 얼마에서 얼마로 바뀌었는지
+const PKIND = { base: '기본 공급가', cost: '원가', partner: '업체 단가' };
+async function priceHistModal(p) {
+  try {
+    const rows = await api('aPriceHistory', [TOKEN, { product_id: p.id }]);
+    openModal('가격 이력 — ' + p.name, rows.length ? `<div class="tblwrap"><table>
+      <tr><th>일시</th><th>구분</th><th>대상</th><th class="right">전</th><th class="right">후</th><th class="right">변동</th><th>바꾼 사람</th></tr>
+      ${rows.map(h => {
+        const d = (h.new_price ?? 0) - (h.old_price ?? 0);
+        return `<tr><td class="muted">${ymdt(h.at)}</td>
+          <td>${PKIND[h.kind] || h.kind}</td>
+          <td class="muted">${esc(h.partner || '전체')}</td>
+          <td class="n muted">${h.old_price == null ? '-' : num(h.old_price)}</td>
+          <td class="n"><b>${h.new_price == null ? '해제' : num(h.new_price)}</b></td>
+          <td class="n" style="color:${d > 0 ? 'var(--red)' : d < 0 ? 'var(--ok)' : 'var(--sub)'}">
+            ${h.new_price == null || h.old_price == null ? '-' : (d > 0 ? '+' : '') + num(d)}</td>
+          <td class="muted">${esc(h.actor || '')}</td></tr>`;
+      }).join('')}
+      </table></div>` : `<div class="empty">아직 가격 변경 이력이 없습니다.</div>`, null, true);
+  } catch (e) { toast(e.message); }
 }
 
 // 한 상품이 거래처별로 얼마에 나가는지 — 여기서 바로 고칠 수 있다
@@ -846,6 +897,268 @@ async function histModal(p) {
       </table></div>` : `<div class="empty">이력이 없습니다.</div>`, null, true);
   } catch (e) { toast(e.message); }
 }
+
+/* ═══════════ 엑셀(.xlsx) 읽기 — 외부 라이브러리 없이 ═══════════
+   xlsx 는 사실 zip 이다. 브라우저에 내장된 DecompressionStream 으로 풀고
+   시트 XML 을 직접 읽는다. CDN 스크립트를 안 쓰니 인터넷이 느려도 안 깨진다. */
+
+async function inflateRaw(bytes) {
+  if (!bytes.length) return new Uint8Array(0);
+  const ds = new DecompressionStream('deflate-raw');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function unzip(buf) {
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  // 뒤에서부터 EOCD(중앙 디렉터리 끝) 찾기
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 66000); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('엑셀 파일을 읽지 못했습니다. 파일이 손상됐는지 확인해 주세요.');
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const out = {};
+  for (let n = 0; n < count; n++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method  = dv.getUint16(p + 10, true);
+    const csize   = dv.getUint32(p + 20, true);
+    const nameLen = dv.getUint16(p + 28, true);
+    const extLen  = dv.getUint16(p + 30, true);
+    const cmtLen  = dv.getUint16(p + 32, true);
+    const lho     = dv.getUint32(p + 42, true);
+    const name    = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nameLen));
+    // 로컬 헤더에서 실제 데이터 시작점을 다시 계산 (extra 길이가 다를 수 있다)
+    const lNameLen = dv.getUint16(lho + 26, true);
+    const lExtLen  = dv.getUint16(lho + 28, true);
+    const start    = lho + 30 + lNameLen + lExtLen;
+    const raw      = buf.subarray(start, start + csize);
+    out[name] = method === 0 ? raw : await inflateRaw(raw);
+    p += 46 + nameLen + extLen + cmtLen;
+  }
+  return out;
+}
+
+const colIdx = ref => { // 'AB12' -> 27
+  let n = 0;
+  for (const ch of ref) {
+    const c = ch.charCodeAt(0);
+    if (c < 65 || c > 90) break;
+    n = n * 26 + (c - 64);
+  }
+  return n - 1;
+};
+
+async function readSheet(file) {
+  const name = file.name.toLowerCase();
+  const text = async b => new TextDecoder('utf-8').decode(b);
+
+  if (name.endsWith('.csv')) {
+    const raw = await file.text();
+    return raw.split(/\r?\n/).filter(l => l.trim()).map(line => {
+      const cells = []; let cur = '', q = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (q) { if (ch === '"' && line[i+1] === '"') { cur += '"'; i++; } else if (ch === '"') q = false; else cur += ch; }
+        else if (ch === '"') q = true;
+        else if (ch === ',') { cells.push(cur); cur = ''; }
+        else cur += ch;
+      }
+      cells.push(cur); return cells;
+    });
+  }
+
+  const files = await unzip(new Uint8Array(await file.arrayBuffer()));
+  // 공유 문자열 (있을 수도, 없을 수도)
+  let shared = [];
+  if (files['xl/sharedStrings.xml']) {
+    const doc = new DOMParser().parseFromString(await text(files['xl/sharedStrings.xml']), 'application/xml');
+    shared = [...doc.getElementsByTagName('si')].map(si =>
+      [...si.getElementsByTagName('t')].map(t => t.textContent).join(''));
+  }
+  const sheetKey = Object.keys(files).find(k => /^xl\/worksheets\/sheet1\.xml$/i.test(k))
+                || Object.keys(files).find(k => /^xl\/worksheets\/.*\.xml$/i.test(k));
+  if (!sheetKey) throw new Error('엑셀 안에서 시트를 찾지 못했습니다.');
+
+  const doc = new DOMParser().parseFromString(await text(files[sheetKey]), 'application/xml');
+  const rows = [];
+  for (const row of doc.getElementsByTagName('row')) {
+    const arr = [];
+    for (const c of row.getElementsByTagName('c')) {
+      const i = colIdx(c.getAttribute('r') || '');
+      const t = c.getAttribute('t');
+      let v = '';
+      if (t === 'inlineStr') {
+        v = [...c.getElementsByTagName('t')].map(x => x.textContent).join('');
+      } else {
+        const vn = c.getElementsByTagName('v')[0];
+        v = vn ? vn.textContent : '';
+        if (t === 's') v = shared[Number(v)] ?? '';
+      }
+      arr[i] = v;
+    }
+    rows.push(arr);
+  }
+  return rows;
+}
+
+/* ═══════════ 재고 업로드 탭 ═══════════ */
+let UPROWS = null, UPDATE_ = '', UPFILE = '';
+
+// 창고 엑셀의 열 이름 → 우리 필드. 열 순서가 바뀌어도 이름으로 찾으니 안전하다.
+function mapStockColumns(header) {
+  const norm = s => String(s ?? '').replace(/\s+/g, '').trim();
+  const H = header.map(norm);
+  const findExact = (...names) => { for (const n of names) { const i = H.indexOf(norm(n)); if (i >= 0) return i; } return -1; };
+  const findLike  = re => H.findIndex(h => re.test(h));
+  return {
+    sku:      findExact('고객사 상품코드'),
+    wms_code: findExact('상품코드'),
+    barcode:  findExact('바코드'),
+    name:     findExact('상품명'),
+    option:   findExact('옵션명'),
+    avail:    findExact('가용 재고', '가용재고'),
+    bad:      findExact('불용 재고', '불용재고'),
+    in_qty:   findLike(/입고량\(가용\)/),
+    out_qty:  findLike(/출고량\(가용\)/)
+  };
+}
+
+function pickStockDate(header) {
+  for (const h of header) {
+    const m = String(h ?? '').match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+    if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  }
+  return '';
+}
+
+$('#drop').onclick = () => $('#upFile').click();
+$('#drop').addEventListener('dragover', e => { e.preventDefault(); $('#drop').style.borderColor = 'var(--blue)'; });
+$('#drop').addEventListener('dragleave', () => $('#drop').style.borderColor = 'var(--line)');
+$('#drop').addEventListener('drop', e => {
+  e.preventDefault(); $('#drop').style.borderColor = 'var(--line)';
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+$('#upFile').onchange = e => { if (e.target.files[0]) handleFile(e.target.files[0]); };
+
+async function handleFile(file) {
+  UPFILE = file.name;
+  $('#upPrev').innerHTML = `<div class="empty">읽는 중…</div>`;
+  try {
+    const rows = await readSheet(file);
+    if (rows.length < 2) throw new Error('내용이 있는 줄이 없습니다.');
+    const header = rows[0], m = mapStockColumns(header);
+    if (m.avail < 0) throw new Error("'가용 재고' 열을 찾지 못했습니다. 창고에서 받은 원본 파일이 맞는지 확인해 주세요.");
+    if (m.sku < 0 && m.name < 0) throw new Error("'고객사 상품코드' 나 '상품명' 열이 있어야 합니다.");
+
+    UPROWS = rows.slice(1).map(r => {
+      const g = i => i >= 0 ? String(r[i] ?? '').trim() : '';
+      const gi = i => { const v = g(i).replace(/[^\d.-]/g, ''); return v === '' ? 0 : Math.round(Number(v)) || 0; };
+      return { sku: g(m.sku), wms_code: g(m.wms_code), barcode: g(m.barcode),
+               name: g(m.name), option: g(m.option),
+               avail: gi(m.avail), bad: gi(m.bad), in_qty: gi(m.in_qty), out_qty: gi(m.out_qty) };
+    }).filter(r => r.sku || r.name);
+
+    UPDATE_ = pickStockDate(header) || new Date().toISOString().slice(0, 10);
+    const total = UPROWS.reduce((a, r) => a + r.avail, 0);
+
+    $('#upPrev').innerHTML = `
+      <div class="tip" style="margin-top:14px">
+        <b>${esc(file.name)}</b><br>
+        상품 <b>${UPROWS.length}</b>줄 · 가용 재고 합계 <b>${num(total)}</b>개
+      </div>
+      <div class="g2">
+        <label class="f"><span>재고 기준일 (엑셀에서 읽음)</span><input type="date" id="upDate" value="${UPDATE_}"></label>
+        <label class="f"><span>&nbsp;</span>
+          <label class="row" style="gap:8px;padding:9px 0">
+            <input type="checkbox" id="upCreate" checked style="width:18px;height:18px;flex:none">
+            <span>목록에 없는 상품은 새로 등록</span></label></label>
+      </div>
+      <div class="tblwrap"><table>
+        <tr><th>상품코드</th><th>상품명</th><th class="right">가용</th><th class="right">불용</th>
+            <th class="right">입고</th><th class="right">출고</th></tr>
+        ${UPROWS.slice(0, 8).map(r => `<tr>
+          <td class="muted">${esc(r.sku)}</td><td><b>${esc(r.name)}</b></td>
+          <td class="n">${num(r.avail)}</td><td class="n muted">${num(r.bad)}</td>
+          <td class="n muted">${num(r.in_qty)}</td><td class="n muted">${num(r.out_qty)}</td></tr>`).join('')}
+        ${UPROWS.length > 8 ? `<tr><td colspan="6" class="muted">… 외 ${UPROWS.length - 8}줄</td></tr>` : ''}
+      </table></div>
+      <button class="btn w" style="margin-top:12px" id="upGo">이 내용으로 재고 맞추기</button>`;
+    $('#upGo').onclick = doUpload;
+  } catch (e) {
+    $('#upPrev').innerHTML = `<div class="err" style="margin-top:14px">${esc(e.message)}</div>`;
+  }
+}
+
+async function doUpload() {
+  const btn = $('#upGo'); btn.disabled = true; btn.textContent = '반영 중…';
+  try {
+    const r = await api('aStockUpload', [TOKEN, {
+      file_name: UPFILE, stock_date: $('#upDate').value,
+      create_missing: $('#upCreate').checked, rows: UPROWS
+    }]);
+    const changed = r.changed || [], miss = r.unmatched_rows || [];
+    openModal('재고 반영 완료', `
+      <div class="stats" style="margin-bottom:12px">
+        <div class="stat"><div class="l">읽은 줄</div><div class="v">${r.total}</div></div>
+        <div class="stat"><div class="l">맞춘 상품</div><div class="v" style="color:var(--ok)">${r.matched}</div></div>
+        <div class="stat"><div class="l">새로 등록</div><div class="v" style="color:var(--blue)">${r.created}</div></div>
+        <div class="stat"><div class="l">못 찾음</div><div class="v" style="color:${r.unmatched ? 'var(--red)' : 'inherit'}">${r.unmatched}</div></div>
+      </div>
+      <div class="muted" style="margin-bottom:10px">기준일 ${esc(String(r.stock_date))}</div>
+      ${miss.length ? `<div class="warn"><b>못 찾은 상품 ${miss.length}개</b><br>
+        ${miss.slice(0,10).map(x => esc(x.sku || '-') + ' ' + esc(x.name || '')).join('<br>')}
+        ${miss.length > 10 ? `<br>… 외 ${miss.length - 10}개` : ''}</div>` : ''}
+      ${changed.length ? `<h3 style="margin:14px 0 8px">재고가 바뀐 것 ${changed.length}개</h3>
+        <div class="tblwrap"><table>
+          <tr><th>상품</th><th class="right">전</th><th class="right">후</th><th class="right">차이</th></tr>
+          ${changed.slice(0,40).map(c => `<tr><td>${esc(c.name)}<div class="muted">${esc(c.sku||'')}</div></td>
+            <td class="n muted">${num(c.before)}</td><td class="n"><b>${num(c.after)}</b></td>
+            <td class="n" style="color:${c.after - c.before > 0 ? 'var(--ok)' : 'var(--red)'}">
+              ${c.after - c.before > 0 ? '+' : ''}${num(c.after - c.before)}</td></tr>`).join('')}
+        </table></div>` : `<div class="tip">재고가 바뀐 상품은 없습니다.</div>`}
+      <button class="btn w" style="margin-top:12px" onclick="closeModal()">확인</button>`, null, true);
+    $('#upPrev').innerHTML = ''; $('#upFile').value = '';
+    loadUpload();
+  } catch (e) {
+    toast(e.message); btn.disabled = false; btn.textContent = '이 내용으로 재고 맞추기';
+  }
+}
+
+async function loadUpload() {
+  try {
+    const iv = await api('aInventoryValue', [TOKEN]);
+    $('#ivBox').innerHTML = `<div class="stats">
+      <div class="stat"><div class="l">등록 상품</div><div class="v">${iv.items}</div></div>
+      <div class="stat"><div class="l">총 재고 수량</div><div class="v">${num(iv.units)}</div></div>
+      <div class="stat"><div class="l">재고 자산 (원가)</div><div class="v">${num(iv.cost_value)}</div></div>
+      <div class="stat"><div class="l">재고 자산 (공급가)</div><div class="v">${num(iv.price_value)}</div></div>
+      </div>
+      ${iv.no_price || iv.no_cost ? `<div class="warn">
+        ${iv.no_price ? `공급가가 아직 0원인 상품 <b>${iv.no_price}개</b>. ` : ''}
+        ${iv.no_cost ? `원가가 아직 0원인 상품 <b>${iv.no_cost}개</b>. ` : ''}
+        상품·재고 탭에서 채우면 재고 자산과 마진이 계산됩니다.</div>` : ''}
+      ${iv.last_sync ? `<div class="muted" style="margin:-4px 0 12px">마지막 재고 반영 ${ymdt(iv.last_sync)}</div>` : ''}`;
+  } catch (e) { $('#ivBox').innerHTML = ''; }
+  try {
+    const rows = await api('aStockUploads', [TOKEN]);
+    $('#upHist').innerHTML = rows.length ? `<table>
+      <tr><th>기준일</th><th>파일</th><th class="right">줄</th><th class="right">맞춤</th>
+          <th class="right">신규</th><th class="right">못찾음</th><th>올린 사람</th><th>올린 시각</th></tr>
+      ${rows.map(u => `<tr>
+        <td><b>${esc(String(u.stock_date))}</b></td>
+        <td class="muted">${esc(u.file_name || '')}</td>
+        <td class="n">${u.rows_total}</td>
+        <td class="n" style="color:var(--ok)">${u.matched}</td>
+        <td class="n">${u.created_cnt}</td>
+        <td class="n" style="color:${u.unmatched ? 'var(--red)' : 'var(--sub)'}">${u.unmatched}</td>
+        <td class="muted">${esc(u.actor || '')}</td>
+        <td class="muted">${ymdt(u.created_at)}</td></tr>`).join('')}
+    </table>` : `<div class="empty">아직 올린 파일이 없습니다.</div>`;
+  } catch (e) { $('#upHist').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+$('#upRefresh').onclick = loadUpload;
 
 /* ═══════════ 단가표 (업체별 커스텀 단가) ═══════════ */
 let MX = null;            // {products, partners, cells}
