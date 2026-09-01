@@ -175,15 +175,6 @@ textarea{resize:vertical;min-height:64px}
         <label class="f" style="margin-top:12px"><span>스토어 주소</span>
           <input type="url" id="f_channel_url" placeholder="https://" autocapitalize="off"></label>
         <label class="f"><span>고객문의(CS) 연락처</span><input type="tel" id="f_cs_phone"></label>
-        <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
-        <p class="d" style="margin-bottom:10px"><b>반품 받으실 주소</b> — 위 주소와 다르면 적어주세요.</p>
-        <label class="f"><span>우편번호</span>
-          <div class="addr">
-            <input type="text" id="f_return_zip" readonly placeholder="같으면 비워두셔도 됩니다">
-            <button type="button" data-find="return">주소 검색</button>
-          </div></label>
-        <label class="f"><span>반품지 주소</span><input type="text" id="f_return_addr" readonly></label>
-        <label class="f"><span>상세주소</span><input type="text" id="f_return_addr2"></label>
       </div>
 
       <div class="sec">
@@ -276,13 +267,8 @@ function openPostcode(target) {
       // 도로명주소 우선, 없으면 지번. 건물명이 있으면 괄호로 붙여준다.
       let addr = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
       if (data.userSelectedType === 'R' && data.buildingName) addr += ' (' + data.buildingName + ')';
-      if (pcTarget === 'main') {
-        $('#f_zip').value = data.zonecode; $('#f_addr').value = addr;
-        setTimeout(() => $('#f_addr2').focus(), 120);
-      } else {
-        $('#f_return_zip').value = data.zonecode; $('#f_return_addr').value = addr;
-        setTimeout(() => $('#f_return_addr2').focus(), 120);
-      }
+      $('#f_zip').value = data.zonecode; $('#f_addr').value = addr;
+      setTimeout(() => $('#f_addr2').focus(), 120);
       $('#pcLayer').style.display = 'none';
     },
     onresize: size => { $('#pcBox').style.height = size.height + 'px'; },
@@ -378,7 +364,6 @@ $('#submit').onclick = async () => {
     open_hours: v('f_open_hours'), deliver_note: v('f_deliver_note'),
     mailorder_no: v('f_mailorder_no'), channel: CHANS.join(', '), channel_url: v('f_channel_url'),
     cs_phone: v('f_cs_phone'),
-    return_zip: v('f_return_zip'), return_addr: v('f_return_addr'), return_addr2: v('f_return_addr2'),
     memo: v('f_memo'),
     doc_bizreg: DOCS.bizreg ? DOCS.bizreg.b64 : '',
     doc_bizreg_mime: DOCS.bizreg ? DOCS.bizreg.mime : '',
