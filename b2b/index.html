@@ -161,6 +161,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       <button data-tab="ship">출고 배분<span class="dot hide" id="dotShip"></span></button>
       <button data-tab="pays">입금</button>
       <button data-tab="buy">매입<span class="dot hide" id="dotBuy"></span></button>
+      <button data-tab="consign">위탁</button>
       <button data-tab="products">상품·재고</button>
       <button data-tab="upload">재고 업로드</button>
       <button data-tab="prices">단가표</button>
@@ -282,6 +283,20 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
         <div class="card" style="padding:0">
           <div class="tblwrap" style="margin:0;padding:0"><table id="spTbl"></table></div>
         </div>
+      </div>
+    </section>
+
+    <section id="t-consign" class="hide">
+      <div class="tip"><b>공급처가 거래처로 직접 보내는 거래</b>를 여기에 적습니다. 명세서 한 장 = 한 줄.
+        물건이 우리 창고를 안 거치니까 <b>재고는 건드리지 않습니다.</b> (창고에 들어오는 건 <b>매입</b> 탭)<br>
+        적어 넣으면 <b>공급처에 줄 돈</b>과 <b>거래처에서 받을 돈</b>이 한꺼번에 잡히고, 차액이 우리 마진입니다.</div>
+      <div id="cgSum"></div>
+      <div class="filt">
+        <select id="cgYm"></select>
+        <button class="btn" id="cgNew">+ 명세서 적기</button>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="tblwrap" style="margin:0;padding:0"><table id="cgTbl"></table></div>
       </div>
     </section>
 
@@ -630,9 +645,9 @@ function updateDots() {
 $$('#tabs button').forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
   $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['dash','match','orders','ship','pays','buy','products','upload','prices','partners','settle','setting']
+  ['dash','match','orders','ship','pays','buy','consign','products','upload','prices','partners','settle','setting']
     .forEach(t => $('#t-' + t).classList.toggle('hide', t !== TAB));
-  ({ dash: renderDash, match: loadMatch, orders: loadOrders, ship: loadShip, pays: loadPays, buy: loadBuy,
+  ({ dash: renderDash, match: loadMatch, orders: loadOrders, ship: loadShip, pays: loadPays, buy: loadBuy, consign: loadConsign,
      products: loadProducts, upload: loadUpload, prices: loadMatrix, partners: loadPartners,
      settle: loadSettle, setting: loadSetting })[TAB]?.();
   window.scrollTo(0, 0);
@@ -2378,6 +2393,181 @@ function supPayModal(p, po) {
     };
   });
 }
+/* ═══════════ 위탁 거래 — 공급처가 거래처로 직접 보낸 건 ═══════════
+   명세서 한 장을 옮겨 적으면 '공급처에 줄 돈'과 '거래처에서 받을 돈'이 동시에 잡힌다.
+   매입 탭과 다른 점: 물건이 창고를 안 거치므로 재고를 건드리지 않는다.       */
+async function loadConsign() {
+  if (!$('#cgYm').options.length) ymOptions($('#cgYm'));
+  if (!PARTNERS.length)  { try { PARTNERS  = await api('aPartners',  [TOKEN]); } catch (e) {} }
+  if (!SUPPLIERS.length) { try { SUPPLIERS = await api('aSuppliers', [TOKEN]); } catch (e) {} }
+  if (!PRODUCTS.length)  { try { PRODUCTS  = await api('aProducts',  [TOKEN]); } catch (e) {} }
+  $('#cgTbl').innerHTML = `<tr><td class="empty">불러오는 중…</td></tr>`;
+  try {
+    const [sum, rows] = await Promise.all([
+      api('aConsignSummary', [TOKEN]),
+      api('aConsignList', [TOKEN, { ym: $('#cgYm').value }])
+    ]);
+    $('#cgSum').innerHTML = `<div class="stats">
+      <div class="stat"><div class="l">위탁 거래</div><div class="v">${num(sum.orders)}건</div></div>
+      <div class="stat"><div class="l">매출 (받을 총액)</div><div class="v">${num(sum.sales)}</div></div>
+      <div class="stat"><div class="l">공급가 (줄 총액)</div><div class="v">${num(sum.cost)}</div></div>
+      <div class="stat"><div class="l">우리 마진</div>
+        <div class="v" style="color:var(--ok)">${num(sum.sales - sum.cost)}</div></div>
+      <div class="stat"><div class="l">아직 못 받은 돈</div>
+        <div class="v" style="color:${sum.unpaid_in > 0 ? 'var(--red)' : 'var(--sub)'}">${num(sum.unpaid_in)}</div></div>
+      <div class="stat"><div class="l">아직 안 준 돈</div>
+        <div class="v" style="color:${sum.unpaid_out > 0 ? 'var(--red)' : 'var(--sub)'}">${num(sum.unpaid_out)}</div></div>
+    </div>`;
+    if (!rows.length) {
+      $('#cgTbl').innerHTML = `<tr><td class="empty">위탁 거래가 없습니다. <b>+ 명세서 적기</b>로 시작하세요.</td></tr>`;
+      return;
+    }
+    $('#cgTbl').innerHTML = `
+      <tr><th>일자</th><th>공급처</th><th>거래처</th><th>내용</th>
+          <th class="right">받을 돈</th><th class="right">줄 돈</th><th class="right">마진</th><th class="right">입금</th></tr>
+      ${rows.map(r => `<tr class="clk" data-id="${r.id}">
+        <td><b>${esc(String(r.trade_date))}</b><div class="muted">${esc(r.order_no)}</div></td>
+        <td>${esc(r.supplier || '-')}</td>
+        <td>${esc(r.partner || '-')}</td>
+        <td class="muted">${esc((r.items_text || '').slice(0, 34))}</td>
+        <td class="n">${num(r.sales)}</td>
+        <td class="n">${num(r.cost)}</td>
+        <td class="n" style="color:${r.margin > 0 ? 'var(--ok)' : 'var(--red)'}">${num(r.margin)}</td>
+        <td class="n" style="color:${r.paid >= r.sales ? 'var(--ok)' : 'var(--red)'}">${num(r.paid)}</td>
+      </tr>`).join('')}`;
+    $$('#cgTbl tr.clk').forEach(tr => tr.onclick = () => openOrder(tr.dataset.id));
+  } catch (e) { $('#cgTbl').innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+$('#cgYm').onchange = loadConsign;
+$('#cgNew').onclick = () => consignModal();
+
+function cgRow(i) {
+  return `<tr data-r="${i}">
+    <td><select data-f="product_id" style="min-width:180px">
+      <option value="">— 상품 —</option>
+      ${PRODUCTS.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+    </select></td>
+    <td><input type="number" data-f="qty" placeholder="0" style="width:70px;text-align:right"></td>
+    <td><input type="number" data-f="cost" placeholder="0" style="width:100px;text-align:right"></td>
+    <td><input type="number" data-f="price" placeholder="0" style="width:100px;text-align:right"></td>
+    <td class="n" data-f="mg" style="white-space:nowrap">-</td>
+    <td><button class="btn s r" data-del="${i}">×</button></td></tr>`;
+}
+
+function consignModal() {
+  if (!SUPPLIERS.length || !PARTNERS.length || !PRODUCTS.length) {
+    return openModal('아직 등록이 덜 됐습니다',
+      `<p>위탁 거래를 적으려면 <b>공급처·거래처·상품</b>이 하나씩은 있어야 합니다.</p>`);
+  }
+  let n = 1;
+  openModal('위탁 명세서 적기', `
+    <div class="tip" style="margin-top:0">공급처가 <b>거래처로 직접 보낸</b> 건만 여기에 적습니다.
+      재고는 바뀌지 않습니다.</div>
+    <div class="g2">
+      <label class="f"><span>명세서 일자 *</span>
+        <input type="date" id="cg_date" value="${new Date().toISOString().slice(0,10)}"></label>
+      <label class="f"><span>명세서 번호</span><input type="text" id="cg_inv" placeholder="선택"></label>
+      <label class="f"><span>공급처 (보낸 곳) *</span><select id="cg_sup">
+        <option value="">— 고르기 —</option>
+        ${SUPPLIERS.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+      </select></label>
+      <label class="f"><span>거래처 (받은 곳) *</span>
+        <input type="text" id="cg_ptn" list="cg_ptnlist" placeholder="상호를 치면 찾아집니다" autocomplete="off">
+        <datalist id="cg_ptnlist">
+          ${PARTNERS.map(p => `<option value="${esc(p.name)}">`).join('')}
+        </datalist></label>
+    </div>
+    <div class="tblwrap"><table id="cg_items">
+      <tr><th>상품</th><th class="right">수량</th><th class="right">공급가<div class="muted" style="font-weight:400">공급처에 줄 단가</div></th>
+          <th class="right">판매가<div class="muted" style="font-weight:400">거래처에 받을 단가</div></th>
+          <th class="right">마진</th><th></th></tr>
+      ${cgRow(0)}
+    </table></div>
+    <button class="btn g s" id="cg_add" style="margin:6px 0 12px">+ 품목 추가</button>
+    <div class="g2">
+      <label class="f"><span>택배비 — 공급처가 청구한 값</span>
+        <input type="number" id="cg_feecost" placeholder="0"></label>
+      <label class="f"><span>택배비 — 거래처에 받을 값</span>
+        <input type="number" id="cg_feechg" placeholder="0"></label>
+    </div>
+    <label class="f"><span>메모</span><input type="text" id="cg_memo" placeholder="선택"></label>
+    <div id="cg_total" class="card" style="margin:12px 0"></div>
+    <p class="err hide" id="cg_err"></p>
+    <button class="btn w" id="cg_save">저장 — 양쪽 다 잡기</button>
+  `, () => {
+    const tbl = $('#cg_items');
+    const recalc = () => {
+      let sales = 0, cost = 0;
+      $$('#cg_items tr[data-r]').forEach(tr => {
+        const q = Number(tr.querySelector('[data-f=qty]').value) || 0;
+        const c = Number(tr.querySelector('[data-f=cost]').value) || 0;
+        const p = Number(tr.querySelector('[data-f=price]').value) || 0;
+        sales += p * q; cost += c * q;
+        tr.querySelector('[data-f=mg]').innerHTML = p > 0
+          ? `${num((p - c) * q)}<div class="muted">${((p - c) / p * 100).toFixed(1)}%</div>` : '-';
+      });
+      sales += Number($('#cg_feechg').value) || 0;
+      cost  += Number($('#cg_feecost').value) || 0;
+      $('#cg_total').innerHTML = `<div class="stats">
+        <div class="stat"><div class="l">거래처에서 받을 돈</div><div class="v">${won(sales)}</div></div>
+        <div class="stat"><div class="l">공급처에 줄 돈</div><div class="v">${won(cost)}</div></div>
+        <div class="stat"><div class="l">우리 마진</div>
+          <div class="v" style="color:${sales - cost >= 0 ? 'var(--ok)' : 'var(--red)'}">${won(sales - cost)}
+          ${sales > 0 ? `<span class="muted" style="font-size:13px"> (${((sales-cost)/sales*100).toFixed(1)}%)</span>` : ''}</div></div>
+      </div>`;
+    };
+    tbl.oninput = e => {
+      const tr = e.target.closest('tr[data-r]');
+      if (tr && e.target.dataset.f === 'product_id') {
+        const p = PRODUCTS.find(x => x.id === e.target.value);
+        if (p) {
+          const ci = tr.querySelector('[data-f=cost]'), pi = tr.querySelector('[data-f=price]');
+          if (!ci.value) ci.value = p.avg_cost || p.cost || '';
+          if (!pi.value) pi.value = p.price || '';
+        }
+      }
+      recalc();
+    };
+    tbl.onclick = e => {
+      if (!e.target.dataset.del) return;
+      if ($$('#cg_items tr[data-r]').length <= 1) return;
+      e.target.closest('tr').remove(); recalc();
+    };
+    ['cg_feecost','cg_feechg'].forEach(id => $('#' + id).oninput = recalc);
+    $('#cg_add').onclick = () => { tbl.insertAdjacentHTML('beforeend', cgRow(n++)); recalc(); };
+    recalc();
+
+    $('#cg_save').onclick = async () => {
+      showErr('#cg_err', '');
+      const pname = $('#cg_ptn').value.trim();
+      const ptn = PARTNERS.find(p => p.name === pname);
+      if (!ptn) return showErr('#cg_err', '거래처를 목록에서 골라 주세요. 없으면 거래처 탭에서 먼저 등록하세요.');
+      if (!$('#cg_sup').value) return showErr('#cg_err', '공급처를 골라 주세요.');
+      const items = $$('#cg_items tr[data-r]').map(tr => ({
+        product_id: tr.querySelector('[data-f=product_id]').value,
+        qty:   Number(tr.querySelector('[data-f=qty]').value) || 0,
+        cost:  Number(tr.querySelector('[data-f=cost]').value) || 0,
+        price: Number(tr.querySelector('[data-f=price]').value) || 0
+      })).filter(x => x.qty > 0);
+      if (!items.length) return showErr('#cg_err', '품목을 한 줄 이상 넣어 주세요.');
+      if (items.some(x => !x.product_id)) return showErr('#cg_err', '상품을 고르지 않은 줄이 있습니다.');
+      if (items.some(x => !x.price)) return showErr('#cg_err', '판매가를 안 적은 줄이 있습니다.');
+      const btn = $('#cg_save'); btn.disabled = true; btn.textContent = '저장 중…';
+      try {
+        const r = await api('aConsignEntry', [TOKEN, {
+          trade_date: $('#cg_date').value, supplier_id: $('#cg_sup').value, partner_id: ptn.id,
+          invoice_no: $('#cg_inv').value.trim(), memo: $('#cg_memo').value.trim(), items,
+          fee_cost: Number($('#cg_feecost').value) || 0,
+          fee_charge: Number($('#cg_feechg').value) || 0
+        }]);
+        closeModal();
+        toast(`${r.order_no} 저장 — 마진 ${won(r.margin)} (${r.margin_pct}%)`);
+        loadConsign();
+      } catch (e) { btn.disabled = false; btn.textContent = '저장 — 양쪽 다 잡기'; showErr('#cg_err', e.message); }
+    };
+  }, true);
+}
+
 
 /* ═══════════ 상품·재고 (분석 포함) ═══════════ */
 let ANALYSIS = null;
