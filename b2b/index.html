@@ -46,6 +46,27 @@ main{max-width:1240px;margin:0 auto;padding:16px 16px 80px}
 .stat .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.5px;margin-top:3px}
 .stat.act{cursor:pointer}
 .stat.act:hover{border-color:var(--blue)}
+/* 할 일 카드 — 0건은 눈에 안 띄게, 남은 건 세게 (로그인하고 5초 안에 뭘 할지 보이게) */
+.stat.zero{background:#fafbfc;box-shadow:none;border-color:#eef0f3}
+.stat.zero .l{color:#9aa3ad;font-weight:500}
+.stat.zero .v{color:#c2c8d0;font-weight:600;font-size:19px}
+.stat.hot{border-width:1.5px}
+.stat.hot .v{font-size:26px}
+.stat.hot.s-red{border-color:#f6bcbc;background:#fffafa}
+.stat.hot.s-red .v{color:var(--red)}
+.stat.hot.s-warn{border-color:#ffdd9e;background:#fffdf6}
+.stat.hot.s-warn .v{color:#b57200}
+.stat.hot.s-blue{border-color:#bcd4fd;background:#fafcff}
+.stat.hot.s-blue .v{color:var(--blue)}
+.stat .go{font-size:11.5px;color:var(--sub);margin-top:5px;opacity:0}
+.stat.act:hover .go{opacity:1}
+.stat.hot .go{opacity:.75}
+/* 오늘의 운영 — 건수 밑에 금액 */
+.stat .amt{font-size:13px;color:var(--sub);font-variant-numeric:tabular-nums;margin-top:2px}
+.secttl{font-size:13px;font-weight:800;color:var(--sub);letter-spacing:.3px;margin:18px 2px 9px;
+        display:flex;align-items:center;gap:8px}
+.secttl:first-child{margin-top:0}
+.secttl .hint{font-weight:500;letter-spacing:0;color:#9aa3ad;font-size:12px}
 
 label.f{display:block;margin-bottom:10px}
 label.f span{display:block;font-size:12.5px;color:var(--sub);margin-bottom:4px;font-weight:600}
@@ -191,6 +212,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       <div class="filt">
         <select id="oStatus">
           <option value="">전체 상태</option>
+          <option value="toship">출고대기 (입금확인+준비중)</option>
           <option value="pending">입금대기</option>
           <option value="paid">입금확인</option>
           <option value="ready">준비중</option>
@@ -248,6 +270,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
           <select id="poStatus">
             <option value="">전체 상태</option>
             <option value="ordered">발주(입고 전)</option>
+            <option value="due">결제 임박 (일주일 내)</option>
             <option value="received">입고완료</option>
             <option value="cancel">취소</option>
           </select>
@@ -304,6 +327,12 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       <div id="anSum"></div>
       <div class="filt">
         <input type="text" id="prQ" placeholder="상품 검색" class="grow">
+        <select id="prView">
+          <option value="">전체 상품</option>
+          <option value="short">품절 · 재고 부족</option>
+          <option value="noprice">공급가 없음</option>
+          <option value="nocost">원가 없음</option>
+        </select>
         <select id="prSort">
           <option value="value">재고금액 큰 순</option>
           <option value="cover">소진일수 짧은 순</option>
@@ -652,10 +681,18 @@ $$('#tabs button').forEach(b => b.onclick = () => {
      settle: loadSettle, setting: loadSetting })[TAB]?.();
   window.scrollTo(0, 0);
 });
-function goTab(t, prep) {
+function goTab(t, prep, scrollTo) {
   const b = $$('#tabs button').find(x => x.dataset.tab === t);
   if (prep) prep();
   b.click();
+  if (scrollTo) setTimeout(() => $(scrollTo)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400);
+}
+// 매입 탭은 안에 하위 탭(매입내역/매입처/지급내역)이 또 있어서 따로 잡아준다
+function goBuy(sub, prep) {
+  if (prep) prep();
+  goTab('buy');
+  const b = $(`#t-buy .chips [data-sub="${sub}"]`);
+  if (b && !b.classList.contains('on')) b.click();
 }
 
 /* ═══════════ 대시보드 — 돈이 어디 있고 어디로 가는지 ═══════════ */
@@ -671,68 +708,103 @@ function sparkline(points, w = 560, h = 60) {
   </svg>`;
 }
 
+/* 할 일 카드 한 장.
+   n=0 이면 흐리게, 1건 이상이면 sev(red/warn/blue) 색으로 세게. 카드 전체가 클릭 대상. */
+function todoCard(label, n, unit, sev, go, goLabel) {
+  const hot = Number(n) > 0;
+  return `<div class="stat act ${hot ? 'hot s-' + sev : 'zero'}" data-todo="${go}">
+    <div class="l">${label}</div>
+    <div class="v">${num(n)}${unit}</div>
+    <div class="go">${hot ? goLabel : '없음'}</div>
+  </div>`;
+}
+function opCard(label, cnt, amt) {
+  return `<div class="stat${Number(cnt) ? '' : ' zero'}">
+    <div class="l">${label}</div>
+    <div class="v">${num(cnt)}건</div>
+    <div class="amt">${won(amt)}</div>
+  </div>`;
+}
+
 async function renderDash() {
-  let d;
-  try { d = await api('aDashboard', [TOKEN]); BOOT = await api('aBoot', [TOKEN]); }
-  catch (e) { toast(e.message); return; }
+  let d, mq = null;
+  try {
+    // 매칭 건수도 카드로 보여주므로 같이 받아온다 (셋 다 b2b_api 경유)
+    const r = await Promise.all([
+      api('aDashboard', [TOKEN]),
+      api('aBoot', [TOKEN]),
+      api('aMatchQueue', [TOKEN]).catch(() => null)
+    ]);
+    d = r[0]; BOOT = r[1]; mq = r[2];
+  } catch (e) { toast(e.message); return; }
   DASH = d;
   updateDots();
-  const m = d.money, sa = d.sales, td = d.todo, al = d.stock_alert;
+  if (mq) MQ = mq;
+  const m = d.money, sa = d.sales, td = d.todo, al = d.stock_alert, tdy = d.today || {};
   const trend = d.out_trend || [], top = d.top_out || [];
+  const mqTot = mq ? MKINDS.reduce((a, k) => a + (mq[k.k] || []).length, 0) : 0;
+  const mqRed = mq ? MKINDS.filter(k => k.sev === 'red').reduce((a, k) => a + (mq[k.k] || []).length, 0) : 0;
+  const shortage = Number(al.zero) + Number(al.low);
 
   $('#t-dash').innerHTML = `
-    <div class="card" style="background:linear-gradient(180deg,#fff,#fbfcff)">
-      <h3>돈이 어디 있나</h3>
-      <div class="stats" style="margin:0">
-        <div class="stat act" data-go="products"><div class="l">📦 재고에 묶인 돈 (원가)</div>
-          <div class="v">${num(m.stock_value)}</div></div>
-        <div class="stat act" data-go="settle"><div class="l">📥 업체에서 받을 돈</div>
-          <div class="v" style="color:${m.receivable > 0 ? 'var(--warn)' : 'var(--sub)'}">${num(m.receivable)}</div></div>
-        <div class="stat act" data-go="buy"><div class="l">📤 매입처에 줄 돈</div>
-          <div class="v" style="color:${m.payable > 0 ? 'var(--red)' : 'var(--sub)'}">${num(m.payable)}</div></div>
-        <div class="stat"><div class="l">= 순 자산</div>
-          <div class="v" style="color:var(--ok)">${num(m.net)}</div></div>
-      </div>
-      <div class="muted" style="margin-top:8px">재고 + 받을돈 − 줄돈. 원가가 안 들어간 상품이 있으면 재고 금액이 실제보다 작게 나옵니다.</div>
+    <div class="secttl">지금 처리해야 할 일
+      <span class="hint">누르면 그 건들만 걸러서 보여줍니다</span></div>
+    <div class="stats">
+      ${todoCard('출고해야 할 발주', td.to_ship, '건', 'blue', 'toship', '발주 탭 → 출고대기')}
+      ${todoCard('입금 확인 필요',   td.pending, '건', 'warn', 'pending', '발주 탭 → 입금대기')}
+      ${todoCard('입고 안 된 매입',   td.po_open, '건', 'blue', 'po_open', '매입 탭 → 발주(입고 전)')}
+      ${todoCard('일주일 내 결제할 매입', td.po_due, '건', 'red', 'po_due', '매입 탭 → 결제 임박')}
+      ${todoCard('거래처 승인 대기', td.partners_pending, '곳', 'red', 'partners', '거래처 탭 → 승인 대기')}
+      ${todoCard('맞춰야 할 자료', mqTot, '건', mqRed ? 'red' : 'warn', 'match',
+                 mqRed ? `매칭 탭 (급한 것 ${mqRed})` : '매칭 탭')}
+      ${todoCard('품절 · 재고 부족', shortage, '개', 'red', 'shortage', '상품·재고 탭 → 품절·부족')}
+      ${todoCard('공급가 미등록 상품', al.no_price, '개', 'warn', 'noprice', '상품·재고 탭 → 공급가 없음')}
     </div>
 
+    <div class="secttl">오늘의 운영
+      <span class="hint">${esc(String(d.today_kst || ''))} · 한국시간 기준, 취소 건 제외</span></div>
     <div class="stats">
-      <div class="stat"><div class="l">오늘 발주</div><div class="v">${sa.today_cnt}건</div>
-        <div class="muted num">${won(sa.today_amt)}</div></div>
+      ${opCard('오늘 발주', tdy.order_cnt, tdy.order_amt)}
+      ${opCard('오늘 출고', tdy.ship_cnt,  tdy.ship_amt)}
+      ${opCard('오늘 매입', tdy.buy_cnt,   tdy.buy_amt)}
+      ${opCard('오늘 입금', tdy.pay_cnt,   tdy.pay_amt)}
+    </div>
+
+    <div id="dashCheck"></div>
+    <div id="dashMargin"></div>
+
+    <div class="secttl">돈이 어디 있나</div>
+    <div class="stats">
+      <div class="stat act" data-go="products"><div class="l">📦 재고에 묶인 돈 (원가)</div>
+        <div class="v">${num(m.stock_value)}</div></div>
+      <div class="stat act" data-go="settle"><div class="l">📥 업체에서 받을 돈</div>
+        <div class="v" style="color:${m.receivable > 0 ? 'var(--warn)' : 'var(--sub)'}">${num(m.receivable)}</div></div>
+      <div class="stat act" data-go="buy"><div class="l">📤 매입처에 줄 돈</div>
+        <div class="v" style="color:${m.payable > 0 ? 'var(--red)' : 'var(--sub)'}">${num(m.payable)}</div></div>
+      <div class="stat"><div class="l">= 순 자산</div>
+        <div class="v" style="color:var(--ok)">${num(m.net)}</div></div>
+    </div>
+    <div class="muted" style="margin:-6px 2px 4px">재고 + 받을돈 − 줄돈. 원가가 안 들어간 상품이 있으면 재고 금액이 실제보다 작게 나옵니다.</div>
+
+    <div class="secttl">이번 달 현황
+      <span class="hint">매출은 <b>발주 등록일</b> 기준(취소 제외), 매입은 <b>매입일</b> 기준입니다 — 출고·입금 시점이 아닙니다</span></div>
+    <div class="stats">
       <div class="stat"><div class="l">이번 달 매출(발주)</div><div class="v">${num(sa.month_amt)}</div></div>
       <div class="stat"><div class="l">이번 달 매입</div><div class="v">${num(sa.month_buy)}</div></div>
       <div class="stat"><div class="l">이번 달 차액</div>
         <div class="v" style="color:${sa.month_amt - sa.month_buy >= 0 ? 'var(--ok)' : 'var(--red)'}">${num(sa.month_amt - sa.month_buy)}</div></div>
     </div>
 
-    ${(al.no_cost || al.no_price) ? `<div class="warn">
-      ${al.no_price ? `공급가가 아직 없는 상품 <b>${al.no_price}개</b>. ` : ''}
-      ${al.no_cost ? `원가가 아직 없는 상품 <b>${al.no_cost}개</b>. ` : ''}
-      이게 채워져야 재고 금액과 마진이 제대로 나옵니다. → <b>상품·재고</b> 탭</div>` : ''}
-    <div id="dashMatchLink"></div>
-    <div id="dashMargin"></div>
-
     <div class="card">
-      <h3>지금 할 일</h3>
-      <div class="stats" style="margin:0">
-        <div class="stat act" data-go="pending"><div class="l">입금 대기</div>
-          <div class="v" style="color:${td.pending ? 'var(--warn)' : 'inherit'}">${td.pending}건</div></div>
-        <div class="stat act" data-go="paid"><div class="l">출고해야 할 발주</div>
-          <div class="v" style="color:${td.to_ship ? 'var(--blue)' : 'inherit'}">${td.to_ship}건</div></div>
-        <div class="stat act" data-go="buy"><div class="l">입고 안 된 매입</div>
-          <div class="v">${td.po_open}건</div></div>
-        <div class="stat act" data-go="buy"><div class="l">일주일 내 결제할 매입</div>
-          <div class="v" style="color:${td.po_due ? 'var(--red)' : 'inherit'}">${td.po_due}건</div></div>
-        <div class="stat act" data-go="partners"><div class="l">거래처 승인 대기</div>
-          <div class="v" style="color:${td.partners_pending ? 'var(--red)' : 'inherit'}">${td.partners_pending}곳</div></div>
-        <div class="stat act" data-go="products"><div class="l">품절 · 재고 부족</div>
-          <div class="v" style="color:${al.zero + al.low ? 'var(--red)' : 'inherit'}">${al.zero + al.low}개</div></div>
-      </div>
+      <h3>처리할 발주<span class="sp"><button class="btn s g" id="dashAll">전체 보기</button></span></h3>
+      <div id="dashList"><div class="empty">불러오는 중…</div></div>
     </div>
 
     <div class="card">
       <h3>최근 30일 출고 추이
-        <span class="sp muted">${d.data_days < 3 ? `창고 재고표가 ${d.data_days}일치뿐이라 아직 추세라 하기 어렵습니다` : `${d.data_days}일치 기준`}</span></h3>
+        <span class="sp muted">${d.data_days < 3
+          ? `창고 재고표가 ${d.data_days}일치뿐이라 아직 추세라 하기 어렵습니다`
+          : `재고표 올라온 ${d.data_days}일치로 그린 그래프입니다`}</span></h3>
       ${trend.length ? sparkline(trend) + `<div class="row muted" style="justify-content:space-between;margin-top:2px">
         <span>${trend[0].d}</span><span>합계 ${num(trend.reduce((a,x)=>a+Number(x.qty),0))}개</span><span>${trend[trend.length-1].d}</span></div>`
         : `<div class="empty">재고 업로드 탭에서 창고 재고표를 올리면 여기에 출고 추이가 그려집니다.</div>`}
@@ -748,22 +820,25 @@ async function renderDash() {
             <div style="width:${(Number(t.qty)/mx*100).toFixed(0)}%;height:100%;background:var(--blue)"></div></div>
           <div class="num" style="width:64px;text-align:right"><b>${num(t.qty)}</b></div></div>`;
       }).join('')}
-    </div>` : ''}
+    </div>` : ''}`;
 
-    <div class="card">
-      <h3>처리할 발주<span class="sp"><button class="btn s g" id="dashAll">전체 보기</button></span></h3>
-      <div id="dashList"><div class="empty">불러오는 중…</div></div>
-    </div>`;
-
-  $$('#t-dash .stat.act').forEach(el => el.onclick = () => {
-    const g = el.dataset.go;
-    if (g === 'partners') return goTab('partners');
-    if (g === 'settle')   return goTab('settle');
-    if (g === 'buy')      return goTab('buy');
-    if (g === 'products') return goTab('products');
-    goTab('orders', () => { $('#oStatus').value = g; $('#oYm').value = ''; });
+  // 할 일 카드 → 해당 탭으로, 가능하면 그 조건까지 걸어서
+  $$('#t-dash .stat[data-todo]').forEach(el => el.onclick = () => {
+    switch (el.dataset.todo) {
+      case 'toship':   return goTab('orders',   () => { $('#oStatus').value = 'toship';  $('#oYm').value = ''; });
+      case 'pending':  return goTab('orders',   () => { $('#oStatus').value = 'pending'; $('#oYm').value = ''; });
+      case 'po_open':  return goBuy('po', () => { $('#poStatus').value = 'ordered'; $('#poYm').value = ''; });
+      case 'po_due':   return goBuy('po', () => { $('#poStatus').value = 'due';     $('#poYm').value = ''; });
+      case 'partners': return goTab('partners', null, '#ptPending');
+      case 'match':    return goTab('match');
+      case 'shortage': return goTab('products', () => { $('#prView').value = 'short';   $('#prQ').value = ''; });
+      case 'noprice':  return goTab('products', () => { $('#prView').value = 'noprice'; $('#prQ').value = ''; });
+    }
   });
+  $$('#t-dash .stat[data-go]').forEach(el => el.onclick = () => goTab(el.dataset.go));
   $('#dashAll').onclick = () => goTab('orders', () => { $('#oStatus').value = ''; });
+
+  renderDashChecks(d, mqTot, mqRed);
   renderMarginAlerts();
   refreshMatchDot();
 
@@ -782,6 +857,39 @@ async function renderDash() {
       </table></div>` : `<div class="empty">처리할 발주가 없습니다. 👍</div>`;
     $$('#dashList tr.clk').forEach(tr => tr.onclick = () => openOrder(tr.dataset.id));
   } catch (e) { $('#dashList').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+/* ── 확인 필요 — 경고는 문구로 끝내지 않고 갈 곳을 준다 ── */
+function renderDashChecks(d, mqTot, mqRed) {
+  const box = $('#dashCheck');
+  if (!box) return;
+  const al = d.stock_alert, items = [];
+  if (al.no_price) items.push({
+    txt: `공급가가 아직 없는 상품 <b>${num(al.no_price)}개</b> — 이게 없으면 거래처 화면에 안 뜨고 발주도 안 됩니다.`,
+    btn: '상품·재고에서 채우기',
+    go: () => goTab('products', () => { $('#prView').value = 'noprice'; $('#prQ').value = ''; })
+  });
+  if (al.no_cost) items.push({
+    txt: `원가가 아직 없는 상품 <b>${num(al.no_cost)}개</b> — 재고 금액이 그만큼 빠져 있고 마진도 안 나옵니다.`,
+    btn: '상품·재고에서 채우기',
+    go: () => goTab('products', () => { $('#prView').value = 'nocost'; $('#prQ').value = ''; })
+  });
+  if (mqTot) items.push({
+    txt: `맞춰야 할 자료 <b>${num(mqTot)}건</b>${mqRed ? ` <span class="bdg b-cancel">급한 것 ${mqRed}</span>` : ''}
+          — 코드가 안 맞거나, 매입처·원가·가격이 빠졌거나, 입금이 어느 발주인지 모르는 것들입니다.`,
+    btn: '매칭하러 가기',
+    go: () => goTab('match')
+  });
+  if (!items.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="secttl">확인 필요</div>
+    <div class="card" style="padding:0">
+      ${items.map((it, i) => `<div class="row" style="gap:12px;padding:13px 16px;align-items:center
+        ${i ? ';border-top:1px solid var(--line)' : ''}">
+        <div class="grow" style="font-size:13.5px">${it.txt}</div>
+        <button class="btn s g" data-chk="${i}" style="flex:none">${it.btn}</button>
+      </div>`).join('')}
+    </div>`;
+  $$('#dashCheck [data-chk]').forEach(b => b.onclick = () => items[Number(b.dataset.chk)].go());
 }
 
 /* ── 원가가 올라 마진이 깨진 품목 / 매입가가 확 뛴 품목 ── */
@@ -2616,6 +2724,13 @@ function renderProducts() {
   let rows = (ANALYSIS.rows || []).filter(r =>
     !q || (r.name + ' ' + (r.sku||'') + ' ' + (r.category||'')).toLowerCase().includes(q));
 
+  // 대시보드 카드에서 넘어올 때 그 건들만 보이게 (전부 받아온 자료에서 걸러내는 것뿐)
+  const view = $('#prView').value;
+  if (view === 'short')   rows = rows.filter(r => Number(r.stock) <= 0 ||
+                                  (Number(r.safety_stock) > 0 && Number(r.stock) <= Number(r.safety_stock)));
+  if (view === 'noprice') rows = rows.filter(r => !Number(r.price));
+  if (view === 'nocost')  rows = rows.filter(r => !Number(r.cost));
+
   const sort = $('#prSort').value;
   rows = rows.slice().sort((a, b) => {
     if (sort === 'name')  return a.name.localeCompare(b.name, 'ko');
@@ -2632,7 +2747,11 @@ function renderProducts() {
     return Number(b.stock_value) - Number(a.stock_value);
   });
 
-  if (!rows.length) { $('#prTbl').innerHTML = `<tr><td class="empty">상품이 없습니다.</td></tr>`; return; }
+  if (!rows.length) {
+    $('#prTbl').innerHTML = `<tr><td class="empty">${view || q
+      ? '조건에 맞는 상품이 없습니다. 👍' : '상품이 없습니다.'}</td></tr>`;
+    return;
+  }
 
   $('#prTbl').innerHTML = `
     <tr><th>상품</th><th class="right">재고</th><th class="right">재고금액</th>
@@ -2669,6 +2788,7 @@ function renderProducts() {
 }
 $('#prQ').oninput = renderProducts;
 $('#prSort').onchange = renderProducts;
+$('#prView').onchange = renderProducts;
 $('#prAdd').onclick = () => productModal(null);
 
 function productModal(p) {
