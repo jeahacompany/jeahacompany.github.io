@@ -115,12 +115,12 @@
       .then(function (d) {
         if (!d.logistics || !d.logistics.length) throw new Error('창고 정보를 찾지 못했습니다');
         ids.logisticId = d.logistics[0].id;
-        return gql('query S($l:ID!){ sellers(logisticId:$l){ id name } }', { l: ids.logisticId });
+        return gql('query S($l:ID!){ sellers(logisticId:$l){ id } }', { l: ids.logisticId });
       })
       .then(function (d) {
         if (!d.sellers || !d.sellers.length) throw new Error('판매자 정보를 찾지 못했습니다');
         ids.sellerId = d.sellers[0].id;
-        ids.sellerName = d.sellers[0].name || '';
+        // Seller 타입에는 name 이 없다 (2026-09-03 실측). id 만 쓴다.
         // 계정에 판매자가 여럿이면 어느 것을 읽었는지 화면에 밝힌다.
         // (법인이 섞이면 안 되므로 사람이 눈으로 확인할 수 있어야 한다)
         ids.sellerCount = d.sellers.length;
@@ -253,7 +253,6 @@
     .then(function (r) {
       payload.products = r.products;
       payload.stock = r.stock;
-      payload.seller = ids.sellerName;
       payload.seller_count = ids.sellerCount;
       var skuOf = {};
       r.products.forEach(function (p) { if (p.sku) skuOf[p.code] = p.sku; });
@@ -263,8 +262,8 @@
     .then(function () {
       say('읽기 완료 · 상품 ' + payload.products.length + ' · 재고 ' + payload.stock.length +
           ' · 입출고 ' + payload.moves.length +
-          (ids.sellerCount > 1 ? '<br><b style="color:#b45309">판매자가 ' + ids.sellerCount +
-           '개입니다 — "' + (ids.sellerName || '첫 번째') + '" 것을 읽었습니다</b>' : ''));
+          (ids.sellerCount > 1 ? '<br><b style="color:#b45309">이 계정에 판매자가 ' + ids.sellerCount +
+           '개입니다 — 첫 번째 것을 읽었습니다. 법인이 섞이지 않는지 확인하세요</b>' : ''));
       window.__wmsPayload = payload;
       send(payload);
     })
