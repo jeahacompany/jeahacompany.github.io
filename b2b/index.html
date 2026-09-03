@@ -63,6 +63,13 @@ main{max-width:1240px;margin:0 auto;padding:16px 16px 80px}
 .stat.hot .go{opacity:.75}
 /* 오늘의 운영 — 건수 밑에 금액 */
 .stat .amt{font-size:13px;color:var(--sub);font-variant-numeric:tabular-nums;margin-top:2px}
+/* 출고 추이 막대그래프 — 라이브러리 없이 div 로 그린다 */
+.mvbars{display:flex;align-items:flex-end;gap:2px;height:180px;padding:0 2px}
+.mvbar{display:flex;align-items:flex-end;justify-content:center;height:100%;min-width:3px;cursor:default}
+.mvstack{width:100%;max-width:34px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:1px}
+.mvout{background:var(--blue);border-radius:3px 3px 0 0;min-height:2px}
+.mvin{background:#8fd6b0;border-radius:3px 3px 0 0}
+.mvbar:hover .mvout{background:var(--blue-d)}
 .secttl{font-size:13px;font-weight:800;color:var(--sub);letter-spacing:.3px;margin:18px 2px 9px;
         display:flex;align-items:center;gap:8px}
 .secttl:first-child{margin-top:0}
@@ -324,26 +331,67 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     </section>
 
     <section id="t-products" class="hide">
-      <div id="anSum"></div>
-      <div class="filt">
-        <input type="text" id="prQ" placeholder="상품 검색" class="grow">
-        <select id="prView">
-          <option value="">전체 상품</option>
-          <option value="short">품절 · 재고 부족</option>
-          <option value="noprice">공급가 없음</option>
-          <option value="nocost">원가 없음</option>
-        </select>
-        <select id="prSort">
-          <option value="value">재고금액 큰 순</option>
-          <option value="cover">소진일수 짧은 순</option>
-          <option value="out30">30일 출고 많은 순</option>
-          <option value="dead">안 나가는 순 (묶인 돈)</option>
-          <option value="name">이름 순</option>
-        </select>
-        <button class="btn" id="prAdd">+ 상품 등록</button>
+      <div class="chips" style="margin-bottom:12px">
+        <button data-psub="stock" class="on">재고 현황</button>
+        <button data-psub="trend">출고 추이 📈</button>
       </div>
-      <div class="card" style="padding:0">
-        <div class="tblwrap" style="margin:0;padding:0"><table id="prTbl"></table></div>
+
+      <div id="psub-stock">
+        <div id="anSum"></div>
+        <div class="filt">
+          <input type="text" id="prQ" placeholder="상품 검색" class="grow">
+          <select id="prView">
+            <option value="">전체 상품</option>
+            <option value="short">품절 · 재고 부족</option>
+            <option value="noprice">공급가 없음</option>
+            <option value="nocost">원가 없음</option>
+          </select>
+          <select id="prSort">
+            <option value="value">재고금액 큰 순</option>
+            <option value="cover">소진일수 짧은 순</option>
+            <option value="out30">30일 출고 많은 순</option>
+            <option value="dead">안 나가는 순 (묶인 돈)</option>
+            <option value="name">이름 순</option>
+          </select>
+          <button class="btn" id="prAdd">+ 상품 등록</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="tblwrap" style="margin:0;padding:0"><table id="prTbl"></table></div>
+        </div>
+      </div>
+
+      <div id="psub-trend" class="hide">
+        <div class="filt">
+          <select id="mvDays">
+            <option value="7">최근 7일</option>
+            <option value="14">최근 14일</option>
+            <option value="30" selected>최근 30일</option>
+            <option value="60">최근 60일</option>
+            <option value="90">최근 90일</option>
+            <option value="">기간 직접</option>
+          </select>
+          <input type="date" id="mvFrom" class="hide">
+          <input type="date" id="mvTo" class="hide">
+          <select id="mvKind">
+            <option value="">출고 · 입고 같이</option>
+            <option value="out">출고만</option>
+            <option value="in">입고만</option>
+          </select>
+          <input type="text" id="mvQ" placeholder="상품 검색 (이름 · SKU)" class="grow">
+          <button class="btn g" id="mvClear">조건 지우기</button>
+        </div>
+        <div id="mvSum"></div>
+        <div class="card">
+          <h3>날짜별<span class="sp muted" id="mvRange"></span></h3>
+          <div id="mvChart"></div>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="row" style="padding:14px 16px 8px">
+            <h3 style="margin:0">상품별</h3>
+            <span class="sp muted" style="margin-left:auto" id="mvCount"></span>
+          </div>
+          <div class="tblwrap" style="margin:0;padding:0"><table id="mvTbl"></table></div>
+        </div>
       </div>
     </section>
 
@@ -2822,6 +2870,125 @@ $('#prQ').oninput = renderProducts;
 $('#prSort').onchange = renderProducts;
 $('#prView').onchange = renderProducts;
 $('#prAdd').onclick = () => productModal(null);
+
+/* ═══════════ 출고 추이 — 자세히 보기 ═══════════
+   창고 자동수집으로 입출고가 날짜별·상품별로 쌓이므로,
+   "얼마나 나갔나"를 기간·구분·상품으로 걸러서 본다.
+   재고 화면이 '지금 상태'라면 여기는 '흐름'이다.                        */
+let PSUB = 'stock', MVDATA = null;
+
+$$('#t-products .chips button').forEach(b => b.onclick = () => {
+  PSUB = b.dataset.psub;
+  $$('#t-products .chips button').forEach(x => x.classList.toggle('on', x === b));
+  ['stock','trend'].forEach(k => $('#psub-' + k).classList.toggle('hide', k !== PSUB));
+  if (PSUB === 'trend') loadTrend();
+  // 첫 로딩이 끝나기 전에 넘어갔다 돌아오면 표가 비어 있을 수 있다
+  if (PSUB === 'stock' && !ANALYSIS) loadProducts();
+});
+
+// 날짜별 막대그래프 — 출고는 파랑, 입고는 초록. 라이브러리 없이 그린다.
+function bars(rows, showIn) {
+  if (!rows.length) return `<div class="empty">이 조건에 맞는 입출고가 없습니다.</div>`;
+  const max = Math.max(...rows.map(r => Math.max(Number(r.out), showIn ? Number(r.in) : 0)), 1);
+  const w = Math.max(100 / rows.length, 1);
+  return `<div class="mvbars">
+    ${rows.map(r => {
+      const o = Number(r.out), i = Number(r.in);
+      const t = `${r.d} · 출고 ${num(o)}${showIn && i ? ` · 입고 ${num(i)}` : ''} · 상품 ${r.items}개`;
+      return `<div class="mvbar" style="width:${w}%" title="${esc(t)}" data-d="${r.d}">
+        <div class="mvstack">
+          ${showIn && i ? `<div class="mvin" style="height:${(i/max*100).toFixed(1)}%"></div>` : ''}
+          <div class="mvout" style="height:${(o/max*100).toFixed(1)}%"></div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div class="row muted" style="justify-content:space-between;margin-top:6px;font-size:12px">
+    <span>${esc(rows[0].d)}</span>
+    <span>최고 ${num(max)}개/일</span>
+    <span>${esc(rows[rows.length-1].d)}</span>
+  </div>`;
+}
+
+function trendArgs() {
+  const days = $('#mvDays').value;
+  const a = { kind: $('#mvKind').value, q: $('#mvQ').value.trim() };
+  if (days) a.days = Number(days);
+  else { a.from = $('#mvFrom').value; a.to = $('#mvTo').value; }
+  return a;
+}
+
+async function loadTrend() {
+  $('#mvChart').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const d = await api('aMoveDetail', [TOKEN, trendArgs()]);
+    MVDATA = d;
+    const t = d.total, span = d.span || {};
+    const dayCount = Math.max((new Date(d.to) - new Date(d.from)) / 864e5 + 1, 1);
+    const showIn = $('#mvKind').value !== 'out';
+
+    $('#mvSum').innerHTML = `<div class="stats">
+      <div class="stat"><div class="l">출고 합계</div><div class="v">${num(t.out)}</div>
+        <div class="muted">하루 평균 ${num(Math.round(t.out / dayCount))}개</div></div>
+      <div class="stat"><div class="l">입고 합계</div><div class="v">${num(t.in)}</div></div>
+      <div class="stat"><div class="l">움직인 날</div><div class="v">${num(t.days)}일</div>
+        <div class="muted">보는 기간 ${num(Math.round(dayCount))}일 중</div></div>
+      <div class="stat"><div class="l">움직인 상품</div><div class="v">${num(t.products)}개</div></div>
+    </div>`;
+    $('#mvRange').textContent = `${d.from} ~ ${d.to}` +
+      (span.from ? ` · 자료는 ${span.from}부터 ${span.days}일치 있습니다` : '');
+    $('#mvChart').innerHTML = bars(d.by_date || [], showIn);
+
+    const rows = d.by_product || [];
+    $('#mvCount').textContent = `${num(rows.length)}개 상품`;
+    $('#mvTbl').innerHTML = rows.length ? `
+      <tr><th>상품</th><th class="right">출고</th><th class="right">입고</th>
+          <th class="right">하루 평균</th><th class="right">나간 날</th>
+          <th class="right">현재고</th><th class="right">소진일수</th></tr>
+      ${rows.map(r => {
+        const cover = r.cover == null ? null : Number(r.cover);
+        const cls = cover == null ? 'muted' : cover <= 3 ? 'low' : cover <= 7 ? '' : 'muted';
+        return `<tr class="clk" data-pid="${r.product_id || ''}">
+          <td><b>${esc(r.name || '(이름 없음)')}</b>
+            <div class="muted">${esc(r.sku || '코드 없음')}</div></td>
+          <td class="n"><b>${num(r.out)}</b></td>
+          <td class="n" style="color:${Number(r.in) ? 'var(--ok)' : 'var(--sub)'}">${num(r.in)}</td>
+          <td class="n muted">${r.avg_day ?? '-'}</td>
+          <td class="n muted">${num(r.days)}일</td>
+          <td class="n">${num(r.stock)}</td>
+          <td class="n ${cls}">${cover == null ? '-' : cover < 1 ? '1일 미만' : cover + '일'}</td>
+        </tr>`;
+      }).join('')}` : `<tr><td class="empty">이 조건에 맞는 상품이 없습니다.</td></tr>`;
+
+    // 상품 한 줄을 누르면 그 상품만 걸러서 다시 본다
+    $$('#mvTbl tr.clk').forEach(tr => tr.onclick = () => {
+      const r = rows.find(x => String(x.product_id) === tr.dataset.pid);
+      if (r) { $('#mvQ').value = r.sku || r.name; loadTrend(); }
+    });
+  } catch (e) {
+    $('#mvChart').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+
+$('#mvDays').onchange = () => {
+  const custom = !$('#mvDays').value;
+  $('#mvFrom').classList.toggle('hide', !custom);
+  $('#mvTo').classList.toggle('hide', !custom);
+  if (custom) {
+    if (!$('#mvTo').value)   $('#mvTo').value   = new Date().toISOString().slice(0,10);
+    if (!$('#mvFrom').value) $('#mvFrom').value = new Date(Date.now()-29*864e5).toISOString().slice(0,10);
+  }
+  loadTrend();
+};
+['mvFrom','mvTo','mvKind'].forEach(id => $('#' + id).onchange = loadTrend);
+let mvT;
+$('#mvQ').oninput = () => { clearTimeout(mvT); mvT = setTimeout(loadTrend, 350); };
+$('#mvClear').onclick = () => {
+  $('#mvDays').value = '30'; $('#mvKind').value = ''; $('#mvQ').value = '';
+  $('#mvFrom').classList.add('hide'); $('#mvTo').classList.add('hide');
+  loadTrend();
+};
+
 
 function productModal(p) {
   const v = (k, d = '') => p ? esc(p[k] ?? d) : d;
