@@ -185,6 +185,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     <nav class="tabs" id="tabs">
       <button data-tab="dash" class="on">대시보드</button>
       <button data-tab="match">매칭<span class="dot hide" id="dotMatch"></span></button>
+      <button data-tab="intake">접수 📥<span class="dot hide" id="dotIntake"></span></button>
       <button data-tab="orders">발주<span class="dot hide" id="dotOrders"></span></button>
       <button data-tab="ship">출고 배분<span class="dot hide" id="dotShip"></span></button>
       <button data-tab="pays">입금</button>
@@ -213,6 +214,70 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
         <button class="btn g" id="mqHold">보류함</button>
       </div>
       <div id="mqBox"></div>
+    </section>
+
+    <section id="t-intake" class="hide">
+      <div class="tip"><b>거래처가 카톡·문자로 보낸 발주를 그대로 붙여넣으세요.</b>
+        품목과 수량을 뽑아서 우리 상품에 이어 붙입니다. 못 이은 줄은 빨갛게 표시되니 직접 골라주면 되고,
+        <b>한 번 골라주면 다음부터는 저절로 이어집니다.</b><br>
+        거래처는 하던 대로 카톡으로 보내면 됩니다 — 포털을 안 쓰는 곳도 이걸로 받습니다.</div>
+
+      <div class="ikwrap">
+        <div class="card">
+          <h3>1. 받은 글 붙여넣기</h3>
+          <div class="g2">
+            <label class="f"><span>거래처 *</span>
+              <input type="text" id="ikPtn" list="ikPtnList" placeholder="상호를 치면 찾아집니다" autocomplete="off">
+              <datalist id="ikPtnList"></datalist></label>
+            <label class="f"><span>받은 곳</span>
+              <select id="ikChannel">
+                <option value="paste">카카오톡</option>
+                <option value="sms">문자</option>
+                <option value="email">이메일</option>
+                <option value="manual">전화 · 직접 입력</option>
+              </select></label>
+          </div>
+          <label class="f"><span>보낸 사람 <span class="muted">(선택)</span></span>
+            <input type="text" id="ikSender" placeholder="예: 형제축산 김사장"></label>
+          <label class="f"><span>원문 *</span>
+            <textarea id="ikText" rows="12" placeholder="카톡 대화를 그대로 복사해서 붙여넣으세요.
+
+예)
+사장님 안녕하세요
+소곱창 1kg 5박스
+뒷고기모둠 500g 3개
+곱창전골 2
+내일 오전까지 부탁드립니다"
+              style="font-family:ui-monospace,monospace;font-size:13px;line-height:1.7"></textarea></label>
+          <div class="row" style="gap:8px">
+            <button class="btn" id="ikRead">읽어들이기</button>
+            <button class="btn g" id="ikClear">지우기</button>
+            <span class="muted sp" id="ikHint" style="margin-left:auto"></span>
+          </div>
+        </div>
+
+        <div class="card" id="ikResultCard" style="display:none">
+          <h3>2. 뽑아낸 것 확인<span class="sp muted" id="ikSum"></span></h3>
+          <div class="tblwrap"><table id="ikTbl"></table></div>
+          <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">
+            <button class="btn s g" id="ikAddRow">+ 줄 추가</button>
+            <span class="muted" id="ikTotal" style="margin-left:auto;font-size:15px"></span>
+          </div>
+          <div class="g2" style="margin-top:12px">
+            <label class="f"><span>받는 분</span><input type="text" id="ikRcv"></label>
+            <label class="f"><span>연락처</span><input type="text" id="ikPhone"></label>
+          </div>
+          <label class="f"><span>배송지</span><input type="text" id="ikAddr"></label>
+          <label class="f"><span>요청사항</span><input type="text" id="ikMemo" placeholder="예: 내일 오전 도착"></label>
+          <p class="err hide" id="ikErr"></p>
+          <button class="btn w" id="ikCreate">3. 발주 만들기</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>접수 이력<span class="sp"><button class="btn s g" id="ikRefresh">새로고침</button></span></h3>
+        <div class="tblwrap" id="ikHist"></div>
+      </div>
     </section>
 
     <section id="t-orders" class="hide">
@@ -503,6 +568,26 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
     </section>
 
     <section id="t-partners" class="hide">
+      <div class="chips" style="margin-bottom:12px">
+        <button data-ptsub="list" class="on">거래처 목록</button>
+        <button data-ptsub="health">거래처 건강 💓</button>
+      </div>
+      <div id="ptsub-health" class="hide">
+        <div class="tip">앞 기간과 견줘 <b>조용히 줄어드는 곳</b>을 찾습니다.
+          B2B는 끊길 때 말없이 끊깁니다 — 매출이 빠진 뒤엔 늦습니다.</div>
+        <div class="filt">
+          <select id="phDays">
+            <option value="30" selected>최근 30일 ↔ 그 앞 30일</option>
+            <option value="7">최근 7일 ↔ 그 앞 7일</option>
+            <option value="14">최근 14일 ↔ 그 앞 14일</option>
+            <option value="60">최근 60일 ↔ 그 앞 60일</option>
+            <option value="90">최근 90일 ↔ 그 앞 90일</option>
+          </select>
+          <button class="btn g" id="phRefresh">새로고침</button>
+        </div>
+        <div id="ptHealth"></div>
+      </div>
+      <div id="ptsub-list">
       <div class="filt">
         <input type="text" id="ptQ" placeholder="거래처 검색" class="grow">
         <select id="ptDiv"><option value="">전체 부문</option></select>
@@ -519,6 +604,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
       <div id="ptPending"></div>
       <div class="card" style="padding:0">
         <div class="tblwrap" style="margin:0;padding:0"><table id="ptTbl"></table></div>
+      </div>
       </div>
     </section>
 
@@ -754,9 +840,9 @@ function updateDots() {
 $$('#tabs button').forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
   $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['dash','match','orders','ship','pays','buy','consign','products','upload','prices','partners','settle','setting']
+  ['dash','match','intake','orders','ship','pays','buy','consign','products','upload','prices','partners','settle','setting']
     .forEach(t => $('#t-' + t).classList.toggle('hide', t !== TAB));
-  ({ dash: renderDash, match: loadMatch, orders: loadOrders, ship: loadShip, pays: loadPays, buy: loadBuy, consign: loadConsign,
+  ({ dash: renderDash, match: loadMatch, intake: loadIntake, orders: loadOrders, ship: loadShip, pays: loadPays, buy: loadBuy, consign: loadConsign,
      products: loadProducts, upload: loadUpload, prices: loadMatrix, partners: loadPartners,
      settle: loadSettle, setting: loadSetting })[TAB]?.();
   window.scrollTo(0, 0);
@@ -850,6 +936,7 @@ async function renderDash() {
       ${opCard('오늘 입금', tdy.pay_cnt,   tdy.pay_amt)}
     </div>
 
+    <div id="dashAging"></div>
     <div id="dashCheck"></div>
     <div id="dashMargin"></div>
 
@@ -919,6 +1006,7 @@ async function renderDash() {
   $('#dashAll').onclick = () => goTab('orders', () => { $('#oStatus').value = ''; });
 
   renderDashChecks(d, mqTot, mqRed);
+  renderAging();
   renderMarginAlerts();
   refreshMatchDot();
 
@@ -1583,6 +1671,293 @@ $('#mqAlias').onclick = async () => {
     }, true);
   } catch (e) { toast(e.message); }
 };
+
+/* ═══════════ 붙여넣기 접수 ═══════════
+   거래처가 카톡으로 보낸 글을 그대로 받아 발주로 만든다.
+   거래처 148곳 중 포털 계정이 있는 곳은 1곳뿐 — 포털 전환을 기다리면 자동화는 안 온다.
+
+   파싱은 여기(화면)에서 한다. 사람이 결과를 보면서 바로 고쳐야 하기 때문이다.
+   상품 매칭·저장은 서버(aIntakeMatch / aIntakeCreate)가 한다.            */
+
+/* 한국 발주문에서 실제로 쓰이는 단위.
+   kg·g 는 보통 규격(소곱창 1kg)이지 수량이 아니다. 그래서 **뒤쪽 단위를 우선**한다. */
+const IK_UNITS = '박스|박|상자|케이스|짝|판|세트|팩|봉지|봉|묶음|개|통|병|캔|장|말|근|줄|kg|KG|Kg|g|G|ea|EA|EA들이|box|BOX';
+/* 수량으로 보면 안 되는 꼬리말 — "3시까지", "2일 오전" 같은 것 */
+const IK_NOTQTY = /^(시|시간|분|일|월|년|층|호|번|명|원|퍼센트|%)/;
+
+function ikParseLine(s) {
+  s = s.replace(/^[\s\-–—•*·▪▶>]+/, '').replace(/^\d+[.)]\s*/, '').trim();
+  if (!s) return null;
+
+  // "곱창전골 x 20" · "곱창전골 × 20" 꼴
+  let m = s.match(new RegExp(`^(.*?\\S)\\s*[x×X*]\\s*(\\d[\\d,]*)\\s*(${IK_UNITS})?\\s*$`));
+  if (m) return { name: m[1].trim(), qty: ikNum(m[2]), unit: m[3] || '' };
+
+  const re = new RegExp(`(\\d[\\d,]*(?:\\.\\d+)?)\\s*(${IK_UNITS})?`, 'g');
+  const hits = [...s.matchAll(re)].filter(h => {
+    // 숫자 뒤가 '시/일/명…' 이면 수량이 아니다
+    const after = s.slice(h.index + h[0].length);
+    return !(!h[2] && IK_NOTQTY.test(after));
+  });
+  if (!hits.length) return null;
+
+  // 수량은 **맨 뒤에 적는다.** 앞쪽 숫자는 보통 규격이다 (소곱창 1kg 5박스 → 5).
+  // 그래서 마지막 것을 고른다. "갈비살 200g : 4" 처럼 단위 없는 수량도 이 규칙이면 맞는다.
+  const pick = hits[hits.length - 1];
+  // 다만 숫자가 하나뿐이고 그게 무게·부피면 그건 수량이 아니라 규격이다.
+  //   "소곱창 1kg"  → 이름 "소곱창 1kg", 수량 1
+  if (hits.length === 1 && /^(kg|KG|Kg|g|G|L|ml|ML)$/.test(pick[2] || '')) {
+    return { name: s.trim(), qty: 1, unit: '' };
+  }
+  let name = s.slice(0, pick.index).trim();
+  if (!name) name = s.slice(pick.index + pick[0].length).trim();   // "10박스 소곱창" 꼴
+  name = name.replace(/[:：\-–—]\s*$/, '').trim();
+  if (!name || name.length < 2) return null;
+
+  const qty = ikNum(pick[1]);
+  if (!qty) return null;
+  return { name, qty, unit: pick[2] || '' };
+}
+const ikNum = v => Math.round(Number(String(v).replace(/,/g, '')) || 0);
+
+function ikParse(text) {
+  const out = [];
+  String(text || '').split(/\r?\n/).forEach(line => {
+    // 한 줄에 여러 품목: "시럽 10개, 원두 50박스"
+    line.split(/[,，、]/).forEach(seg => {
+      if (!seg.trim()) return;
+      const r = ikParseLine(seg);
+      if (r) out.push({ raw: seg.trim(), ...r });
+    });
+  });
+  return out;
+}
+
+let IKROWS = [], IKPTN = null;
+
+async function loadIntake() {
+  if (!PARTNERS.length) { try { PARTNERS = await api('aPartners', [TOKEN]); } catch (e) {} }
+  if (!PRODUCTS.length) { try { PRODUCTS = await api('aProducts', [TOKEN]); } catch (e) {} }
+  $('#ikPtnList').innerHTML = PARTNERS.map(p => `<option value="${esc(p.name)}">`).join('');
+  loadIntakeHist();
+}
+
+async function loadIntakeHist() {
+  $('#ikHist').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const rows = await api('aIntakeList', [TOKEN, { limit: 50 }]);
+    $('#ikHist').innerHTML = rows.length ? `<table>
+      <tr><th>받은 때</th><th>경로</th><th>거래처</th><th>원문</th>
+          <th class="right">줄</th><th class="right">이어짐</th><th>결과</th></tr>
+      ${rows.map(r => `<tr class="clk" data-id="${r.id}">
+        <td>${ymdt(r.at)}<div class="muted">${esc(r.actor || '')}</div></td>
+        <td>${esc(IKCH[r.channel] || r.channel)}</td>
+        <td>${esc(r.partner || '-')}</td>
+        <td class="muted" style="max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${esc((r.raw_text || '').replace(/\s+/g, ' ').slice(0, 70))}</td>
+        <td class="n">${num(r.lines)}</td>
+        <td class="n" style="color:${r.matched < r.lines ? 'var(--warn)' : 'var(--ok)'}">${num(r.matched)}</td>
+        <td>${r.order_no ? `<b>${esc(r.order_no)}</b>` : `<span class="bdg b-pending">발주 없음</span>`}</td>
+      </tr>`).join('')}</table>` : `<div class="empty">아직 접수한 것이 없습니다.</div>`;
+    $$('#ikHist tr.clk').forEach(tr => tr.onclick = () => openIntake(tr.dataset.id));
+  } catch (e) { $('#ikHist').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+const IKCH = { paste: '카카오톡', sms: '문자', email: '이메일', manual: '전화·직접' };
+
+$('#ikClear').onclick = () => {
+  $('#ikText').value = ''; $('#ikSender').value = '';
+  $('#ikResultCard').style.display = 'none'; IKROWS = [];
+  showErr('#ikErr', ''); $('#ikHint').textContent = '';
+};
+
+$('#ikRead').onclick = async () => {
+  showErr('#ikErr', '');
+  const pname = $('#ikPtn').value.trim();
+  const ptn = PARTNERS.find(p => p.name === pname);
+  if (!ptn) { $('#ikHint').innerHTML = `<span style="color:var(--red)">거래처를 목록에서 골라 주세요.</span>`; return; }
+  const text = $('#ikText').value.trim();
+  if (!text) { $('#ikHint').innerHTML = `<span style="color:var(--red)">받은 글을 붙여넣어 주세요.</span>`; return; }
+
+  IKPTN = ptn;
+  const parsed = ikParse(text);
+  if (!parsed.length) {
+    $('#ikHint').innerHTML = `<span style="color:var(--red)">품목처럼 보이는 줄을 못 찾았습니다. 아래에서 직접 추가하세요.</span>`;
+  }
+  $('#ikHint').textContent = `${parsed.length}줄을 뽑았습니다`;
+  try {
+    const r = await api('aIntakeMatch', [TOKEN, { partner_id: ptn.id, lines: parsed }]);
+    IKROWS = (r.lines || []).map(x => ({ ...x, learn: false, use: !!x.product_id }));
+    // 배송지 기본값
+    $('#ikRcv').value   = ptn.name || '';
+    $('#ikPhone').value = ptn.phone || '';
+    $('#ikAddr').value  = [ptn.addr, ptn.addr2].filter(Boolean).join(' ');
+    $('#ikResultCard').style.display = '';
+    renderIkRows();
+  } catch (e) { showErr('#ikErr', e.message); }
+};
+
+const IKSRC = { alias: '기억해둔 것', sku: '상품코드', wms: '창고코드', name: '상품명',
+                like: '이름 비슷', manual: '직접 고름', none: '못 찾음' };
+
+function renderIkRows() {
+  const opts = PRODUCTS.map(p =>
+    `<option value="${p.id}">${esc((p.sku ? p.sku + ' · ' : '') + p.name)}</option>`).join('');
+  $('#ikTbl').innerHTML = `
+    <tr><th style="width:34px"></th><th>받은 글</th><th>뽑은 표현</th>
+        <th>우리 상품</th><th class="right">수량</th><th class="right">단가</th>
+        <th class="right">금액</th><th style="width:96px">기억</th><th style="width:34px"></th></tr>
+    ${IKROWS.map((r, i) => {
+      const ok = !!r.product_id;
+      const changed = r.src_qty != null && Number(r.src_qty) !== Number(r.qty);
+      return `<tr data-i="${i}" style="${ok ? '' : 'background:#fffafa'}">
+        <td><input type="checkbox" data-f="use" ${r.use ? 'checked' : ''}></td>
+        <td class="muted" style="font-size:12px;max-width:180px">${esc(r.raw || '')}</td>
+        <td><input type="text" data-f="name" value="${esc(r.name || '')}" style="width:130px"></td>
+        <td><select data-f="product_id" style="min-width:210px">
+              <option value="">— 못 찾음 · 직접 고르기 —</option>${opts}</select>
+            <div class="muted" style="font-size:11.5px">${ok ? esc(IKSRC[r.match_source] || r.match_source) : '이어지지 않았습니다'}
+              ${r.soldout ? ' <span style="color:var(--red)">· 품절</span>' : ''}</div></td>
+        <td><input type="number" data-f="qty" value="${r.qty || 0}" style="width:74px;text-align:right">
+            <div class="muted" style="font-size:11.5px">${esc(r.unit || '')}${changed ? ` → ${num(r.qty)}${esc(r.product_unit || '')}` : ''}</div></td>
+        <td><input type="number" data-f="price" value="${r.price ?? ''}" placeholder="-" style="width:92px;text-align:right"></td>
+        <td class="n" data-f="amt">${r.product_id && r.price != null ? num(r.price * r.qty) : '-'}</td>
+        <td>${ok && r.match_source !== 'alias'
+              ? `<label class="muted" style="font-size:11.5px;display:flex;gap:4px;align-items:center">
+                   <input type="checkbox" data-f="learn" ${r.learn ? 'checked' : ''}>기억</label>` : ''}</td>
+        <td><button class="btn s r" data-del="${i}">×</button></td>
+      </tr>`;
+    }).join('')}`;
+
+  IKROWS.forEach((r, i) => {
+    const sel = $(`#ikTbl tr[data-i="${i}"] [data-f=product_id]`);
+    if (sel) sel.value = r.product_id || '';
+  });
+  ikTotal();
+}
+
+$('#ikTbl').oninput = async e => {
+  const tr = e.target.closest('tr[data-i]'); if (!tr) return;
+  const i = Number(tr.dataset.i), f = e.target.dataset.f, r = IKROWS[i];
+  if (f === 'use' || f === 'learn') { r[f] = e.target.checked; return; }
+  if (f === 'qty')   { r.qty = Number(e.target.value) || 0; }
+  if (f === 'price') { r.price = e.target.value === '' ? null : Number(e.target.value); }
+  if (f === 'name')  { r.name = e.target.value; }
+  if (f === 'product_id') {
+    r.product_id = e.target.value || null;
+    r.match_source = r.product_id ? 'manual' : 'none';
+    r.use = !!r.product_id;
+    r.learn = !!r.product_id;                 // 직접 고르면 기본으로 기억
+    if (r.product_id && IKPTN) {
+      const pr = PRODUCTS.find(x => x.id === r.product_id);
+      if (pr && (r.price == null || r.price === '')) {
+        try {
+          const m = await api('aPartnerPrices', [TOKEN, IKPTN.id]);
+          const row = (m || []).find(x => x.product_id === r.product_id);
+          r.price = row && row.price != null ? row.price : (pr.price || 0);
+        } catch (e) { r.price = pr.price || 0; }
+      }
+    }
+    renderIkRows(); return;
+  }
+  ikTotal();
+};
+$('#ikTbl').onclick = e => {
+  if (!e.target.dataset.del) return;
+  IKROWS.splice(Number(e.target.dataset.del), 1);
+  renderIkRows();
+};
+
+function ikTotal() {
+  let sum = 0, used = 0, unmatched = 0;
+  IKROWS.forEach((r, i) => {
+    const tr = $(`#ikTbl tr[data-i="${i}"]`);
+    const amt = r.product_id && r.price != null ? r.price * r.qty : null;
+    if (tr) tr.querySelector('[data-f=amt]').textContent = amt == null ? '-' : num(amt);
+    if (r.use && r.product_id && r.qty > 0) { sum += amt || 0; used++; }
+    if (!r.product_id) unmatched++;
+  });
+  $('#ikTotal').innerHTML = `발주에 담을 것 <b>${used}줄</b> · 합계 <b>${won(sum)}</b>` +
+    (unmatched ? ` <span style="color:var(--red)">· 못 이은 줄 ${unmatched}</span>` : '');
+  $('#ikSum').textContent = `${IKROWS.length}줄`;
+}
+
+$('#ikAddRow').onclick = () => {
+  IKROWS.push({ raw: '', name: '', qty: 1, unit: '', product_id: null,
+                match_source: 'none', price: null, use: false, learn: false });
+  renderIkRows();
+};
+
+$('#ikCreate').onclick = async () => {
+  showErr('#ikErr', '');
+  if (!IKPTN) return showErr('#ikErr', '거래처를 골라 주세요.');
+  const items = IKROWS.filter(r => r.use && r.product_id && r.qty > 0);
+  if (!items.length) return showErr('#ikErr', '발주에 담을 줄이 없습니다. 상품을 고르고 체크해 주세요.');
+  const bad = items.find(r => r.price == null || r.price === '');
+  if (bad) return showErr('#ikErr', `"${bad.name}" 의 단가가 비어 있습니다. 단가를 넣어 주세요.`);
+
+  const btn = $('#ikCreate'); btn.disabled = true; btn.textContent = '만드는 중…';
+  try {
+    const r = await api('aIntakeCreate', [TOKEN, {
+      partner_id: IKPTN.id,
+      channel: $('#ikChannel').value,
+      sender: $('#ikSender').value.trim(),
+      raw_text: $('#ikText').value,
+      receiver: $('#ikRcv').value.trim(),
+      rphone:   $('#ikPhone').value.trim(),
+      raddr:    $('#ikAddr').value.trim(),
+      req_memo: $('#ikMemo').value.trim(),
+      // 못 이은 줄도 원문 추적을 위해 전부 보낸다
+      items: IKROWS.map(x => ({
+        raw: x.raw, name: x.name, qty: x.use ? x.qty : 0, unit: x.unit,
+        product_id: x.use ? x.product_id : null,
+        price: x.price, match_source: x.match_source })),
+      // 사람이 직접 고른 것만 기억한다
+      learn: IKROWS.filter(x => x.learn && x.product_id && x.name)
+                   .map(x => ({ alias: x.name, product_id: x.product_id, raw: x.raw }))
+    }]);
+    toast(`${r.order_no} 발주를 만들었습니다 · ${won(r.total)}` +
+          (r.learned ? ` · ${r.learned}개 기억함` : ''));
+    $('#ikClear').onclick();
+    loadIntakeHist();
+    goTab('orders', () => { $('#oStatus').value = 'pending'; $('#oYm').value = ''; });
+  } catch (e) {
+    btn.disabled = false; btn.textContent = '3. 발주 만들기';
+    showErr('#ikErr', e.message);
+  }
+};
+$('#ikRefresh').onclick = loadIntakeHist;
+
+async function openIntake(id) {
+  try {
+    const d = await api('aIntakeGet', [TOKEN, id]);
+    openModal(`접수 자세히 — ${esc(d.partner || '')}`, `
+      <div class="g2">
+        <div><div class="muted">받은 때</div><b>${ymdt(d.at)}</b></div>
+        <div><div class="muted">경로</div><b>${esc(IKCH[d.channel] || d.channel)}</b>
+          ${d.sender ? `<span class="muted"> · ${esc(d.sender)}</span>` : ''}</div>
+      </div>
+      <div class="f"><span>원문 그대로</span>
+        <div class="card" style="background:var(--bg);white-space:pre-wrap;font-family:ui-monospace,monospace;
+             font-size:12.5px;max-height:220px;overflow:auto">${esc(d.raw_text || '')}</div></div>
+      <div class="tblwrap"><table>
+        <tr><th>받은 글</th><th>뽑은 표현</th><th>이어진 상품</th><th class="right">수량</th><th>어떻게</th></tr>
+        ${(d.items || []).map(it => `<tr>
+          <td class="muted" style="font-size:12px">${esc(it.raw || '')}</td>
+          <td>${esc(it.name || '')}</td>
+          <td>${it.product_name ? `<b>${esc(it.product_name)}</b><div class="muted">${esc(it.product_sku || '')}</div>`
+                                : `<span style="color:var(--red)">못 이음</span>`}</td>
+          <td class="n">${num(it.qty)}${esc(it.unit || '')}</td>
+          <td class="muted">${esc(IKSRC[it.match_source] || it.match_source || '')}</td>
+        </tr>`).join('')}
+      </table></div>
+      ${d.order_no ? `<button class="btn w" id="ikGoOrder">발주 ${esc(d.order_no)} 보기</button>`
+                   : `<div class="warn">이 접수로 만든 발주가 없습니다.</div>`}
+    `, () => {
+      const b = $('#ikGoOrder');
+      if (b) b.onclick = () => { closeModal(); openOrder(d.order_id); };
+    }, true);
+  } catch (e) { toast(e.message); }
+}
 
 /* ═══════════ 발주 ═══════════ */
 async function loadOrders() {
@@ -4039,6 +4414,123 @@ $('#mxCopy').onclick = () => {
   });
 };
 
+/* ── 오래 묵은 일 ──
+   건수만 보면 "3건"이 어제 것인지 2주 전 것인지 모른다.
+   Stackcube 가 "2시간 이상 미확인 21건" 처럼 **얼마나 묵었나**를 보여주길래 가져왔다. */
+async function renderAging() {
+  const box = $('#dashAging');
+  if (!box) return;
+  let a;
+  try { a = await api('aAging', [TOKEN]); } catch (e) { box.innerHTML = ''; return; }
+
+  const rows = [];
+  const add = (o, label, unit, days, go, hint) => {
+    if (!o || !o.cnt) return;
+    rows.push({ label, cnt: o.cnt, unit, oldest: o.oldest || 0, over: days, go, hint, amount: o.amount });
+  };
+  add(a.pending,     '입금 대기',        '건', a.pending?.over3,     () => goTab('orders', () => { $('#oStatus').value='pending'; $('#oYm').value=''; }), '3일 넘게');
+  add(a.to_ship,     '출고해야 할 발주',  '건', a.to_ship?.over2,     () => goTab('orders', () => { $('#oStatus').value='toship'; $('#oYm').value=''; }), '2일 넘게');
+  add(a.po_open,     '입고 안 된 매입',   '건', a.po_open?.over7,     () => goBuy('po', () => { $('#poStatus').value='ordered'; $('#poYm').value=''; }), '일주일 넘게');
+  add(a.ptn_pending, '거래처 승인 대기',  '곳', a.ptn_pending?.over1, () => goTab('partners', null, '#ptPending'), '하루 넘게');
+  add(a.intake_new,  '발주로 안 넘긴 접수','건', 0,                    () => goTab('intake'), '');
+
+  const hot = rows.filter(r => r.over > 0 || r.oldest >= 3);
+  if (!hot.length) { box.innerHTML = ''; return; }
+
+  box.innerHTML = `<div class="secttl">오래 묵은 일
+      <span class="hint">건수보다 <b>며칠째인지</b>가 중요합니다</span></div>
+    <div class="card" style="padding:0">
+      ${hot.map((r, i) => `<div class="row" style="gap:12px;padding:13px 16px;align-items:center
+        ${i ? ';border-top:1px solid var(--line)' : ''}">
+        <div class="grow" style="font-size:13.5px">
+          <b>${esc(r.label)}</b>
+          ${r.over ? ` — <span style="color:var(--red)"><b>${num(r.over)}${r.unit}</b>이 ${esc(r.hint)} 밀려 있습니다</span>`
+                   : ` — <span style="color:var(--warn)">가장 오래된 게 <b>${num(r.oldest)}일째</b>입니다</span>`}
+          <span class="muted"> (전체 ${num(r.cnt)}${r.unit}${r.amount ? ` · ${won(r.amount)}` : ''})</span>
+        </div>
+        <button class="btn s" data-ag="${i}" style="flex:none">보러 가기</button>
+      </div>`).join('')}
+    </div>`;
+  $$('#dashAging [data-ag]').forEach(b => b.onclick = () => hot[Number(b.dataset.ag)].go());
+}
+
+/* ── 거래처 건강 — 조용히 끊기는 곳을 잡는다 ── */
+let PHDATA = null;
+async function loadPartnerHealth() {
+  const box = $('#ptHealth');
+  if (!box) return;
+  box.innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const d = await api('aPartnerHealth', [TOKEN, { days: Number($('#phDays').value) || 30 }]);
+    PHDATA = d;
+    const s = d.summary, diff = s.amt - s.prev_amt;
+    box.innerHTML = `
+      <div class="stats">
+        <div class="stat"><div class="l">거래 중인 곳</div><div class="v">${num(s.partners)}곳</div></div>
+        <div class="stat"><div class="l">이 기간 실제 거래</div>
+          <div class="v" style="color:${s.active ? 'var(--ok)' : 'var(--red)'}">${num(s.active)}곳</div>
+          <div class="muted">새로 ${num(s.new)} · 다시 ${num(s.repeat)}</div></div>
+        <div class="stat"><div class="l">끊긴 곳</div>
+          <div class="v" style="color:${s.lost ? 'var(--red)' : 'var(--sub)'}">${num(s.lost)}곳</div>
+          <div class="muted">앞 기간엔 샀는데 이번엔 없음</div></div>
+        <div class="stat"><div class="l">한 번도 산 적 없는 곳</div>
+          <div class="v" style="color:${s.never ? 'var(--warn)' : 'var(--sub)'}">${num(s.never)}곳</div></div>
+        <div class="stat"><div class="l">이 기간 매출</div><div class="v">${num(s.amt)}</div>
+          <div class="muted">앞 기간 ${num(s.prev_amt)}${s.prev_amt ? ` · ${diff >= 0 ? '+' : ''}${Math.round(diff / s.prev_amt * 100)}%` : ''}</div></div>
+      </div>
+      <div class="muted" style="margin:-4px 2px 12px">
+        ${esc(String(d.from))} ~ ${esc(String(d.to))} 를 그 앞 ${num(d.days)}일(${esc(String(d.prev_from))} ~ ${esc(String(d.prev_to))})과 견줍니다.</div>
+
+      <div class="g2">
+        <div class="card" style="padding:0">
+          <div class="row" style="padding:14px 16px 8px"><h3 style="margin:0">📉 줄어든 곳</h3>
+            <span class="sp muted" style="margin-left:auto">${num((d.down||[]).length)}곳</span></div>
+          <div class="tblwrap" style="margin:0;padding:0"><table>
+            ${(d.down||[]).length ? `<tr><th>거래처</th><th class="right">앞 기간</th><th class="right">이번</th><th class="right">증감</th><th>마지막</th></tr>` : ''}
+            ${(d.down||[]).map(r => `<tr class="clk" data-ph="${r.partner_id}">
+              <td><b>${esc(r.name)}</b><div class="muted">${esc(r.code || '')}</div></td>
+              <td class="n muted">${num(r.prev)}</td>
+              <td class="n">${num(r.cur)}</td>
+              <td class="n" style="color:var(--red)">${num(r.diff)}${r.pct != null ? `<div class="muted">${r.pct}%</div>` : ''}</td>
+              <td class="muted">${r.stopped ? `<span style="color:var(--red)">끊김</span><div>${num(r.days_since)}일 전</div>` : ymd(r.last_order)}</td>
+            </tr>`).join('') || `<tr><td class="empty">줄어든 곳이 없습니다. 👍</td></tr>`}
+          </table></div>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="row" style="padding:14px 16px 8px"><h3 style="margin:0">📈 늘어난 곳</h3>
+            <span class="sp muted" style="margin-left:auto">${num((d.up||[]).length)}곳</span></div>
+          <div class="tblwrap" style="margin:0;padding:0"><table>
+            ${(d.up||[]).length ? `<tr><th>거래처</th><th class="right">앞 기간</th><th class="right">이번</th><th class="right">증감</th></tr>` : ''}
+            ${(d.up||[]).map(r => `<tr class="clk" data-ph="${r.partner_id}">
+              <td><b>${esc(r.name)}</b><div class="muted">${esc(r.code || '')}</div></td>
+              <td class="n muted">${num(r.prev)}</td>
+              <td class="n">${num(r.cur)}</td>
+              <td class="n" style="color:var(--ok)">+${num(r.diff)}${r.pct != null ? `<div class="muted">+${r.pct}%</div>` : ''}</td>
+            </tr>`).join('') || `<tr><td class="empty">늘어난 곳이 없습니다.</td></tr>`}
+          </table></div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0">
+        <div class="row" style="padding:14px 16px 8px"><h3 style="margin:0">😴 한동안 조용한 곳</h3>
+          <span class="sp muted" style="margin-left:auto">예전엔 샀는데 이 기간엔 주문이 없습니다 · ${num((d.quiet||[]).length)}곳</span></div>
+        <div class="tblwrap" style="margin:0;padding:0"><table>
+          ${(d.quiet||[]).length ? `<tr><th>거래처</th><th>마지막 주문</th><th class="right">그동안</th><th class="right">지금까지 산 것</th></tr>` : ''}
+          ${(d.quiet||[]).map(r => `<tr class="clk" data-ph="${r.partner_id}">
+            <td><b>${esc(r.name)}</b><div class="muted">${esc(r.code || '')}</div></td>
+            <td>${ymd(r.last_order)}</td>
+            <td class="n" style="color:${r.days_since > 60 ? 'var(--red)' : 'var(--warn)'}">${num(r.days_since)}일째</td>
+            <td class="n muted">${num(r.ever_amt)} · ${num(r.ever_cnt)}건</td>
+          </tr>`).join('') || `<tr><td class="empty">조용한 곳이 없습니다. 👍</td></tr>`}
+        </table></div>
+      </div>`;
+    $$('#ptHealth tr.clk').forEach(tr => tr.onclick = () => {
+      const p = PARTNERS.find(x => x.id === tr.dataset.ph);
+      if (p) partnerModal(p);
+    });
+  } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
 /* ═══════════ 거래처 ═══════════ */
 async function loadPartners() {
   $('#ptTbl').innerHTML = `<tr><td class="empty">불러오는 중…</td></tr>`;
@@ -4185,6 +4677,16 @@ async function ptnDocsModal(p) {
   } catch (e) { toast(e.message); }
 }
 $('#ptAdd').onclick = () => partnerModal(null);
+/* 거래처 탭 안의 서브탭: 목록 ↔ 건강 */
+let PTSUB = 'list';
+$$('#t-partners .chips button').forEach(b => b.onclick = () => {
+  PTSUB = b.dataset.ptsub;
+  $$('#t-partners .chips button').forEach(x => x.classList.toggle('on', x === b));
+  ['list','health'].forEach(k => $('#ptsub-' + k).classList.toggle('hide', k !== PTSUB));
+  if (PTSUB === 'health') loadPartnerHealth();
+});
+$('#phDays').onchange = loadPartnerHealth;
+$('#phRefresh').onclick = loadPartnerHealth;
 
 function partnerModal(p) {
   const v = k => p ? esc(p[k] ?? '') : '';
