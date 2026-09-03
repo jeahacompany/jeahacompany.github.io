@@ -354,6 +354,7 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
         <button data-usub="stock" class="on">재고 현황</button>
         <button data-usub="move">입출고 현황</button>
         <button data-usub="check">대조</button>
+        <button data-usub="wms">창고 자동수집 ⚡</button>
       </div>
 
       <div id="usub-move" class="hide">
@@ -383,6 +384,37 @@ td.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
             차이가 나면 한쪽 파일이 빠졌거나 기간이 안 맞는 것입니다.</div>
           <div class="tblwrap" id="ckTbl"></div>
         </div>
+      </div>
+
+      <div id="usub-wms" class="hide">
+        <div class="tip"><b>엑셀 두 개를 매일 내려받아 올리는 일을 없앱니다.</b>
+          창고(EZSTORAGE) 화면에 로그인한 상태에서 즐겨찾기 하나만 누르면
+          재고와 입출고를 <b>읽어서</b> 여기로 보냅니다. 창고에는 아무것도 쓰지 않습니다.<br>
+          비밀번호·토큰은 어디에도 저장하지 않습니다 — 이미 로그인된 브라우저를 그대로 씁니다.</div>
+        <div id="wmsSum"></div>
+        <div class="card">
+          <h3>한 번만 설정하기<span class="sp muted">즐겨찾기 등록</span></h3>
+          <ol style="margin:0 0 12px;padding-left:20px;font-size:13.5px;line-height:1.9">
+            <li>아래 <b>주소를 복사</b>합니다.</li>
+            <li>브라우저 즐겨찾기(북마크)를 <b>새로 추가</b>하고, 이름은 <b>창고 → B2B</b>,
+                주소 칸에 복사한 것을 붙여넣습니다.</li>
+            <li>앞으로는 EZSTORAGE에 로그인한 채로 그 즐겨찾기를 <b>한 번 누르면</b> 끝입니다.</li>
+          </ol>
+          <div class="row" style="gap:8px;align-items:flex-start">
+            <textarea id="wmsBmk" readonly rows="3"
+              style="flex:1;font-family:ui-monospace,monospace;font-size:11.5px;word-break:break-all"></textarea>
+            <button class="btn" id="wmsCopy" style="flex:none">복사</button>
+          </div>
+          <div class="muted" style="margin-top:8px">처음 한 번은 과거까지 채우려면
+            <b>지난 95일</b>짜리를 쓰세요 →
+            <button class="btn s g" id="wmsLong">95일치 주소로 바꾸기</button>
+            <button class="btn s g" id="wmsShort">평소(30일)로</button></div>
+        </div>
+        <div class="card">
+          <h3>수집 이력<span class="sp"><button class="btn s g" id="wmsRefresh">새로고침</button></span></h3>
+          <div class="tblwrap" id="wmsHist"></div>
+        </div>
+        <div id="wmsNoCode"></div>
       </div>
 
       <div id="usub-stock">
@@ -3448,9 +3480,10 @@ let USUB = 'stock', MVROWS = null, MVFILE = '', MVKIND = 'out';
 $$('#t-upload .chips button').forEach(b => b.onclick = () => {
   USUB = b.dataset.usub;
   $$('#t-upload .chips button').forEach(x => x.classList.toggle('on', x === b));
-  ['stock','move','check'].forEach(k => $('#usub-' + k).classList.toggle('hide', k !== USUB));
+  ['stock','move','check','wms'].forEach(k => $('#usub-' + k).classList.toggle('hide', k !== USUB));
   if (USUB === 'move')  loadMoveHist();
   if (USUB === 'check') loadCheck();
+  if (USUB === 'wms')   loadWms();
 });
 
 const isDate = v => /^\d{4}[-.\/]\d{1,2}[-.\/]\d{1,2}/.test(String(v ?? '').trim());
@@ -3622,6 +3655,108 @@ async function loadCheck() {
   } catch (e) { $('#ckTbl').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
 $('#ckRefresh').onclick = loadCheck;
+
+/* ═══════════ 창고(EZSTORAGE) 자동수집 ═══════════
+   매일 엑셀 두 개를 내려받아 올리던 일을 없앤다.
+
+   흐름: EZSTORAGE 로그인 → 즐겨찾기 클릭 → wms-collect.js 가 읽기만 함
+        → 이 앱 창을 열어 postMessage → 여기서 aWmsPush 로 저장.
+   비밀번호·토큰은 오가지 않는다. 수집기에도 우리 로그인 정보가 없다.        */
+
+const WMS_SRC = location.origin + location.pathname.replace(/[^/]*$/, '') + 'wms-collect.js';
+
+function wmsBookmarklet(days) {
+  // 스크립트를 우리 서버에서 불러오므로, 고칠 때 즐겨찾기를 다시 만들 필요가 없다.
+  return "javascript:(function(){window.__wmsDays=" + days +
+         ";var s=document.createElement('script');s.src='" + WMS_SRC +
+         "?v='+Date.now();document.body.appendChild(s);})();";
+}
+
+async function loadWms() {
+  $('#wmsBmk').value = wmsBookmarklet(30);
+  $('#wmsHist').innerHTML = `<div class="empty">불러오는 중…</div>`;
+  try {
+    const st = await api('aWmsStatus', [TOKEN]);
+    const last = st.last, ok = st.last_ok;
+    $('#wmsSum').innerHTML = `<div class="stats">
+      <div class="stat"><div class="l">마지막 수집</div>
+        <div class="v" style="font-size:17px">${last ? ymdt(last.synced_at) : '아직 없음'}</div>
+        ${last && !last.ok ? `<div class="muted" style="color:var(--red)">실패: ${esc(last.msg || '')}</div>` : ''}</div>
+      <div class="stat"><div class="l">마지막 성공분 재고</div>
+        <div class="v">${ok ? num(ok.stock_rows) + '건' : '-'}</div>
+        <div class="muted">${ok && ok.stock_date ? esc(String(ok.stock_date)) : ''}</div></div>
+      <div class="stat"><div class="l">마지막 성공분 입출고</div>
+        <div class="v">${ok ? num(ok.move_rows) + '건' : '-'}</div>
+        <div class="muted">${ok && ok.from_date ? esc(String(ok.from_date)) + ' ~ ' + esc(String(ok.to_date)) : ''}</div></div>
+      <div class="stat"><div class="l">상품 못 찾은 줄</div>
+        <div class="v" style="color:${ok && ok.unmatched ? 'var(--warn)' : 'inherit'}">${ok ? num(ok.unmatched) : '-'}</div>
+        <div class="muted">${ok && ok.unmatched ? '매칭 탭에서 이어주세요' : ''}</div></div>
+    </div>`;
+
+    const h = st.history || [];
+    $('#wmsHist').innerHTML = h.length ? `<table>
+      <tr><th>시각</th><th>누가</th><th class="right">재고</th><th class="right">입출고</th>
+          <th class="right">못 찾음</th><th>기간</th><th>결과</th></tr>
+      ${h.map(r => `<tr>
+        <td>${ymdt(r.at)}</td>
+        <td class="muted">${esc(r.actor || '')}</td>
+        <td class="n">${num(r.stock_rows)}</td>
+        <td class="n">${num(r.move_rows)}</td>
+        <td class="n" style="color:${r.unmatched ? 'var(--warn)' : 'var(--sub)'}">${num(r.unmatched)}</td>
+        <td class="muted">${r.from_date ? esc(String(r.from_date)) + '~' + esc(String(r.to_date)) : '-'}</td>
+        <td>${r.ok ? `<span class="bdg b-shipped">성공</span>`
+                   : `<span class="bdg b-cancel">실패</span> <span class="muted">${esc(r.msg || '')}</span>`}</td>
+      </tr>`).join('')}</table>`
+      : `<div class="empty">아직 수집한 적이 없습니다. 위에서 즐겨찾기를 만들고 한 번 눌러보세요.</div>`;
+
+    const nc = st.no_code || [];
+    $('#wmsNoCode').innerHTML = nc.length ? `<div class="warn">
+      창고 상품코드가 아직 안 이어진 상품 <b>${nc.length}개</b> — 이 상품들은 자동수집에서 빠집니다.
+      창고 쪽 <b>고객사 상품코드</b>에 우리 SKU를 넣으면 다음 수집 때 저절로 이어집니다.<br>
+      <span class="muted">${nc.slice(0, 8).map(p => esc((p.sku ? p.sku + ' ' : '') + p.name)).join(' · ')}${nc.length > 8 ? ` 외 ${nc.length - 8}개` : ''}</span>
+    </div>` : '';
+  } catch (e) {
+    $('#wmsHist').innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+$('#wmsRefresh').onclick = loadWms;
+$('#wmsLong').onclick  = () => { $('#wmsBmk').value = wmsBookmarklet(95); toast('95일치 주소로 바꿨습니다'); };
+$('#wmsShort').onclick = () => { $('#wmsBmk').value = wmsBookmarklet(30); toast('30일치 주소로 바꿨습니다'); };
+$('#wmsCopy').onclick = async () => {
+  const t = $('#wmsBmk');
+  try { await navigator.clipboard.writeText(t.value); toast('복사했습니다'); }
+  catch (e) { t.select(); document.execCommand('copy'); toast('복사했습니다'); }
+};
+
+/* ── 수집기가 보낸 것을 받는다 ────────────────────────────────────────────
+   주소에 ?wms=1 이 있을 때만 듣는다 (수집기가 그 주소로 창을 연다).
+   보낸 곳이 EZSTORAGE 인지 확인하고, 내용은 그대로 aWmsPush 로 넘긴다.
+   저장은 서버가 관리자 토큰으로 검사한 뒤에 한다.                        */
+(function wmsReceiver() {
+  if (!/[?&]wms=1/.test(location.search)) return;
+  const okOrigin = o => /^https:\/\/([a-z0-9-]+\.)*ezstorage\.io$/.test(o);
+
+  window.addEventListener('message', async e => {
+    if (!okOrigin(e.origin) || !e.data || e.data.type !== 'B2B_WMS_DATA') return;
+    const reply = (type, extra) => e.source && e.source.postMessage({ type, ...extra }, e.origin);
+    if (!TOKEN) { reply('B2B_WMS_ERROR', { message: '관리자로 로그인한 뒤 다시 눌러주세요.' }); return; }
+    try {
+      const r = await api('aWmsPush', [TOKEN, e.data.payload]);
+      reply('B2B_WMS_SAVED', { result: r });
+      toast(`창고 자동수집 완료 · 재고 ${r.stock?.total || 0}건 · 입출고 ${r.moves?.total || 0}건`);
+      if (TAB === 'upload') loadWms();
+    } catch (err) {
+      reply('B2B_WMS_ERROR', { message: err.message });
+      try { await api('aWmsFail', [TOKEN, err.message]); } catch (e2) {}
+      toast('창고 수집 실패: ' + err.message);
+    }
+  });
+
+  // 로그인이 끝난 뒤에 READY 를 보낸다 (아직이면 수집기가 90초 기다린다)
+  const ready = () => { try { window.opener?.postMessage({ type: 'B2B_WMS_READY' }, '*'); } catch (e) {} };
+  const t = setInterval(() => { if (TOKEN) { ready(); clearInterval(t); } }, 500);
+  setTimeout(() => clearInterval(t), 80000);
+})();
 
 /* ═══════════ 단가표 (업체별 커스텀 단가) ═══════════ */
 let MX = null;            // {products, partners, cells}
