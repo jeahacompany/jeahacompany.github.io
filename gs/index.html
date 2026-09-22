@@ -120,6 +120,13 @@ section{padding:82px 0}
 .total{display:flex;justify-content:space-between;align-items:baseline;margin-top:12px;padding-top:14px;border-top:2px solid var(--ink)}
 .total b{font-family:var(--serif);font-size:1.9rem;font-variant-numeric:tabular-nums}.total b small{font-size:.9rem;font-weight:400}
 .pay{margin-top:12px;background:var(--paper);border:1px dashed var(--line);border-radius:12px;padding:13px 15px;font-size:.84rem;color:var(--sub)}.pay b{color:var(--ink)}
+.consent{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:9px}
+.cline{display:flex;align-items:center;gap:8px;font-size:.86rem;color:var(--sub);cursor:pointer}
+.cline input{width:16px;height:16px;accent-color:var(--forest);flex:none;margin:0}
+.cline.all{font-weight:600;color:var(--ink);border-bottom:1px dashed var(--line);padding-bottom:9px}
+.cline .req{color:var(--clay);font-weight:600}
+.cline a{color:var(--moss);margin-left:auto;font-size:.8rem;text-decoration:underline}
+.ctext{font-size:.8rem;color:var(--sub);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px 12px;line-height:1.6}
 .nights-detail{max-height:130px;overflow:auto}
 @media(max-width:840px){.book{grid-template-columns:1fr}.book .left{padding:36px 28px}}
 
@@ -386,6 +393,12 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
           <div class="fld"><label for="gphone">연락처</label><input type="tel" id="gphone" placeholder="010-0000-0000" autocomplete="tel"></div>
         </div>
         <div class="fld"><label for="guests">인원</label><input type="number" id="guests" min="1" value="2"></div>
+        <div class="consent">
+          <label class="cline all"><input type="checkbox" id="agAll"><span>전체 동의</span></label>
+          <label class="cline"><input type="checkbox" id="agPriv"><span><span class="req">[필수]</span> 개인정보 수집·이용 동의</span><a href="#" id="agPrivView" role="button">약관 보기</a></label>
+          <div id="agPrivText" class="ctext" hidden><b>수집 항목</b> 예약자 성함·연락처·인원 · <b>수집 목적</b> 예약 접수 및 확인 안내 · <b>보유 기간</b> 이용 완료 후 1년(관계 법령에 따름). 동의를 거부할 수 있으나, 미동의 시 예약 접수가 제한됩니다.</div>
+          <label class="cline"><input type="checkbox" id="agMkt"><span>[선택] 마케팅·이벤트 정보 수신 동의</span></label>
+        </div>
         <button type="button" id="reserveBtn" class="btn btn-clay" style="width:100%;justify-content:center">예약 신청하기</button>
         <div id="rstatus" style="font-size:.9rem;line-height:1.6"></div>
       </div>
@@ -528,9 +541,12 @@ function iso(d){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOSt
 (function(){const t=new Date();t.setHours(0,0,0,0);const add=(6-t.getDay()+7)%7||7;const s=new Date(t);s.setDate(t.getDate()+add);const e=new Date(s);e.setDate(s.getDate()+1);ci.value=iso(s);co.value=iso(e);ci.min=iso(t);co.min=iso(new Date(t.getTime()+864e5));})();
 async function loadRooms(){try{ROOMS=await api('rooms')||[];sel.innerHTML=ROOMS.map(r=>`<option value="${r.id}">${r.name} · ${r.type} (기준 ${r.cap_base}/최대 ${r.cap_max}인)</option>`).join('');calc();}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">객실 정보를 불러오지 못했습니다.</div>';}}
 async function calc(){rstatus.textContent='';const s=new Date(ci.value+'T00:00'),e=new Date(co.value+'T00:00');if(!(s<e)){quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃은 체크인 이후여야 합니다.</div>';lastQuote=null;return;}const room=ROOMS.find(r=>r.id===sel.value);quote.innerHTML='<div class="line">요금 계산 중…</div>';try{const q=await api('quote',{room_id:sel.value,checkin:ci.value,checkout:co.value});lastQuote=q;const detail=(q.detail||[]).map(n=>`<div class="line"><span>${fmtd(n.date)} <span class="badge b-${n.season}">${SEASON_KO[n.season]}·${DAY_KO[n.daytype]}</span></span><span>${won(n.price)}원</span></div>`).join('');quote.innerHTML=`<div class="line" style="color:var(--ink);font-weight:600"><span>${room?room.name:''} · ${q.nights}박</span><span>${room?('기준 '+room.cap_base+'인'):''}</span></div><div class="nights-detail">${detail}</div><div class="total"><span>총 결제금액</span><b>${won(q.total)}<small>원</small></b></div><div class="pay">무통장입금 · <b>우리은행 1002-067-626314</b> (예금주 한다연)<br>예약 신청 후 입금이 확인되면 문자로 확정 안내드립니다.</div>`;}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">요금을 불러오지 못했습니다.</div>';lastQuote=null;}}
-async function reserve(){const name=el('gname').value.trim(),phone=el('gphone').value.trim(),guests=parseInt(el('guests').value)||0;if(!lastQuote){rstatus.innerHTML='<span style="color:var(--clay)">날짜와 객실을 먼저 선택해 주세요.</span>';return;}if(!name||!phone){rstatus.innerHTML='<span style="color:var(--clay)">성함과 연락처를 입력해 주세요.</span>';return;}const b=el('reserveBtn');b.disabled=true;const o=b.textContent;b.textContent='신청 중…';try{const r=await api('reserve',{room_id:sel.value,checkin:ci.value,checkout:co.value,guest_name:name,guest_phone:phone,guests});if(r&&r.ok){rstatus.innerHTML=`<span style="color:var(--forest);font-weight:600">✓ 예약 신청이 접수되었습니다! 총 ${won(r.total)}원 · 무통장입금(우리은행 1002-067-626314) 확인 후 문자로 확정 안내드립니다. 문의 010-7930-6100</span>`;b.textContent='신청 완료 ✓';}else{rstatus.innerHTML=`<span style="color:var(--clay)">${(r&&r.error)||'예약 신청에 실패했습니다.'}</span>`;b.disabled=false;b.textContent=o;}}catch(e){rstatus.innerHTML='<span style="color:var(--clay)">오류가 발생했습니다. 전화(010-7930-6100)로 문의해 주세요.</span>';b.disabled=false;b.textContent=o;}}
+async function reserve(){const name=el('gname').value.trim(),phone=el('gphone').value.trim(),guests=parseInt(el('guests').value)||0;if(!lastQuote){rstatus.innerHTML='<span style="color:var(--clay)">날짜와 객실을 먼저 선택해 주세요.</span>';return;}if(!name||!phone){rstatus.innerHTML='<span style="color:var(--clay)">성함과 연락처를 입력해 주세요.</span>';return;}if(!el('agPriv').checked){rstatus.innerHTML='<span style="color:var(--clay)">개인정보 수집·이용(필수)에 동의해 주세요.</span>';return;}const b=el('reserveBtn');b.disabled=true;const o=b.textContent;b.textContent='신청 중…';try{const r=await api('reserve',{room_id:sel.value,checkin:ci.value,checkout:co.value,guest_name:name,guest_phone:phone,guests,agree_privacy:el('agPriv').checked,agree_marketing:el('agMkt').checked});if(r&&r.ok){rstatus.innerHTML=`<span style="color:var(--forest);font-weight:600">✓ 예약 신청이 접수되었습니다! 총 ${won(r.total)}원 · 무통장입금(우리은행 1002-067-626314) 확인 후 문자로 확정 안내드립니다. 문의 010-7930-6100</span>`;b.textContent='신청 완료 ✓';}else{rstatus.innerHTML=`<span style="color:var(--clay)">${(r&&r.error)||'예약 신청에 실패했습니다.'}</span>`;b.disabled=false;b.textContent=o;}}catch(e){rstatus.innerHTML='<span style="color:var(--clay)">오류가 발생했습니다. 전화(010-7930-6100)로 문의해 주세요.</span>';b.disabled=false;b.textContent=o;}}
 [sel,ci,co].forEach(x=>x.addEventListener('change',calc));
 el('reserveBtn').addEventListener('click',reserve);
+el('agAll').addEventListener('change',e=>{el('agPriv').checked=e.target.checked;el('agMkt').checked=e.target.checked;});
+[el('agPriv'),el('agMkt')].forEach(x=>x.addEventListener('change',()=>{el('agAll').checked=el('agPriv').checked&&el('agMkt').checked;}));
+el('agPrivView').addEventListener('click',e=>{e.preventDefault();el('agPrivText').hidden=!el('agPrivText').hidden;});
 loadRooms();
 </script>
 </body>
