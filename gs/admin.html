@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>히든밸리 펜션 · 관리자</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{--paper:#f2f3ec;--panel:#fff;--ink:#1b241d;--sub:#5a6357;--forest:#2c4a34;--moss:#5f8352;--clay:#b5793f;--line:#dde0d3;
+  --req:#8a6d1f;--reqbg:#f7efd6;--con:#2f6b3f;--conbg:#e2efe2;--can:#9c4a3f;--canbg:#f4e0dc;
+  --serif:"Gowun Batang",serif;--sans:"IBM Plex Sans KR",sans-serif;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+header{background:var(--forest);color:#eef2e8;padding:18px 0}
+header .wrap{display:flex;justify-content:space-between;align-items:center}
+header b{font-family:var(--serif);font-size:1.2rem}
+header .who{font-size:.85rem;color:#bcd3aa}
+h1,h2{font-family:var(--serif)}
+.btn{font-family:var(--sans);font-weight:600;font-size:.9rem;padding:.5em 1em;border-radius:9px;border:1px solid transparent;cursor:pointer;background:var(--forest);color:#fff}
+.btn:hover{background:#223b29}.btn:disabled{opacity:.5;cursor:default}
+.btn.small{padding:.35em .7em;font-size:.82rem}
+.btn.ghost{background:transparent;border-color:var(--line);color:var(--ink)}
+.btn.con{background:var(--con)}.btn.can{background:var(--can)}
+/* login */
+.login{max-width:360px;margin:80px auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:34px}
+.login h2{margin:0 0 6px}.login p{margin:0 0 20px;color:var(--sub);font-size:.9rem}
+.fld{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.fld label{font-size:.8rem;font-weight:600;color:var(--sub)}
+.fld input,.fld select{font-family:var(--sans);font-size:1rem;padding:.65em .8em;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);width:100%}
+.fld input:focus{outline:2px solid var(--moss);border-color:var(--moss)}
+.msg{font-size:.88rem;margin-top:10px;min-height:1.2em}
+.msg.err{color:var(--can)}.msg.ok{color:var(--con)}
+/* dashboard */
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:24px 0 14px}
+.bar h2{font-size:1.4rem;margin:0;flex:1}
+.stat{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.stat div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:110px}
+.stat b{font-family:var(--serif);font-size:1.5rem;display:block}
+.stat span{font-size:.78rem;color:var(--sub)}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:.9rem}
+th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+th{background:#eef1e6;color:var(--forest);font-weight:600;font-size:.82rem}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:.75rem;font-weight:700;padding:.2em .6em;border-radius:999px}
+.t-req{background:var(--reqbg);color:var(--req)}.t-con{background:var(--conbg);color:var(--con)}.t-can{background:var(--canbg);color:var(--can)}
+.num{font-variant-numeric:tabular-nums}
+.empty{text-align:center;color:var(--sub);padding:40px}
+.hidden{display:none!important}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+@media(max-width:680px){table,thead,tbody,th,td,tr{display:block}thead{display:none}
+  td{border:none;padding:4px 12px}tr{border-bottom:1px solid var(--line);padding:10px 0}
+  td::before{content:attr(data-l);font-weight:600;color:var(--sub);display:inline-block;width:74px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><b>히든밸리 펜션 · 관리자</b><span class="who" id="who"></span></div></header>
+
+<!-- 로그인 -->
+<div id="loginView" class="login">
+  <h2>관리자 로그인</h2>
+  <p>예약 확인·입금 처리 페이지입니다.</p>
+  <div class="fld"><label for="u">아이디</label><input id="u" autocomplete="username"></div>
+  <div class="fld"><label for="p">비밀번호</label><input id="p" type="password" autocomplete="current-password"></div>
+  <button class="btn" id="loginBtn" style="width:100%">로그인</button>
+  <div class="msg err" id="loginMsg"></div>
+</div>
+
+<!-- 대시보드 -->
+<div id="dashView" class="wrap hidden">
+  <div class="bar">
+    <h2>예약 관리</h2>
+    <button class="btn ghost small" id="refreshBtn">새로고침</button>
+    <button class="btn ghost small" id="logoutBtn">로그아웃</button>
+  </div>
+  <div class="stat" id="stat"></div>
+  <div id="listWrap"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SB=supabase.createClient('https://epxjjvowhlxaksviyhus.supabase.co','sb_publishable_VMd564QhmwzjRtmeMgklgg_pQaamR1M');
+const el=id=>document.getElementById(id);
+const won=n=>Number(n).toLocaleString('ko-KR');
+let TOKEN=localStorage.getItem('gs_admin_token')||null;
+async function api(action,payload){const{data,error}=await SB.rpc('api',{action,payload:payload||{},token:TOKEN});if(error)throw error;return data;}
+const STt={requested:['신청','t-req'],confirmed:['확정','t-con'],cancelled:['취소','t-can']};
+
+async function login(){
+  const u=el('u').value.trim(), p=el('p').value;
+  el('loginMsg').textContent='';
+  if(!u||!p){el('loginMsg').textContent='아이디와 비밀번호를 입력하세요.';return;}
+  el('loginBtn').disabled=true;
+  try{
+    const r=await SB.rpc('api',{action:'login',payload:{username:u,password:p}});
+    if(r.error) throw r.error;
+    if(r.data&&r.data.ok){ TOKEN=r.data.token; localStorage.setItem('gs_admin_token',TOKEN); showDash(); }
+    else { el('loginMsg').textContent=(r.data&&r.data.error)||'로그인 실패'; el('loginBtn').disabled=false; }
+  }catch(e){ el('loginMsg').textContent='로그인 중 오류가 발생했습니다.'; el('loginBtn').disabled=false; }
+}
+function logout(){ TOKEN=null; localStorage.removeItem('gs_admin_token'); el('dashView').classList.add('hidden'); el('loginView').classList.remove('hidden'); el('who').textContent=''; el('loginBtn').disabled=false; }
+
+async function showDash(){
+  el('loginView').classList.add('hidden'); el('dashView').classList.remove('hidden'); el('who').textContent='로그인됨';
+  await loadList();
+}
+async function loadList(){
+  const wrap=el('listWrap'); wrap.innerHTML='<div class="empty">불러오는 중…</div>';
+  let rows;
+  try{ rows=await api('admin.reservations'); }
+  catch(e){ wrap.innerHTML='<div class="empty">불러오기 실패. 다시 로그인해 주세요.</div>'; return; }
+  if(rows&&rows.ok===false){ logout(); return; }
+  rows=rows||[];
+  // stats
+  const c={requested:0,confirmed:0,cancelled:0}; let sales=0;
+  rows.forEach(r=>{c[r.status]=(c[r.status]||0)+1; if(r.status==='confirmed') sales+=r.total_price;});
+  el('stat').innerHTML=`
+    <div><b>${rows.length}</b><span>전체 예약</span></div>
+    <div><b style="color:var(--req)">${c.requested}</b><span>입금 대기(신청)</span></div>
+    <div><b style="color:var(--con)">${c.confirmed}</b><span>확정</span></div>
+    <div><b class="num">${won(sales)}</b><span>확정 매출(원)</span></div>`;
+  if(!rows.length){ wrap.innerHTML='<div class="empty">아직 예약이 없습니다.</div>'; return; }
+  wrap.innerHTML='<table><thead><tr><th>신청일</th><th>객실</th><th>일정</th><th>예약자</th><th>연락처</th><th>인원</th><th>금액</th><th>상태</th><th>처리</th></tr></thead><tbody>'+
+    rows.map(r=>{const st=STt[r.status]||[r.status,''];
+      const acts=r.status==='cancelled'?'':
+        (r.status==='requested'?`<button class="btn con small" onclick="setStatus(${r.id},'confirmed')">입금확인</button> `:'')+
+        `<button class="btn can small" onclick="setStatus(${r.id},'cancelled')">취소</button>`;
+      return `<tr>
+        <td data-l="신청일">${(r.created_at||'').slice(0,10)}</td>
+        <td data-l="객실">${r.room_id}</td>
+        <td data-l="일정">${r.checkin} ~ ${r.checkout} (${r.nights}박)</td>
+        <td data-l="예약자">${r.guest_name||''}</td>
+        <td data-l="연락처">${r.guest_phone||''}</td>
+        <td data-l="인원">${r.guests||'-'}</td>
+        <td data-l="금액" class="num">${won(r.total_price)}</td>
+        <td data-l="상태"><span class="tag ${st[1]}">${st[0]}</span></td>
+        <td data-l="처리"><div class="acts">${acts||'-'}</div></td>
+      </tr>`;}).join('')+'</tbody></table>';
+}
+async function setStatus(id,status){
+  const label=status==='confirmed'?'입금확인(확정)':'취소';
+  if(!confirm(`예약 #${id} 을(를) "${label}" 처리할까요?`)) return;
+  try{ const r=await api('admin.set_status',{id,status}); if(r&&r.ok===false){alert(r.error||'처리 실패');return;} await loadList(); }
+  catch(e){ alert('처리 중 오류가 발생했습니다.'); }
+}
+window.setStatus=setStatus;
+el('loginBtn').addEventListener('click',login);
+el('p').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+el('refreshBtn').addEventListener('click',loadList);
+el('logoutBtn').addEventListener('click',logout);
+// auto-enter if token exists
+if(TOKEN){ showDash(); }
+</script>
+</body>
+</html>

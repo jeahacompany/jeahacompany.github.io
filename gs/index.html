@@ -3,9 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body style="margin:0">
-<title>원효계곡펜션 서계리 스테이</title>
+<title>히든밸리 펜션 | 곡성 계곡 감성 스테이 (구 원효계곡펜션)</title>
+<meta name="description" content="히든밸리 펜션(구 원효계곡펜션) — 곡성 원효계곡을 품은 감성 스테이. 편백·황토방·데크텐트, 실시간 예약과 요금 확인. 곡성 기차마을·섬진강 여행 거점. 자고 그리고 먹고, 히든밸리 샤브·갈비.">
+<meta name="keywords" content="히든밸리 펜션, 히든밸리펜션, 원효계곡펜션, 구 원효계곡펜션, 곡성 펜션, 곡성 계곡 펜션, 곡성 숙박, 섬진강 펜션, 곡성 기차마을 펜션, 편백 펜션, 황토방, 데크텐트, 글램핑">
+<meta property="og:title" content="히든밸리 펜션 · 곡성 계곡 스테이">
+<meta property="og:description" content="곡성 원효계곡을 품은 하룻밤. 실시간 예약 · 자고 그리고 먹고(히든밸리 샤브·갈비).">
+<meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Cormorant+Garamond:ital,wght@0,500;1,500;1,600&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap">
@@ -187,10 +190,12 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
   letter-spacing:.08em;padding:.55em 1em;border-radius:999px;box-shadow:var(--shadow);text-transform:uppercase}
 .credit{text-align:center;margin-top:30px;font-size:.78rem;color:#9fb593;letter-spacing:.04em}
 </style>
+</head>
+<body>
 
 <header>
   <div class="wrap nav">
-    <div class="brand"><b>원효계곡펜션</b><span>Seogyeri Stay</span></div>
+    <div class="brand"><b>히든밸리 펜션</b><span>Hidden Valley</span></div>
     <nav class="menu">
       <a href="#intro">소개</a><a href="#rooms">객실</a><a href="#book">실시간 예약</a>
       <a href="#valley">히든밸리</a><a href="#info">오시는 길</a>
@@ -206,7 +211,7 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
   <div class="wrap">
     <div class="eyebrow">Healing Time · 섬진강 자락</div>
     <h1>곡성 계곡을 품은 하룻밤</h1>
-    <p>맑은 원효계곡 물소리와 편백·황토의 온기. 도심을 벗어나 가장 깊은 쉼을 만나는 서계리 스테이.</p>
+    <p>맑은 원효계곡 물소리와 편백·황토의 온기. 도심을 벗어나 가장 깊은 쉼을 만나는 히든밸리 펜션.</p>
     <div class="hero-cta">
       <a href="#book" class="btn btn-fill">실시간 예약 &amp; 요금 확인</a>
       <a href="#rooms" class="btn btn-out" style="color:#fff;border-color:rgba(255,255,255,.5)">객실 둘러보기</a>
@@ -222,7 +227,7 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
 <section id="intro">
   <div class="wrap">
     <div class="shead">
-      <span class="klabel">Why Seogyeri</span>
+      <span class="klabel">Why Hidden Valley</span>
       <h2>계곡이 마당이 되는 곳</h2>
       <p>원효계곡 바로 곁, 곡성 기차마을·섬진강 레일바이크·도깨비마을이 지척입니다.</p>
     </div>
@@ -280,8 +285,8 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
       <div class="left">
         <div class="eyebrow">Real-time Booking</div>
         <h2>날짜만 고르면<br>요금이 바로 나옵니다</h2>
-        <p>시즌과 요일에 따라 자동으로 계산됩니다. 원하는 객실과 일정을 선택해 보세요.</p>
-        <div class="book-note">* 본 데모의 시즌 기간은 예시이며, 실제 성수기·준성수기 일정은 운영 기준으로 확정됩니다. 현재 결제는 무통장입금 방식입니다.</div>
+        <p>시즌과 요일에 따라 요금이 자동 계산됩니다. 날짜·객실을 고르고 바로 예약을 신청하세요.</p>
+        <div class="book-note">결제는 무통장입금 방식입니다. 예약 신청 후 입금이 확인되면 문자로 확정 안내를 드립니다. * 시즌 기간은 운영 기준으로 조정될 수 있습니다.</div>
       </div>
       <div class="form">
         <div class="fld-row">
@@ -290,6 +295,13 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
         </div>
         <div class="fld"><label for="room">객실 선택</label><select id="room"></select></div>
         <div class="quote" id="quote"></div>
+        <div class="fld-row">
+          <div class="fld"><label for="gname">예약자 성함</label><input type="text" id="gname" placeholder="홍길동" autocomplete="name"></div>
+          <div class="fld"><label for="gphone">연락처</label><input type="tel" id="gphone" placeholder="010-0000-0000" autocomplete="tel"></div>
+        </div>
+        <div class="fld"><label for="guests">인원</label><input type="number" id="guests" min="1" value="2"></div>
+        <button type="button" id="reserveBtn" class="btn btn-clay" style="width:100%;justify-content:center">예약 신청하기</button>
+        <div id="rstatus" style="font-size:.9rem;line-height:1.6"></div>
       </div>
     </div>
   </div>
@@ -333,7 +345,7 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
         </ul>
       </div>
       <div class="map">
-        <div class="pin"><b>전라남도 곡성군 곡성읍 서계길 73-30</b>곡성 원효계곡펜션 · 서계리 스테이</div>
+        <div class="pin"><b>전라남도 곡성군 곡성읍 서계길 73-30</b>히든밸리 펜션 (구 원효계곡펜션)</div>
       </div>
     </div>
   </div>
@@ -341,68 +353,88 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
 
 <footer>
   <div class="wrap foot">
-    <div class="fb"><b>원효계곡펜션</b><span>Seogyeri Stay · Healing Time</span></div>
+    <div class="fb"><b>히든밸리 펜션</b><span>Hidden Valley · 구 원효계곡펜션</span></div>
     <div class="fi">
       대표자 최창일 · 사업자등록번호 633-05-03928<br>
       전라남도 곡성군 곡성읍 서계길 73-30 · 고객센터 <b>010-7930-6100</b><br>
       인스타그램 @seogyeri_stay · 네이버블로그 blog.naver.com/seogyeri
     </div>
   </div>
-  <div class="credit">© 곡성원효계곡펜션 — 리뉴얼 데모 · 도반글로벌 제작</div>
+  <div class="credit">© 히든밸리 펜션 (구 원효계곡펜션) · 도반글로벌 제작</div>
 </footer>
-<div class="demo-badge">DEMO · 도반글로벌</div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const ROOMS=[
- {id:'py1',name:'편백1',type:'편백',base:6,max:10,off:[200000,220000,220000,220000],mid:[280000,300000,300000,300000],high:[320000,320000,320000,320000]},
- {id:'py2',name:'편백2',type:'편백',base:6,max:10,off:[200000,220000,220000,220000],mid:[280000,300000,300000,300000],high:[320000,320000,320000,320000]},
- {id:'py3',name:'편백3',type:'편백',base:5,max:8,off:[150000,180000,180000,180000],mid:[220000,250000,250000,250000],high:[280000,280000,280000,280000]},
- {id:'py4',name:'편백4',type:'편백',base:4,max:7,off:[140000,170000,170000,170000],mid:[210000,240000,240000,240000],high:[270000,270000,270000,270000]},
- {id:'hw5',name:'황토5',type:'황토',base:3,max:6,off:[130000,160000,160000,160000],mid:[200000,230000,230000,230000],high:[260000,260000,260000,260000]},
- {id:'hw6',name:'황토6',type:'황토',base:3,max:6,off:[130000,160000,160000,160000],mid:[200000,230000,230000,230000],high:[260000,260000,260000,260000]},
- {id:'dk1',name:'데크텐트1',type:'데크텐트',base:2,max:4,off:[40000,50000,50000,50000],mid:[60000,60000,60000,60000],high:[70000,70000,70000,70000]},
- {id:'dk2',name:'데크텐트2',type:'데크텐트',base:2,max:4,off:[40000,50000,50000,50000],mid:[60000,60000,60000,60000],high:[70000,70000,70000,70000]},
- {id:'dk3',name:'데크텐트3',type:'데크텐트',base:2,max:4,off:[40000,50000,50000,50000],mid:[60000,60000,60000,60000],high:[70000,70000,70000,70000]},
-];
-// demo season ranges (MM-DD). high=성수기, mid=준성수기, else off=비수기
-const HIGH=[['07-15','08-24'],['12-24','12-31'],['01-01','01-02']];
-const MID=[['04-25','06-15'],['09-15','10-31']];
-const HOL=new Set(['01-01','03-01','05-05','06-06','08-15','10-03','10-09','12-25','02-16','02-17','02-18','09-24','09-25','09-26']);
-const inRange=(md,ranges)=>ranges.some(([a,b])=>md>=a&&md<=b);
-function season(d){const md=`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  if(inRange(md,HIGH))return'high'; if(inRange(md,MID))return'mid'; return'off';}
-function dayType(d){const md=`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  if(HOL.has(md))return 3; const w=d.getDay(); if(w===6)return 2; if(w===5)return 1; return 0;}
+const SB = supabase.createClient(
+  'https://epxjjvowhlxaksviyhus.supabase.co',
+  'sb_publishable_VMd564QhmwzjRtmeMgklgg_pQaamR1M'
+);
+async function api(action, payload){
+  const { data, error } = await SB.rpc('api', { action, payload: payload || {} });
+  if (error) throw error;
+  return data;
+}
 const SEASON_KO={off:'비수기',mid:'준성수기',high:'성수기'};
 const DAY_KO=['주중','금요일','주말','공휴일'];
-const won=n=>n.toLocaleString('ko-KR');
-const fmt=d=>`${d.getMonth()+1}.${d.getDate()}(${'일월화수목금토'[d.getDay()]})`;
+const won=n=>Number(n).toLocaleString('ko-KR');
+const fmtd=s=>{const d=new Date(s+'T00:00');return `${d.getMonth()+1}.${d.getDate()}(${'일월화수목금토'[d.getDay()]})`;};
+const el=id=>document.getElementById(id);
+const sel=el('room'), ci=el('ci'), co=el('co'), quote=el('quote'), rstatus=el('rstatus');
+let ROOMS=[], lastQuote=null;
 
-const sel=document.getElementById('room'), ci=document.getElementById('ci'), co=document.getElementById('co'), quote=document.getElementById('quote');
-ROOMS.forEach(r=>{const o=document.createElement('option');o.value=r.id;o.textContent=`${r.name} · ${r.type} (기준 ${r.base} / 최대 ${r.max}인)`;sel.appendChild(o);});
-
-function iso(d){return d.toISOString().slice(0,10);}
-// default: next Saturday + 1 night, 편백1
+function iso(d){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
 (function initDates(){const t=new Date();t.setHours(0,0,0,0);const add=(6-t.getDay()+7)%7||7;const s=new Date(t);s.setDate(t.getDate()+add);const e=new Date(s);e.setDate(s.getDate()+1);
   ci.value=iso(s);co.value=iso(e);ci.min=iso(t);co.min=iso(new Date(t.getTime()+864e5));})();
 
-function calc(){
-  const r=ROOMS.find(x=>x.id===sel.value)||ROOMS[0];
-  const s=new Date(ci.value+'T00:00'), e=new Date(co.value+'T00:00');
-  if(!(s<e)){quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃 날짜는 체크인 이후여야 합니다.</div>';return;}
-  let nights=[],total=0;
-  for(let d=new Date(s);d<e;d.setDate(d.getDate()+1)){const cur=new Date(d);const se=season(cur),dt=dayType(cur);const p=r[se][dt];total+=p;nights.push({cur:new Date(cur),se,dt,p});}
-  const detail=nights.map(n=>`<div class="line"><span>${fmt(n.cur)} <span class="badge b-${n.se}">${SEASON_KO[n.se]}·${DAY_KO[n.dt]}</span></span><span>${won(n.p)}원</span></div>`).join('');
-  quote.innerHTML=`
-    <div class="line" style="color:var(--ink);font-weight:600"><span>${r.name} · ${nights.length}박</span><span>기준 ${r.base}인</span></div>
-    <div class="nights-detail">${detail}</div>
-    <div class="total"><span>총 결제금액</span><b>${won(total)}<small>원</small></b></div>
-    <div class="pay">입금 계좌 <b>농협 351-1004-7847-73</b> (예금주 최창일)<br>예약 확정은 입금 확인 후 문자로 안내됩니다. 문의 <b>010-7930-6100</b></div>
-    <a href="tel:01079306100" class="btn btn-clay" style="width:100%;justify-content:center;margin-top:14px">전화로 예약 문의</a>`;
+async function loadRooms(){
+  try{
+    ROOMS = await api('rooms') || [];
+    sel.innerHTML = ROOMS.map(r=>`<option value="${r.id}">${r.name} · ${r.type} (기준 ${r.cap_base}/최대 ${r.cap_max}인)</option>`).join('');
+    calc();
+  }catch(e){ quote.innerHTML='<div class="line" style="color:var(--clay)">객실 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>'; }
 }
-[sel,ci,co].forEach(el=>el.addEventListener('change',calc));
-calc();
-</script>
 
+async function calc(){
+  rstatus.textContent='';
+  const s=new Date(ci.value+'T00:00'), e=new Date(co.value+'T00:00');
+  if(!(s<e)){ quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃은 체크인 이후여야 합니다.</div>'; lastQuote=null; return; }
+  const room=ROOMS.find(r=>r.id===sel.value);
+  quote.innerHTML='<div class="line">요금 계산 중…</div>';
+  try{
+    const q = await api('quote', {room_id:sel.value, checkin:ci.value, checkout:co.value});
+    lastQuote=q;
+    const detail=(q.detail||[]).map(n=>`<div class="line"><span>${fmtd(n.date)} <span class="badge b-${n.season}">${SEASON_KO[n.season]}·${DAY_KO[n.daytype]}</span></span><span>${won(n.price)}원</span></div>`).join('');
+    quote.innerHTML=`
+      <div class="line" style="color:var(--ink);font-weight:600"><span>${room?room.name:''} · ${q.nights}박</span><span>${room?('기준 '+room.cap_base+'인'):''}</span></div>
+      <div class="nights-detail">${detail}</div>
+      <div class="total"><span>총 결제금액</span><b>${won(q.total)}<small>원</small></b></div>
+      <div class="pay">무통장입금 · <b>농협 351-1004-7847-73</b> (예금주 최창일)<br>예약 신청 후 입금이 확인되면 문자로 확정 안내드립니다.</div>`;
+  }catch(e){ quote.innerHTML='<div class="line" style="color:var(--clay)">요금을 불러오지 못했습니다.</div>'; lastQuote=null; }
+}
+
+async function reserve(){
+  const name=el('gname').value.trim(), phone=el('gphone').value.trim(), guests=parseInt(el('guests').value)||0;
+  if(!lastQuote){ rstatus.innerHTML='<span style="color:var(--clay)">날짜와 객실을 먼저 선택해 주세요.</span>'; return; }
+  if(!name||!phone){ rstatus.innerHTML='<span style="color:var(--clay)">성함과 연락처를 입력해 주세요.</span>'; return; }
+  const btn=el('reserveBtn'); btn.disabled=true; const orig=btn.textContent; btn.textContent='신청 중…';
+  try{
+    const r = await api('reserve', {room_id:sel.value, checkin:ci.value, checkout:co.value, guest_name:name, guest_phone:phone, guests});
+    if(r && r.ok){
+      rstatus.innerHTML=`<span style="color:var(--forest);font-weight:600">✓ 예약 신청이 접수되었습니다! 총 ${won(r.total)}원 · 무통장입금(농협 351-1004-7847-73) 확인 후 문자로 확정 안내드립니다. 문의 010-7930-6100</span>`;
+      btn.textContent='신청 완료 ✓';
+    }else{
+      rstatus.innerHTML=`<span style="color:var(--clay)">${(r&&r.error)||'예약 신청에 실패했습니다.'}</span>`;
+      btn.disabled=false; btn.textContent=orig;
+    }
+  }catch(e){
+    rstatus.innerHTML='<span style="color:var(--clay)">오류가 발생했습니다. 전화(010-7930-6100)로 문의해 주세요.</span>';
+    btn.disabled=false; btn.textContent=orig;
+  }
+}
+
+[sel,ci,co].forEach(x=>x.addEventListener('change',calc));
+el('reserveBtn').addEventListener('click',reserve);
+loadRooms();
+</script>
 </body>
 </html>
