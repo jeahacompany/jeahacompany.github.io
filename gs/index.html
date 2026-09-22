@@ -159,6 +159,10 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
 .rc .m{color:var(--sub);font-size:.85rem;margin:3px 0 8px}
 .rc .p{font-family:var(--serif);font-size:1.05rem;font-variant-numeric:tabular-nums}
 .rc .p small{color:var(--stone);font-size:.72rem;font-family:var(--sans)}
+.tagpill{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.02em;padding:.25em .7em;border-radius:999px;margin-bottom:8px}
+.tagpill.live{background:#e0efe1;color:#2f6b3f}
+.tagpill.soon2{background:#f6e2d5;color:#a5551f}
+@media (prefers-color-scheme:dark){.tagpill.live{background:#1e3320;color:#9ed3a6}.tagpill.soon2{background:#3a231e;color:#e79a8c}}
 @media(max-width:820px){.roomcards{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.roomcards{grid-template-columns:1fr}}
 /* steps */
@@ -382,12 +386,19 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
     <div class="hv">
       <img src="img/scene-3.jpg" alt="" aria-hidden="true">
       <div class="txt">
-        <div class="eyebrow">Coming Soon · 자고 그리고 먹고</div>
-        <h2>히든밸리 샤브 · 갈비</h2>
-        <p>운영 중인 히든밸리 샤브, 그리고 곧 열릴 갈비. 곡성에서의 하룻밤에 든든한 한 상을 더합니다. 숙박 + 식사 패키지로 곧 만나요.</p>
+        <div class="eyebrow">Hidden Valley Group · 자고 그리고 먹고</div>
+        <h2>히든밸리에서 즐기는 곡성의 하루</h2>
+        <p>계곡을 품은 펜션에서 자고, 히든밸리 샤브·카페·갈비에서 먹고. 하나의 브랜드로 완성하는 곡성 여행.</p>
         <div class="soon">숙박 + 식사 패키지 준비 중</div>
       </div>
     </div>
+    <div class="roomcards" style="margin-top:20px;grid-template-columns:repeat(4,1fr)">
+      <div class="rc"><div class="b"><span class="tagpill live">운영 중</span><h4>히든밸리 펜션</h4><div class="m">편백·황토·데크텐트 · 곡성 원효계곡</div></div></div>
+      <div class="rc"><div class="b"><span class="tagpill live">운영 중</span><h4>히든밸리 샤브</h4><div class="m">샤브샤브 무한리필 · 곡성 <br><span style="color:var(--stone)">상세·사진 준비 중</span></div></div></div>
+      <div class="rc"><div class="b"><span class="tagpill live">운영 중</span><h4>히든밸리 카페</h4><div class="m">계곡 뷰 카페 · <br><span style="color:var(--stone)">상세·사진 준비 중</span></div></div></div>
+      <div class="rc"><div class="b"><span class="tagpill soon2">오픈 예정</span><h4>히든밸리 갈비</h4><div class="m">숯불 갈비 · 공사 중 <br><span style="color:var(--stone)">2026 오픈 예정</span></div></div></div>
+    </div>
+    <p style="text-align:center;margin-top:18px;font-size:.85rem;color:var(--stone)">* 히든밸리 샤브·카페·갈비의 실제 사진·메뉴·위치는 준비되는 대로 업데이트됩니다.</p>
   </div>
 </section>
 
