@@ -149,6 +149,13 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
 .foot .fb b{font-family:var(--serif);color:#fff;font-size:1.3rem}
 .foot .fb span{font-family:var(--script);font-style:italic;color:#b9cfa8;display:block}
 .foot .fi{font-size:.85rem;line-height:1.9;color:#bccdb1;max-width:52ch}.foot .fi b{color:#eef2e8}
+.foot .fi a{color:#eef2e8;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.3)}
+.fbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.fbtn{display:inline-flex;align-items:center;gap:.45em;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.28);color:#eef2e8;text-decoration:none;font-size:.88rem;font-weight:600;padding:.6em 1.05em;border-radius:999px;transition:.15s}
+.fbtn:hover{background:rgba(255,255,255,.22)}
+.fbtn.call{background:var(--clay);border-color:var(--clay);color:#fff}
+.fbtn.call:hover{background:var(--clay-d)}
+.fbtn svg{width:16px;height:16px}
 .credit{text-align:center;margin-top:28px;font-size:.78rem;color:#9fb593}
 /* room cards */
 .roomcards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:8px}
@@ -198,7 +205,7 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
       <a href="#book">실시간 예약</a><a href="#valley">히든밸리</a><a href="#reviews">후기</a><a href="#info">오시는 길</a>
     </nav>
     <div class="nav-cta">
-      <div class="tel">010-7930-6100<small>Reservation</small></div>
+      <a class="tel" href="tel:01079306100" style="text-decoration:none">010-7930-6100<small>Reservation</small></a>
       <a href="#book" class="btn btn-fill">예약하기</a>
     </div>
   </div>
@@ -481,8 +488,13 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
     <div class="fb"><b>히든밸리 펜션</b><span>Hidden Valley · 구 원효계곡펜션</span></div>
     <div class="fi">
       상호 히든밸리 · 대표 한다연 · 사업자등록번호 344-18-02766<br>
-      전라남도 곡성군 곡성읍 서계길 73-30 · 고객센터 <b>010-7930-6100</b><br>
-      인스타그램 @seogyeri_stay · 네이버블로그 blog.naver.com/seogyeri
+      전라남도 곡성군 곡성읍 서계길 73-30 · 고객센터 <a href="tel:01079306100"><b>010-7930-6100</b></a>
+      <div class="fbtns">
+        <a class="fbtn call" href="tel:01079306100">📞 전화하기</a>
+        <a class="fbtn" href="sms:01079306100">💬 문자 문의</a>
+        <a class="fbtn" href="https://www.instagram.com/seogyeri_stay/" target="_blank" rel="noopener">📷 인스타그램</a>
+        <a class="fbtn" href="https://blog.naver.com/seogyeri" target="_blank" rel="noopener">📝 네이버 블로그</a>
+      </div>
     </div>
   </div>
   <div class="credit">© 히든밸리 펜션 (구 원효계곡펜션) · 도반글로벌 제작</div>
