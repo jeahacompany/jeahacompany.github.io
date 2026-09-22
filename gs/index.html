@@ -347,7 +347,7 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
     <div class="steps">
       <div class="stp"><div class="num">01</div><h4>날짜·객실 선택</h4><p>원하는 일정과 객실을 고르면 요금이 자동 계산됩니다.</p></div>
       <div class="stp"><div class="num">02</div><h4>예약 신청</h4><p>성함·연락처·인원을 입력하고 신청합니다.</p></div>
-      <div class="stp"><div class="num">03</div><h4>무통장 입금</h4><p>안내된 계좌(농협)로 입금해 주세요.</p></div>
+      <div class="stp"><div class="num">03</div><h4>무통장 입금</h4><p>안내된 계좌(우리은행)로 입금해 주세요.</p></div>
       <div class="stp"><div class="num">04</div><h4>확정 문자</h4><p>입금이 확인되면 확정 문자를 보내드립니다.</p></div>
     </div>
   </div>
@@ -436,7 +436,7 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
       <details><summary>반려동물 동반이 되나요?</summary><div class="a">죄송합니다. 반려동물 동반 입실은 불가합니다.</div></details>
       <details><summary>주차는 가능한가요?</summary><div class="a">네, 주차 공간이 마련되어 있습니다.</div></details>
       <details><summary>계곡이 가까운가요?</summary><div class="a">펜션 바로 앞에 원효계곡이 있어 물놀이와 산책을 즐기실 수 있습니다.</div></details>
-      <details><summary>결제·환불 규정은 어떻게 되나요?</summary><div class="a">무통장입금(농협 351-1004-7847-73, 예금주 최창일)이며, 숙박일 5일 전까지 전액 환불·5일 미만 50% 환불·당일 환불은 불가합니다.</div></details>
+      <details><summary>결제·환불 규정은 어떻게 되나요?</summary><div class="a">무통장입금(우리은행 1002-067-626314, 예금주 한다연)이며, 숙박일 5일 전까지 전액 환불·5일 미만 50% 환불·당일 환불은 불가합니다.</div></details>
     </div>
   </div>
 </section>
@@ -450,7 +450,7 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
         <dl>
           <dt>입실</dt><dd>오후 3:00 (15:00)</dd>
           <dt>퇴실</dt><dd>오전 11:00</dd>
-          <dt>결제</dt><dd>무통장입금 · 농협 351-1004-7847-73 (예금주 최창일)</dd>
+          <dt>결제</dt><dd>무통장입금 · 우리은행 1002-067-626314 (예금주 한다연)</dd>
           <dt>문의</dt><dd>010-7930-6100</dd>
         </dl>
         <h3 style="margin:24px 0 14px;font-size:1.05rem">환불 규정</h3>
@@ -480,7 +480,7 @@ footer{background:var(--forest);color:#d7e2cf;padding:52px 0 40px;margin-top:20p
   <div class="wrap foot">
     <div class="fb"><b>히든밸리 펜션</b><span>Hidden Valley · 구 원효계곡펜션</span></div>
     <div class="fi">
-      대표자 최창일 · 사업자등록번호 633-05-03928<br>
+      상호 히든밸리 · 대표 한다연 · 사업자등록번호 344-18-02766<br>
       전라남도 곡성군 곡성읍 서계길 73-30 · 고객센터 <b>010-7930-6100</b><br>
       인스타그램 @seogyeri_stay · 네이버블로그 blog.naver.com/seogyeri
     </div>
@@ -501,8 +501,8 @@ let ROOMS=[],lastQuote=null;
 function iso(d){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
 (function(){const t=new Date();t.setHours(0,0,0,0);const add=(6-t.getDay()+7)%7||7;const s=new Date(t);s.setDate(t.getDate()+add);const e=new Date(s);e.setDate(s.getDate()+1);ci.value=iso(s);co.value=iso(e);ci.min=iso(t);co.min=iso(new Date(t.getTime()+864e5));})();
 async function loadRooms(){try{ROOMS=await api('rooms')||[];sel.innerHTML=ROOMS.map(r=>`<option value="${r.id}">${r.name} · ${r.type} (기준 ${r.cap_base}/최대 ${r.cap_max}인)</option>`).join('');calc();}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">객실 정보를 불러오지 못했습니다.</div>';}}
-async function calc(){rstatus.textContent='';const s=new Date(ci.value+'T00:00'),e=new Date(co.value+'T00:00');if(!(s<e)){quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃은 체크인 이후여야 합니다.</div>';lastQuote=null;return;}const room=ROOMS.find(r=>r.id===sel.value);quote.innerHTML='<div class="line">요금 계산 중…</div>';try{const q=await api('quote',{room_id:sel.value,checkin:ci.value,checkout:co.value});lastQuote=q;const detail=(q.detail||[]).map(n=>`<div class="line"><span>${fmtd(n.date)} <span class="badge b-${n.season}">${SEASON_KO[n.season]}·${DAY_KO[n.daytype]}</span></span><span>${won(n.price)}원</span></div>`).join('');quote.innerHTML=`<div class="line" style="color:var(--ink);font-weight:600"><span>${room?room.name:''} · ${q.nights}박</span><span>${room?('기준 '+room.cap_base+'인'):''}</span></div><div class="nights-detail">${detail}</div><div class="total"><span>총 결제금액</span><b>${won(q.total)}<small>원</small></b></div><div class="pay">무통장입금 · <b>농협 351-1004-7847-73</b> (예금주 최창일)<br>예약 신청 후 입금이 확인되면 문자로 확정 안내드립니다.</div>`;}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">요금을 불러오지 못했습니다.</div>';lastQuote=null;}}
-async function reserve(){const name=el('gname').value.trim(),phone=el('gphone').value.trim(),guests=parseInt(el('guests').value)||0;if(!lastQuote){rstatus.innerHTML='<span style="color:var(--clay)">날짜와 객실을 먼저 선택해 주세요.</span>';return;}if(!name||!phone){rstatus.innerHTML='<span style="color:var(--clay)">성함과 연락처를 입력해 주세요.</span>';return;}const b=el('reserveBtn');b.disabled=true;const o=b.textContent;b.textContent='신청 중…';try{const r=await api('reserve',{room_id:sel.value,checkin:ci.value,checkout:co.value,guest_name:name,guest_phone:phone,guests});if(r&&r.ok){rstatus.innerHTML=`<span style="color:var(--forest);font-weight:600">✓ 예약 신청이 접수되었습니다! 총 ${won(r.total)}원 · 무통장입금(농협 351-1004-7847-73) 확인 후 문자로 확정 안내드립니다. 문의 010-7930-6100</span>`;b.textContent='신청 완료 ✓';}else{rstatus.innerHTML=`<span style="color:var(--clay)">${(r&&r.error)||'예약 신청에 실패했습니다.'}</span>`;b.disabled=false;b.textContent=o;}}catch(e){rstatus.innerHTML='<span style="color:var(--clay)">오류가 발생했습니다. 전화(010-7930-6100)로 문의해 주세요.</span>';b.disabled=false;b.textContent=o;}}
+async function calc(){rstatus.textContent='';const s=new Date(ci.value+'T00:00'),e=new Date(co.value+'T00:00');if(!(s<e)){quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃은 체크인 이후여야 합니다.</div>';lastQuote=null;return;}const room=ROOMS.find(r=>r.id===sel.value);quote.innerHTML='<div class="line">요금 계산 중…</div>';try{const q=await api('quote',{room_id:sel.value,checkin:ci.value,checkout:co.value});lastQuote=q;const detail=(q.detail||[]).map(n=>`<div class="line"><span>${fmtd(n.date)} <span class="badge b-${n.season}">${SEASON_KO[n.season]}·${DAY_KO[n.daytype]}</span></span><span>${won(n.price)}원</span></div>`).join('');quote.innerHTML=`<div class="line" style="color:var(--ink);font-weight:600"><span>${room?room.name:''} · ${q.nights}박</span><span>${room?('기준 '+room.cap_base+'인'):''}</span></div><div class="nights-detail">${detail}</div><div class="total"><span>총 결제금액</span><b>${won(q.total)}<small>원</small></b></div><div class="pay">무통장입금 · <b>우리은행 1002-067-626314</b> (예금주 한다연)<br>예약 신청 후 입금이 확인되면 문자로 확정 안내드립니다.</div>`;}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">요금을 불러오지 못했습니다.</div>';lastQuote=null;}}
+async function reserve(){const name=el('gname').value.trim(),phone=el('gphone').value.trim(),guests=parseInt(el('guests').value)||0;if(!lastQuote){rstatus.innerHTML='<span style="color:var(--clay)">날짜와 객실을 먼저 선택해 주세요.</span>';return;}if(!name||!phone){rstatus.innerHTML='<span style="color:var(--clay)">성함과 연락처를 입력해 주세요.</span>';return;}const b=el('reserveBtn');b.disabled=true;const o=b.textContent;b.textContent='신청 중…';try{const r=await api('reserve',{room_id:sel.value,checkin:ci.value,checkout:co.value,guest_name:name,guest_phone:phone,guests});if(r&&r.ok){rstatus.innerHTML=`<span style="color:var(--forest);font-weight:600">✓ 예약 신청이 접수되었습니다! 총 ${won(r.total)}원 · 무통장입금(우리은행 1002-067-626314) 확인 후 문자로 확정 안내드립니다. 문의 010-7930-6100</span>`;b.textContent='신청 완료 ✓';}else{rstatus.innerHTML=`<span style="color:var(--clay)">${(r&&r.error)||'예약 신청에 실패했습니다.'}</span>`;b.disabled=false;b.textContent=o;}}catch(e){rstatus.innerHTML='<span style="color:var(--clay)">오류가 발생했습니다. 전화(010-7930-6100)로 문의해 주세요.</span>';b.disabled=false;b.textContent=o;}}
 [sel,ci,co].forEach(x=>x.addEventListener('change',calc));
 el('reserveBtn').addEventListener('click',reserve);
 loadRooms();
