@@ -205,6 +205,18 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
 .faq summary::after{content:"+";float:right;color:var(--moss);font-weight:700}
 .faq details[open] summary::after{content:"\2212"}
 .faq .a{padding:0 18px 16px;color:var(--sub);font-size:.93rem}
+.rc{position:relative}
+.rc-cnt{position:absolute;top:10px;right:10px;background:rgba(28,40,30,.72);color:#fff;font-size:.74rem;font-weight:600;padding:.2em .6em;border-radius:999px;backdrop-filter:blur(2px)}
+#gsLb{position:fixed;inset:0;z-index:2000;background:rgba(12,18,13,.92);display:none;align-items:center;justify-content:center;padding:24px}
+#gsLb.show{display:flex}
+#gsLb .lb-img{max-width:92vw;max-height:86vh;border-radius:12px;box-shadow:0 20px 60px -20px rgba(0,0,0,.8);object-fit:contain}
+#gsLb .lb-x{position:absolute;top:18px;right:22px;width:44px;height:44px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:1.2rem;cursor:pointer}
+#gsLb .lb-x:hover{background:rgba(255,255,255,.28)}
+#gsLb .lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:2rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#gsLb .lb-nav:hover{background:rgba(255,255,255,.3)}
+#gsLb .lb-prev{left:16px}#gsLb .lb-next{right:16px}
+#gsLb .lb-dots{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);color:#fff;font-size:.9rem;font-variant-numeric:tabular-nums;background:rgba(0,0,0,.35);padding:.3em .9em;border-radius:999px}
+@media(max-width:600px){#gsLb .lb-nav{width:42px;height:42px;font-size:1.5rem}}
 </style>
 </head>
 <body>
@@ -309,15 +321,15 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
     <div style="margin-top:56px">
       <div class="rhead" style="margin-bottom:18px"><h3 style="font-size:1.5rem">전체 객실 한눈에</h3><span class="from" style="margin-left:auto;color:var(--sub);font-size:.9rem">비수기 주중 기준가</span></div>
       <div class="roomcards">
-        <div class="rc"><img src="img/pyeonbaek-1.jpg" alt="편백1" loading="lazy"><div class="b"><h4>편백1</h4><div class="m">편백 · 기준 6 / 최대 10인</div><div class="p">200,000<small>원~</small></div></div></div>
-        <div class="rc"><img src="img/pyeonbaek-2.jpg" alt="편백2" loading="lazy"><div class="b"><h4>편백2</h4><div class="m">편백 · 기준 6 / 최대 10인</div><div class="p">200,000<small>원~</small></div></div></div>
-        <div class="rc"><img src="img/pyeonbaek-3.jpg" alt="편백3" loading="lazy"><div class="b"><h4>편백3</h4><div class="m">편백 · 기준 5 / 최대 8인</div><div class="p">150,000<small>원~</small></div></div></div>
-        <div class="rc"><img src="img/pyeonbaek-4.jpg" alt="편백4" loading="lazy"><div class="b"><h4>편백4</h4><div class="m">편백 · 기준 4 / 최대 7인</div><div class="p">140,000<small>원~</small></div></div></div>
-        <div class="rc"><img src="img/hwangto-1.jpg" alt="황토5" loading="lazy"><div class="b"><h4>황토5</h4><div class="m">황토 · 기준 3 / 최대 6인</div><div class="p">130,000<small>원~</small></div></div></div>
-        <div class="rc"><img src="img/hwangto-2.jpg" alt="황토6" loading="lazy"><div class="b"><h4>황토6</h4><div class="m">황토 · 기준 3 / 최대 6인</div><div class="p">130,000<small>원~</small></div></div></div>
-        <div class="rc"><img src="img/deck-1.jpg" alt="데크텐트1" loading="lazy"><div class="b"><h4>데크텐트1</h4><div class="m">데크텐트 · 기준 2 / 최대 4인</div><div class="p">40,000<small>원~</small></div></div></div>
-        <div class="rc"><img src="img/deck-2.jpg" alt="데크텐트2" loading="lazy"><div class="b"><h4>데크텐트2</h4><div class="m">데크텐트 · 기준 2 / 최대 4인</div><div class="p">40,000<small>원~</small></div></div></div>
-        <div class="rc"><img src="img/scene-2.jpg" alt="데크텐트3" loading="lazy"><div class="b"><h4>데크텐트3</h4><div class="m">데크텐트 · 기준 2 / 최대 4인</div><div class="p">40,000<small>원~</small></div></div></div>
+        <div class="rc" data-room="py1"><img src="img/pyeonbaek-1.jpg" alt="편백1" loading="lazy"><div class="b"><h4>편백1</h4><div class="m">편백 · 기준 6 / 최대 10인</div><div class="p">200,000<small>원~</small></div></div></div>
+        <div class="rc" data-room="py2"><img src="img/pyeonbaek-2.jpg" alt="편백2" loading="lazy"><div class="b"><h4>편백2</h4><div class="m">편백 · 기준 6 / 최대 10인</div><div class="p">200,000<small>원~</small></div></div></div>
+        <div class="rc" data-room="py3"><img src="img/pyeonbaek-3.jpg" alt="편백3" loading="lazy"><div class="b"><h4>편백3</h4><div class="m">편백 · 기준 5 / 최대 8인</div><div class="p">150,000<small>원~</small></div></div></div>
+        <div class="rc" data-room="py4"><img src="img/pyeonbaek-4.jpg" alt="편백4" loading="lazy"><div class="b"><h4>편백4</h4><div class="m">편백 · 기준 4 / 최대 7인</div><div class="p">140,000<small>원~</small></div></div></div>
+        <div class="rc" data-room="hw5"><img src="img/hwangto-1.jpg" alt="황토5" loading="lazy"><div class="b"><h4>황토5</h4><div class="m">황토 · 기준 3 / 최대 6인</div><div class="p">130,000<small>원~</small></div></div></div>
+        <div class="rc" data-room="hw6"><img src="img/hwangto-2.jpg" alt="황토6" loading="lazy"><div class="b"><h4>황토6</h4><div class="m">황토 · 기준 3 / 최대 6인</div><div class="p">130,000<small>원~</small></div></div></div>
+        <div class="rc" data-room="dk1"><img src="img/deck-1.jpg" alt="데크텐트1" loading="lazy"><div class="b"><h4>데크텐트1</h4><div class="m">데크텐트 · 기준 2 / 최대 4인</div><div class="p">40,000<small>원~</small></div></div></div>
+        <div class="rc" data-room="dk2"><img src="img/deck-2.jpg" alt="데크텐트2" loading="lazy"><div class="b"><h4>데크텐트2</h4><div class="m">데크텐트 · 기준 2 / 최대 4인</div><div class="p">40,000<small>원~</small></div></div></div>
+        <div class="rc" data-room="dk3"><img src="img/scene-2.jpg" alt="데크텐트3" loading="lazy"><div class="b"><h4>데크텐트3</h4><div class="m">데크텐트 · 기준 2 / 최대 4인</div><div class="p">40,000<small>원~</small></div></div></div>
       </div>
       <p style="text-align:center;margin-top:24px"><a href="#book" class="btn btn-fill">날짜별 요금 확인 &amp; 예약</a></p>
     </div>
@@ -550,9 +562,16 @@ el('agPrivView').addEventListener('click',e=>{e.preventDefault();el('agPrivText'
 loadRooms();
 
 // ===== 관리자 교체 사진 반영 (기본은 정적파일=빠름, 바꾼 것만 DB에서 덮어씀) =====
+let GS_PHOTOS={};
 function gsSlotFromSrc(s){return (s||'').replace(/^.*\/?img\//,'').replace(/\.(jpe?g|png|webp)$/i,'');}
+function gsRoomSlots(id){return Object.keys(GS_PHOTOS).filter(k=>k.indexOf('r_'+id+'_')===0).sort((a,b)=>(+a.split('_').pop())-(+b.split('_').pop()));}
+function gsRoomImages(card){
+  const id=card.getAttribute('data-room');const slots=gsRoomSlots(id);
+  if(slots.length)return slots.map(s=>GS_PHOTOS[s]);
+  const def=card.querySelector('img');return def?[def.src]:[];
+}
 function gsApplyPhotos(map){
-  if(!map||typeof map!=='object')return;
+  if(!map||typeof map!=='object')return; GS_PHOTOS=map;
   document.querySelectorAll('img').forEach(img=>{
     const raw=img.getAttribute('src')||'';
     if(!raw.startsWith('img/'))return;
@@ -561,7 +580,32 @@ function gsApplyPhotos(map){
   });
   const hero=document.querySelector('.hero');
   if(hero&&map['hero']){hero.style.backgroundImage='url("'+map['hero']+'")';hero.style.backgroundSize='cover';hero.style.backgroundPosition='center 35%';hero.style.backgroundRepeat='no-repeat';}
+  // 객실 카드: 대표(1번) 사진으로 썸네일 교체 + 여러장이면 배지
+  document.querySelectorAll('.rc[data-room]').forEach(card=>{
+    const id=card.getAttribute('data-room');const slots=gsRoomSlots(id);
+    const im=card.querySelector('img');
+    if(slots.length&&im)im.src=GS_PHOTOS[slots[0]];
+    let badge=card.querySelector('.rc-cnt');
+    if(slots.length>1){if(!badge){badge=document.createElement('span');badge.className='rc-cnt';card.appendChild(badge);}badge.textContent='📷 '+slots.length;}
+    else if(badge)badge.remove();
+  });
 }
+// ===== 객실 사진 라이트박스(갤러리) =====
+let LB={imgs:[],i:0};
+function gsLightbox(imgs,start){
+  if(!imgs.length)return; LB={imgs,i:start||0};
+  let ov=document.getElementById('gsLb');
+  if(!ov){ov=document.createElement('div');ov.id='gsLb';ov.innerHTML='<button class="lb-x" aria-label="닫기">✕</button><button class="lb-nav lb-prev" aria-label="이전">‹</button><img class="lb-img" alt=""><button class="lb-nav lb-next" aria-label="다음">›</button><div class="lb-dots"></div>';document.body.appendChild(ov);
+    ov.addEventListener('click',e=>{if(e.target===ov||e.target.classList.contains('lb-x'))ov.classList.remove('show');});
+    ov.querySelector('.lb-prev').addEventListener('click',()=>gsLbGo(-1));
+    ov.querySelector('.lb-next').addEventListener('click',()=>gsLbGo(1));
+    document.addEventListener('keydown',e=>{if(!ov.classList.contains('show'))return;if(e.key==='Escape')ov.classList.remove('show');if(e.key==='ArrowLeft')gsLbGo(-1);if(e.key==='ArrowRight')gsLbGo(1);});
+  }
+  gsLbRender();ov.classList.add('show');
+}
+function gsLbGo(d){LB.i=(LB.i+d+LB.imgs.length)%LB.imgs.length;gsLbRender();}
+function gsLbRender(){const ov=document.getElementById('gsLb');ov.querySelector('.lb-img').src=LB.imgs[LB.i];const nav=LB.imgs.length>1;ov.querySelector('.lb-prev').style.display=nav?'':'none';ov.querySelector('.lb-next').style.display=nav?'':'none';ov.querySelector('.lb-dots').textContent=nav?(LB.i+1)+' / '+LB.imgs.length:'';}
+document.querySelectorAll('.rc[data-room]').forEach(card=>{card.style.cursor='zoom-in';card.addEventListener('click',()=>gsLightbox(gsRoomImages(card),0));});
 try{const c=localStorage.getItem('gs_photos');if(c)gsApplyPhotos(JSON.parse(c));}catch(_){}
 api('photos').then(m=>{gsApplyPhotos(m);try{localStorage.setItem('gs_photos',JSON.stringify(m));}catch(_){}}).catch(()=>{});
 </script>

@@ -157,6 +157,26 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
 .rinfo .rchk{grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;font-size:.9rem;color:var(--ink)}
 .rinfo .rchk input{width:18px;height:18px}
 @media(max-width:560px){.rinfo{grid-template-columns:1fr}}
+/* 요금 입력(콤마) */
+.pmatrix{width:100%;min-width:0}
+.pcell{display:flex;align-items:center;gap:4px;justify-content:flex-end}
+.pinp{width:100%;max-width:110px;padding:.45em .6em;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;font-family:var(--sans);font-size:.92rem;font-weight:600}
+.pinp:focus{outline:none;border-color:var(--moss);box-shadow:0 0 0 3px color-mix(in srgb,var(--moss) 20%,transparent)}
+.wsuffix{font-size:.78rem;color:var(--faint)}
+.pmatrix td:first-child,.pmatrix th:first-child{text-align:left}
+.pmatrix th{font-weight:600;color:var(--sub);font-size:.8rem;background:var(--panel2)}
+.pmatrix td{padding:8px 10px}
+/* 객실 사진 여러장 */
+.rpgal{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+.rpitem{position:relative;width:120px;height:90px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--line)}
+.rpitem img{width:100%;height:100%;object-fit:cover;display:block}
+.rpn{position:absolute;left:5px;top:5px;font-size:.64rem;font-weight:700;padding:.14em .5em;border-radius:999px;background:rgba(31,42,34,.72);color:#fff}
+.rpx{position:absolute;right:4px;top:4px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(176,73,59,.92);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+.rpx:hover{background:var(--can)}
+.rpadd{width:120px;height:90px;border-radius:10px;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:600;color:var(--moss);cursor:pointer;background:var(--panel2);transition:.15s;text-align:center}
+.rpadd:hover{border-color:var(--moss);background:#eef4e8}
+.rpempty{color:var(--faint);font-size:.85rem}
+.rphint{font-size:.76rem;color:var(--faint);margin-top:8px}
 .pgrp{margin-bottom:18px}.pgrp-t{font-weight:600;font-size:.9rem;color:var(--sub);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--line2)}
 .pgrid-in{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
 .pcard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel2)}
@@ -345,15 +365,25 @@ function renderCal(){
 
 /* ===== 설정 ===== */
 const ROOM_MAIN={py1:'pyeonbaek-1',py2:'pyeonbaek-2',py3:'pyeonbaek-3',py4:'pyeonbaek-4',hw5:'hwangto-1',hw6:'hwangto-2',dk1:'deck-1',dk2:'deck-2',dk3:'scene-2'};
-const GALLERY_SLOTS=[['hero','메인 대문(맨 위 배경)'],['scene-1','계곡·전경 1'],['scene-3','계곡·전경 2'],['pyeonbaek-5','편백 추가사진 1'],['pyeonbaek-6','편백 추가사진 2'],['hwangto-3','황토 추가사진 1'],['hwangto-4','황토 추가사진 2'],['hwangto-5','황토 추가사진 3'],['hwangto-6','황토 추가사진 4']];
+const GALLERY_SLOTS=[['hero','메인 대문(맨 위 배경)'],['scene-1','계곡·전경 1'],['scene-2','계곡·전경 2'],['scene-3','계곡·전경 3']];
 let openRooms=new Set();
 window.onRoomToggle=function(id,el){if(el.open)openRooms.add(id);else openRooms.delete(id);};
 function chevSvg(){return '<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';}
 function typeName(tid){const t=(CFG.room_types||[]).find(x=>x.id===tid);return t?t.name:'';}
 function matrixHTML(rid){
   const priceOf=(sk,dt)=>{const p=(CFG.prices||[]).find(x=>x.room_id===rid&&x.season_kind===sk&&x.daytype===dt);return p?p.price:0;};
-  return `<thead><tr><th>시즌 \\ 요일</th>${DAY_KO.map(d=>`<th>${d}</th>`).join('')}</tr></thead><tbody>${SEAS.map(s=>`<tr><td>${s[1]}</td>${[0,1,2,3].map(dt=>`<td><input type="number" data-sk="${s[0]}" data-dt="${dt}" value="${priceOf(s[0],dt)}" step="1000"></td>`).join('')}</tr>`).join('')}</tbody>`;
+  return `<thead><tr><th>시즌 \\ 요일</th>${DAY_KO.map(d=>`<th>${d}</th>`).join('')}</tr></thead><tbody>${SEAS.map(s=>`<tr><td>${s[1]}</td>${[0,1,2,3].map(dt=>`<td><div class="pcell"><input type="text" inputmode="numeric" class="pinp" data-sk="${s[0]}" data-dt="${dt}" value="${won(priceOf(s[0],dt))}"><span class="wsuffix">원</span></div></td>`).join('')}</tr>`).join('')}</tbody>`;
 }
+function roomPhotoSlots(id){return Object.keys(PHOTOS).filter(k=>k.indexOf('r_'+id+'_')===0).sort((a,b)=>(+a.split('_').pop())-(+b.split('_').pop()));}
+function roomThumb(id){const s=roomPhotoSlots(id);if(s.length)return PHOTOS[s[0]];const d=ROOM_MAIN[id];return d?'img/'+d+'.jpg':'img/scene-1.jpg';}
+function roomPhotosHTML(id){
+  const slots=roomPhotoSlots(id);
+  const items=slots.map((slot,i)=>`<div class="rpitem"><img src="${PHOTOS[slot]}" alt=""><span class="rpn">${i===0?'대표':(i+1)}</span><button class="rpx" onclick="delRoomPhoto('${slot}')" title="삭제">✕</button></div>`).join('');
+  const emptyNote=slots.length?'':`<div class="rpempty">아직 등록한 사진이 없어 <b>기본 사진</b>이 표시됩니다.<br><img src="img/${ROOM_MAIN[id]||'scene-1'}.jpg" style="margin-top:8px;width:120px;border-radius:8px"></div>`;
+  return `<div class="rpgal">${items}<label class="rpadd">＋ 사진 추가<input type="file" accept="image/*" style="display:none" onchange="addRoomPhoto('${id}',this)"></label></div>${emptyNote}<div class="rphint">사진을 여러 장 올릴 수 있어요. 맨 앞(대표) 사진이 객실 카드 썸네일로 쓰이고, 홈페이지에서 누르면 전체가 갤러리로 보입니다.</div>`;
+}
+window.addRoomPhoto=async function(id,input){let max=0;roomPhotoSlots(id).forEach(s=>{const n=+s.split('_').pop();if(n>max)max=n;});await uploadPhoto('r_'+id+'_'+(max+1),input);};
+window.delRoomPhoto=async function(slot){if(!confirm('이 사진을 삭제할까요?'))return;try{const r=await api('admin.del_photo',{slot});if(r&&r.ok){delete PHOTOS[slot];renderSettings();toast('사진을 삭제했습니다');}else toast('실패');}catch(e){toast('오류가 발생했습니다');}};
 function photoCard(slot,label){
   const custom=!!PHOTOS[slot];const src=custom?PHOTOS[slot]:('img/'+slot+'.jpg');
   return `<div class="pcard" data-slot="${slot}">
@@ -375,23 +405,17 @@ function renderSettings(){
       <div style="margin-top:8px;display:flex;gap:8px"><button class="mini" onclick="addRange('${s[0]}')">+ 기간 추가</button><button class="btn line" style="padding:.4em .9em" onclick="saveSeason('${s[0]}')">이 시즌 저장</button></div></div>`;
   }).join('');
   const roomAcc=rooms.map(r=>{
-    const slot=ROOM_MAIN[r.id]||'scene-1';const custom=!!PHOTOS[slot];const thumb=custom?PHOTOS[slot]:('img/'+slot+'.jpg');
+    const thumb=roomThumb(r.id);const pcount=roomPhotoSlots(r.id).length;
     return `<details class="racc" data-id="${r.id}" ${openRooms.has(r.id)?'open':''} ontoggle="onRoomToggle('${r.id}',this)">
       <summary>
         <img class="rthumb" src="${thumb}" alt="">
-        <div class="rsum"><b>${r.name}</b><span>${typeName(r.type_id)} · 기준 ${r.cap_base} / 최대 ${r.cap_max}인</span></div>
+        <div class="rsum"><b>${r.name}</b><span>${typeName(r.type_id)} · 기준 ${r.cap_base} / 최대 ${r.cap_max}인${pcount?` · 사진 ${pcount}장`:''}</span></div>
         <span class="rbadge ${r.active?'on':'off'}">${r.active?'노출중':'숨김'}</span>
         ${chevSvg()}
       </summary>
       <div class="rbody">
-        <div class="rblk"><div class="rblk-t">📷 대표 사진</div>
-          <div class="rphoto">
-            <div class="pthumb"><img src="${thumb}" alt=""><span class="pbadge ${custom?'on':''}">${custom?'교체됨':'기본'}</span></div>
-            <div class="rphoto-a">
-              <label class="mini pri" style="cursor:pointer">사진 변경<input type="file" accept="image/*" style="display:none" onchange="uploadPhoto('${slot}',this)"></label>
-              <button class="mini" ${custom?'':'disabled'} onclick="resetPhoto('${slot}')">기본으로</button>
-            </div>
-          </div>
+        <div class="rblk"><div class="rblk-t">📷 객실 사진</div>
+          ${roomPhotosHTML(r.id)}
         </div>
         <div class="rblk"><div class="rblk-t">✏️ 정보</div>
           <div class="rinfo">
@@ -454,7 +478,7 @@ window.resetPhoto=async function(slot){
 window.savePriceRoom=async function(id){
   const tbl=document.querySelector(`.pmatrix[data-room="${id}"]`);if(!tbl)return;
   const inputs=[...tbl.querySelectorAll('input')];toast('요금 저장 중…');
-  try{for(const inp of inputs){await api('admin.set_price',{room_id:id,season_kind:inp.dataset.sk,daytype:parseInt(inp.dataset.dt),price:parseInt(inp.value)||0});}
+  try{for(const inp of inputs){await api('admin.set_price',{room_id:id,season_kind:inp.dataset.sk,daytype:parseInt(inp.dataset.dt),price:parseInt(String(inp.value).replace(/[^0-9]/g,''))||0});}
     CFG=await api('admin.config');toast(id+' 요금 저장 완료');}catch(e){toast('요금 저장 오류');}
 };
 window.addRange=function(kind){const blk=document.querySelector(`.seas-block[data-kind="${kind}"] .sranges`);const div=document.createElement('div');div.className='srow';div.dataset.kind=kind;div.innerHTML='<input class="smd s-start" placeholder="MM-DD"> ~ <input class="smd s-end" placeholder="MM-DD"> <span class="x" onclick="this.parentElement.remove()">✕</span>';blk.appendChild(div);};
@@ -497,6 +521,8 @@ el('u').addEventListener('keydown',e=>{if(e.key==='Enter')el('p').focus();});
 el('refreshBtn').addEventListener('click',()=>{loadAll();toast('새로고침했습니다');});
 el('logoutBtn').addEventListener('click',logout);
 el('vtabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setView(b.dataset.v);});
+// 요금 입력 콤마 자동 표시
+document.addEventListener('input',e=>{if(e.target&&e.target.classList&&e.target.classList.contains('pinp')){const digits=e.target.value.replace(/[^0-9]/g,'');e.target.value=digits?Number(digits).toLocaleString('ko-KR'):'';}});
 if(TOKEN)enterDash();
 </script>
 </body>
