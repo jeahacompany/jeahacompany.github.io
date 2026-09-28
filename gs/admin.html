@@ -10,32 +10,30 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
 :root{
-  --paper:#eef0e8;--panel:#fbfcf8;--panel2:#f5f7ef;--ink:#1a221c;--sub:#5c6558;--faint:#8a9384;
-  --forest:#2c4a34;--forest-d:#213a29;--moss:#5f8352;--clay:#b5793f;--clay-d:#9c6532;--line:#e0e3d8;--line2:#eceee6;
-  --shadow:0 1px 2px rgba(28,44,32,.04),0 12px 30px -18px rgba(28,44,32,.28);
-  --req:#a6791a;--req-bg:#fbf1d7;--con:#2f6b3f;--con-bg:#e0efe1;--can:#a24a3d;--can-bg:#f6e3de;
+  color-scheme:light;
+  --paper:#eef2ea;--panel:#ffffff;--panel2:#f4f7f0;--ink:#1e2a22;--sub:#586458;--faint:#8c978b;
+  --forest:#2f5239;--forest-d:#24402c;--moss:#5f8352;--clay:#b5793f;--clay-d:#9c6532;--line:#e4e8dd;--line2:#eef1e9;
+  --shadow:0 1px 2px rgba(28,44,32,.05),0 10px 26px -16px rgba(28,44,32,.20);
+  --shadow-lift:0 2px 6px rgba(28,44,32,.06),0 16px 32px -18px rgba(28,44,32,.28);
+  --req:#9a6f18;--req-bg:#fbf1d5;--con:#2f6b3f;--con-bg:#e2f0e3;--can:#b0493b;--can-bg:#f8e5e0;
   --serif:"Gowun Batang",serif;--sans:"IBM Plex Sans KR",sans-serif;--mono:"IBM Plex Mono",monospace;
 }
-@media (prefers-color-scheme:dark){:root{
-  --paper:#12160f;--panel:#191f16;--panel2:#161b13;--ink:#eef1e6;--sub:#a7b09c;--faint:#7c8672;
-  --forest:#9cc48e;--forest-d:#8bb47d;--moss:#a6c495;--clay:#d69a5f;--line:#2a3325;--line2:#212a1d;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -18px rgba(0,0,0,.7);
-  --req:#e0b45a;--req-bg:#33290f;--con:#9ed3a6;--con-bg:#1e3320;--can:#e79a8c;--can-bg:#3a231e;
-}}
 *{box-sizing:border-box}html,body{margin:0}
 body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
 h1,h2,h3{font-family:var(--serif);margin:0;letter-spacing:-.01em}
 .mono,.num{font-variant-numeric:tabular-nums}
 button{font-family:var(--sans);cursor:pointer}
 .hidden{display:none!important}
-.top{position:sticky;top:0;z-index:20;background:var(--forest);color:#eef2e8}
-.top .in{max-width:1160px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;gap:14px}
+.top{position:sticky;top:0;z-index:20;background:linear-gradient(120deg,#2f5239,#3a6446);color:#eef2e8;box-shadow:0 2px 12px -4px rgba(28,44,32,.35)}
+.top .in{max-width:1160px;margin:0 auto;padding:15px 22px;display:flex;align-items:center;gap:14px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo .mark{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:1.15rem;color:#fff;font-weight:700}
 .logo b{font-family:var(--serif);font-size:1.12rem;color:#fff;display:block;line-height:1.1}
-.logo span{font-size:.66rem;letter-spacing:.22em;text-transform:uppercase;color:#b7cfa9}
-.top .spacer{flex:1}.top .who{font-size:.82rem;color:#c3d5b7;margin-right:4px}
-.tbtn{background:rgba(255,255,255,.10);color:#eef2e8;border:1px solid rgba(255,255,255,.18);border-radius:9px;padding:.45em .85em;font-size:.85rem;font-weight:500;transition:.15s}
-.tbtn:hover{background:rgba(255,255,255,.2)}
-.wrap{max-width:1160px;margin:0 auto;padding:22px 22px 60px}
+.logo span{font-size:.64rem;letter-spacing:.22em;text-transform:uppercase;color:#bcd3ae}
+.top .spacer{flex:1}.top .who{font-size:.82rem;color:#c9dabd;margin-right:6px}
+.tbtn{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.22);border-radius:9px;padding:.5em .9em;font-size:.85rem;font-weight:500;transition:.15s}
+.tbtn:hover{background:rgba(255,255,255,.24)}
+.wrap{max-width:1160px;margin:0 auto;padding:24px 22px 64px}
 /* login */
 .login-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 .login{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:38px 34px}
@@ -46,25 +44,31 @@ button{font-family:var(--sans);cursor:pointer}
 .fld label{font-size:.76rem;font-weight:600;color:var(--sub)}
 .fld input,.fld select{font-family:var(--sans);font-size:.98rem;padding:.62em .8em;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--ink);width:100%}
 .fld input:focus,.fld select:focus{outline:none;border-color:var(--moss);box-shadow:0 0 0 3px color-mix(in srgb,var(--moss) 22%,transparent)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4em;font-weight:600;font-size:.92rem;padding:.7em 1.1em;border-radius:10px;border:1px solid transparent;background:var(--forest);color:#fff;transition:.15s}
-.btn:hover{background:var(--forest-d)}.btn:disabled{opacity:.55;cursor:default}
-.btn.line{background:transparent;border-color:var(--line);color:var(--ink)}.btn.line:hover{border-color:var(--moss)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4em;font-weight:600;font-size:.92rem;padding:.72em 1.2em;border-radius:11px;border:1px solid transparent;background:var(--forest);color:#fff;transition:.15s;box-shadow:0 4px 12px -5px rgba(47,82,57,.5)}
+.btn:hover{background:var(--forest-d);box-shadow:0 6px 16px -6px rgba(47,82,57,.6)}.btn:disabled{opacity:.5;cursor:default;box-shadow:none}
+.btn.line{background:#fff;border-color:var(--line);color:var(--ink);box-shadow:none}.btn.line:hover{border-color:var(--moss);background:var(--panel2)}
 .msg{font-size:.85rem;margin-top:12px;min-height:1.1em}.msg.err{color:var(--can)}
 /* view tabs */
-.phead{display:flex;align-items:center;gap:12px;margin:22px 0 18px;flex-wrap:wrap}
-.phead h1{font-size:1.5rem;margin-right:6px}
-.vtabs{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:3px;gap:2px}
-.vtabs button{border:none;background:transparent;color:var(--sub);font-size:.9rem;font-weight:600;padding:.5em 1em;border-radius:8px;transition:.15s}
-.vtabs button.active{background:var(--panel);color:var(--forest);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.phead{display:flex;align-items:center;gap:14px;margin:4px 0 20px;flex-wrap:wrap}
+.phead h1{font-size:1.55rem}
 .phead .date{color:var(--faint);font-size:.85rem;margin-left:auto;font-family:var(--mono)}
+.vtabs{display:flex;background:#fff;border:1px solid var(--line);border-radius:14px;padding:5px;gap:4px;box-shadow:var(--shadow);margin-bottom:22px;width:100%;max-width:520px}
+.vtabs button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:.5em;border:none;background:transparent;color:var(--sub);font-size:.92rem;font-weight:600;padding:.7em .9em;border-radius:10px;transition:.15s}
+.vtabs button svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vtabs button:hover{background:var(--panel2);color:var(--forest)}
+.vtabs button.active{background:var(--forest);color:#fff;box-shadow:0 4px 12px -4px rgba(47,82,57,.5)}
+.vtabs button.active:hover{background:var(--forest)}
+@media(max-width:560px){.vtabs button span{display:none}.vtabs{max-width:none}}
 /* tiles */
 .tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
-.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
-.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--moss)}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;position:relative;overflow:hidden;box-shadow:var(--shadow);transition:.18s}
+.tile:hover{box-shadow:var(--shadow-lift);transform:translateY(-2px)}
+.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--moss)}
 .tile.req::before{background:var(--req)}.tile.con::before{background:var(--con)}.tile.can::before{background:var(--can)}.tile.sales::before{background:var(--clay)}
-.tile .lab{font-size:.76rem;color:var(--sub);font-weight:500}
-.tile .v{font-family:var(--serif);font-size:1.8rem;line-height:1.2;margin-top:4px;font-variant-numeric:tabular-nums}
-.tile .v small{font-size:.9rem;color:var(--sub);font-weight:400;font-family:var(--sans)}
+.tile .lab{font-size:.78rem;color:var(--sub);font-weight:600}
+.tile .v{font-family:var(--serif);font-size:1.95rem;line-height:1.15;margin-top:6px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.tile .v small{font-size:.9rem;color:var(--faint);font-weight:400;font-family:var(--sans)}
+.tile.sales .v{color:var(--clay-d)}
 @media(max-width:900px){.tiles{grid-template-columns:repeat(2,1fr)}.tile.sales{grid-column:span 2}}
 /* toolbar */
 .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
@@ -76,7 +80,7 @@ button{font-family:var(--sans);cursor:pointer}
 .search input{width:100%;padding:.55em .8em .55em 2.1em;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font-size:.88rem}
 .search svg{position:absolute;left:.65em;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:var(--faint)}
 /* table */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
 .tblscroll{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:820px}
 thead th{background:var(--panel2);color:var(--sub);font-weight:600;font-size:.76rem;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -111,8 +115,10 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
 .rvchip.con{background:var(--con-bg);border-color:var(--con);color:var(--con)}
 @media(max-width:700px){.cell{min-height:70px}.rvchip{font-size:.62rem}}
 /* settings */
-.sec{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:22px 24px;margin-bottom:18px}
-.sec h3{font-size:1.15rem;margin-bottom:4px}.sec .d{color:var(--sub);font-size:.86rem;margin-bottom:16px}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:24px 26px;margin-bottom:18px}
+.sec h3{font-size:1.18rem;margin-bottom:4px;padding-left:12px;position:relative}
+.sec h3::before{content:"";position:absolute;left:0;top:.15em;bottom:.15em;width:4px;border-radius:2px;background:var(--moss)}
+.sec .d{color:var(--sub);font-size:.86rem;margin-bottom:16px}
 .pmatrix{width:100%;border-collapse:collapse;font-size:.88rem;min-width:520px}
 .pmatrix th,.pmatrix td{border:1px solid var(--line2);padding:7px 8px;text-align:center}
 .pmatrix th{background:var(--panel2);color:var(--sub);font-weight:600;font-size:.78rem}
@@ -172,7 +178,7 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
 
 <div id="dashView" class="hidden">
   <div class="top"><div class="in">
-    <div class="logo"><b>히든밸리 펜션</b><span>Admin</span></div>
+    <div class="logo"><span class="mark">H</span><div><b>히든밸리 펜션</b><span>예약 관리자</span></div></div>
     <div class="spacer"></div><span class="who" id="who"></span>
     <button class="tbtn" id="refreshBtn">↻ 새로고침</button>
     <button class="tbtn" id="logoutBtn">로그아웃</button>
@@ -180,12 +186,12 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
   <div class="wrap">
     <div class="phead">
       <h1 id="ptitle">예약 현황</h1>
-      <div class="vtabs" id="vtabs">
-        <button data-v="list" class="active">예약 목록</button>
-        <button data-v="cal">캘린더</button>
-        <button data-v="settings">요금·객실 설정</button>
-      </div>
       <span class="date" id="today"></span>
+    </div>
+    <div class="vtabs" id="vtabs">
+      <button data-v="list" class="active"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>예약 목록</span></button>
+      <button data-v="cal"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>캘린더</span></button>
+      <button data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>요금·객실·사진</span></button>
     </div>
     <div id="viewList"></div>
     <div id="viewCal" class="hidden"></div>
