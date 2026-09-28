@@ -207,6 +207,26 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
 .faq .a{padding:0 18px 16px;color:var(--sub);font-size:.93rem}
 .rc{position:relative}
 .rc-cnt{position:absolute;top:10px;right:10px;background:rgba(28,40,30,.72);color:#fff;font-size:.74rem;font-weight:600;padding:.2em .6em;border-radius:999px;backdrop-filter:blur(2px)}
+/* booking calendar */
+.calwrap{border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;background:var(--paper)}
+.calbar2{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.calbar2 b{font-family:var(--serif);font-size:1.05rem;color:var(--ink)}
+.calbar2 button{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:1.1rem;line-height:1;cursor:pointer}
+.calbar2 button:hover{border-color:var(--moss);color:var(--forest)}
+.caldow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px}
+.caldow span{text-align:center;font-size:.72rem;font-weight:600;color:var(--sub);padding:3px 0}
+.caldow .sun{color:#c0503f}.caldow .sat{color:#3a6ea5}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.calday{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:.9rem;border-radius:9px;cursor:pointer;color:var(--ink);font-variant-numeric:tabular-nums;border:1px solid transparent;transition:.1s}
+.calday:hover:not(.disabled):not(.empty){background:var(--panel2);border-color:var(--moss)}
+.calday.empty{cursor:default}
+.calday.disabled{color:var(--line);cursor:not-allowed;text-decoration:line-through}
+.calday.today{font-weight:700;box-shadow:inset 0 0 0 1px var(--moss)}
+.calday.ci,.calday.co{background:var(--forest)!important;color:#fff!important;border-color:var(--forest)!important;font-weight:700}
+.calday.inrange{background:#dfead7;border-radius:0}
+.calday.ci{border-radius:9px 0 0 9px}.calday.co{border-radius:0 9px 9px 0}
+.calsel{margin-top:10px;font-size:.9rem;font-weight:600;color:var(--forest);text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px}
+@media (prefers-color-scheme:dark){.calday.inrange{background:#2a3a2b}.calsel{color:var(--moss)}}
 #gsLb{position:fixed;inset:0;z-index:2000;background:rgba(12,18,13,.92);display:none;align-items:center;justify-content:center;padding:24px}
 #gsLb.show{display:flex}
 #gsLb .lb-img{max-width:92vw;max-height:86vh;border-radius:12px;box-shadow:0 20px 60px -20px rgba(0,0,0,.8);object-fit:contain}
@@ -394,9 +414,12 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
         <div class="book-note">결제는 무통장입금 방식입니다. 예약 신청 후 입금이 확인되면 문자로 확정 안내를 드립니다. * 시즌 기간은 운영 기준으로 조정될 수 있습니다.</div>
       </div>
       <div class="form">
-        <div class="fld-row">
-          <div class="fld"><label for="ci">체크인</label><input type="date" id="ci"></div>
-          <div class="fld"><label for="co">체크아웃</label><input type="date" id="co"></div>
+        <input type="hidden" id="ci"><input type="hidden" id="co">
+        <div class="calwrap">
+          <div class="calbar2"><button type="button" id="calPrev" aria-label="이전 달">‹</button><b id="calTitle"></b><button type="button" id="calNext" aria-label="다음 달">›</button></div>
+          <div class="caldow"><span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span></div>
+          <div class="calgrid" id="calGrid"></div>
+          <div class="calsel" id="calSel">체크인 날짜를 선택하세요</div>
         </div>
         <div class="fld"><label for="room">객실 선택</label><select id="room"></select></div>
         <div class="quote" id="quote"></div>
@@ -485,17 +508,23 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
       <div class="card">
         <h3>이용 안내</h3>
         <dl>
-          <dt>입실</dt><dd>오후 3:00 (15:00)</dd>
-          <dt>퇴실</dt><dd>오전 11:00</dd>
+          <dt>입실</dt><dd>오후 3:00 (15:00) 부터</dd>
+          <dt>퇴실</dt><dd>오전 11:00 까지</dd>
           <dt>결제</dt><dd>무통장입금 · 우리은행 1002-067-626314 (예금주 한다연)</dd>
           <dt>문의</dt><dd>010-7930-6100</dd>
         </dl>
+        <h3 style="margin:24px 0 14px;font-size:1.05rem">이용 수칙</h3>
+        <ul class="rules">
+          <li>도착 후 <b>성함·연락처</b>로 체크인하시면 입실하실 수 있습니다</li>
+          <li>객실 정비로 <b>오전 11시 ~ 오후 3시</b>는 입실이 불가합니다</li>
+          <li><b>애완동물 동반 입실 불가</b></li>
+        </ul>
         <h3 style="margin:24px 0 14px;font-size:1.05rem">환불 규정</h3>
         <ul class="rules">
           <li>숙박일 <b>5일 전</b>까지 취소 시 전액 환불</li>
           <li>숙박일 <b>5일 미만</b> 취소 시 50% 환불</li>
           <li>이용 <b>당일 취소·환불 불가</b></li>
-          <li>애완동물 동반 입실 불가</li>
+          <li>날짜·객실 변경은 <b>예약 취소 후 재예약</b>으로 진행됩니다</li>
         </ul>
       </div>
       <div class="card addr">
@@ -550,7 +579,35 @@ const el=id=>document.getElementById(id);
 const sel=el('room'),ci=el('ci'),co=el('co'),quote=el('quote'),rstatus=el('rstatus');
 let ROOMS=[],lastQuote=null;
 function iso(d){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
-(function(){const t=new Date();t.setHours(0,0,0,0);const add=(6-t.getDay()+7)%7||7;const s=new Date(t);s.setDate(t.getDate()+add);const e=new Date(s);e.setDate(s.getDate()+1);ci.value=iso(s);co.value=iso(e);ci.min=iso(t);co.min=iso(new Date(t.getTime()+864e5));})();
+(function(){const t=new Date();t.setHours(0,0,0,0);const add=(6-t.getDay()+7)%7||7;const s=new Date(t);s.setDate(t.getDate()+add);const e=new Date(s);e.setDate(s.getDate()+1);ci.value=iso(s);co.value=iso(e);})();
+// ===== 달력(체크인~체크아웃 범위 선택) =====
+const pad2=n=>String(n).padStart(2,'0');
+const CAL={ref:new Date(),ci:ci.value||null,co:co.value||null};
+if(CAL.ci){CAL.ref=new Date(CAL.ci+'T00:00');}CAL.ref.setDate(1);
+function calSel(){const s=el('calSel');if(!s)return;
+  if(CAL.ci&&CAL.co){const n=Math.round((new Date(CAL.co+'T00:00')-new Date(CAL.ci+'T00:00'))/864e5);s.textContent=`체크인 ${fmtd(CAL.ci)}  →  체크아웃 ${fmtd(CAL.co)}  ·  ${n}박`;}
+  else if(CAL.ci){s.textContent=`체크인 ${fmtd(CAL.ci)} · 체크아웃 날짜를 골라주세요`;}
+  else s.textContent='체크인 날짜를 선택하세요';}
+function renderCal(){const g=el('calGrid');if(!g)return;
+  const y=CAL.ref.getFullYear(),m=CAL.ref.getMonth();
+  el('calTitle').textContent=`${y}.${pad2(m+1)}`;
+  const first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();
+  const todayIso=iso(new Date());
+  let html='';for(let i=0;i<first;i++)html+='<div class="calday empty"></div>';
+  for(let d=1;d<=days;d++){const ds=`${y}-${pad2(m+1)}-${pad2(d)}`;let cls='calday';
+    if(ds<todayIso)cls+=' disabled';if(ds===todayIso)cls+=' today';
+    if(ds===CAL.ci)cls+=' ci';if(ds===CAL.co)cls+=' co';
+    if(CAL.ci&&CAL.co&&ds>CAL.ci&&ds<CAL.co)cls+=' inrange';
+    html+=`<div class="${cls}" data-d="${ds}">${d}</div>`;}
+  g.innerHTML=html;calSel();}
+el('calGrid').addEventListener('click',e=>{const c=e.target.closest('.calday');if(!c||c.classList.contains('disabled')||c.classList.contains('empty'))return;const ds=c.dataset.d;
+  if(!CAL.ci||(CAL.ci&&CAL.co)){CAL.ci=ds;CAL.co=null;}
+  else if(ds>CAL.ci){CAL.co=ds;}else{CAL.ci=ds;CAL.co=null;}
+  ci.value=CAL.ci||'';co.value=CAL.co||'';renderCal();
+  if(CAL.ci&&CAL.co)ci.dispatchEvent(new Event('change'));});
+el('calPrev').addEventListener('click',()=>{CAL.ref=new Date(CAL.ref.getFullYear(),CAL.ref.getMonth()-1,1);renderCal();});
+el('calNext').addEventListener('click',()=>{CAL.ref=new Date(CAL.ref.getFullYear(),CAL.ref.getMonth()+1,1);renderCal();});
+renderCal();
 async function loadRooms(){try{ROOMS=await api('rooms')||[];sel.innerHTML=ROOMS.map(r=>`<option value="${r.id}">${r.name} · ${r.type} (기준 ${r.cap_base}/최대 ${r.cap_max}인)</option>`).join('');calc();}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">객실 정보를 불러오지 못했습니다.</div>';}}
 async function calc(){rstatus.textContent='';const s=new Date(ci.value+'T00:00'),e=new Date(co.value+'T00:00');if(!(s<e)){quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃은 체크인 이후여야 합니다.</div>';lastQuote=null;return;}const room=ROOMS.find(r=>r.id===sel.value);quote.innerHTML='<div class="line">요금 계산 중…</div>';try{const q=await api('quote',{room_id:sel.value,checkin:ci.value,checkout:co.value});lastQuote=q;const detail=(q.detail||[]).map(n=>`<div class="line"><span>${fmtd(n.date)} <span class="badge b-${n.season}">${SEASON_KO[n.season]}·${DAY_KO[n.daytype]}</span></span><span>${won(n.price)}원</span></div>`).join('');quote.innerHTML=`<div class="line" style="color:var(--ink);font-weight:600"><span>${room?room.name:''} · ${q.nights}박</span><span>${room?('기준 '+room.cap_base+'인'):''}</span></div><div class="nights-detail">${detail}</div><div class="total"><span>총 결제금액</span><b>${won(q.total)}<small>원</small></b></div><div class="pay">무통장입금 · <b>우리은행 1002-067-626314</b> (예금주 한다연)<br>예약 신청 후 입금이 확인되면 문자로 확정 안내드립니다.</div>`;}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">요금을 불러오지 못했습니다.</div>';lastQuote=null;}}
 async function reserve(){const name=el('gname').value.trim(),phone=el('gphone').value.trim(),guests=parseInt(el('guests').value)||0;if(!lastQuote){rstatus.innerHTML='<span style="color:var(--clay)">날짜와 객실을 먼저 선택해 주세요.</span>';return;}if(!name||!phone){rstatus.innerHTML='<span style="color:var(--clay)">성함과 연락처를 입력해 주세요.</span>';return;}if(!el('agPriv').checked){rstatus.innerHTML='<span style="color:var(--clay)">개인정보 수집·이용(필수)에 동의해 주세요.</span>';return;}const b=el('reserveBtn');b.disabled=true;const o=b.textContent;b.textContent='신청 중…';try{const r=await api('reserve',{room_id:sel.value,checkin:ci.value,checkout:co.value,guest_name:name,guest_phone:phone,guests,agree_privacy:el('agPriv').checked,agree_marketing:el('agMkt').checked});if(r&&r.ok){rstatus.innerHTML=`<span style="color:var(--forest);font-weight:600">✓ 예약 신청이 접수되었습니다! 총 ${won(r.total)}원 · 무통장입금(우리은행 1002-067-626314) 확인 후 문자로 확정 안내드립니다. 문의 010-7930-6100</span>`;b.textContent='신청 완료 ✓';}else{rstatus.innerHTML=`<span style="color:var(--clay)">${(r&&r.error)||'예약 신청에 실패했습니다.'}</span>`;b.disabled=false;b.textContent=o;}}catch(e){rstatus.innerHTML='<span style="color:var(--clay)">오류가 발생했습니다. 전화(010-7930-6100)로 문의해 주세요.</span>';b.disabled=false;b.textContent=o;}}
