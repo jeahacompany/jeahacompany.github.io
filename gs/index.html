@@ -548,6 +548,22 @@ el('agAll').addEventListener('change',e=>{el('agPriv').checked=e.target.checked;
 [el('agPriv'),el('agMkt')].forEach(x=>x.addEventListener('change',()=>{el('agAll').checked=el('agPriv').checked&&el('agMkt').checked;}));
 el('agPrivView').addEventListener('click',e=>{e.preventDefault();el('agPrivText').hidden=!el('agPrivText').hidden;});
 loadRooms();
+
+// ===== 관리자 교체 사진 반영 (기본은 정적파일=빠름, 바꾼 것만 DB에서 덮어씀) =====
+function gsSlotFromSrc(s){return (s||'').replace(/^.*\/?img\//,'').replace(/\.(jpe?g|png|webp)$/i,'');}
+function gsApplyPhotos(map){
+  if(!map||typeof map!=='object')return;
+  document.querySelectorAll('img').forEach(img=>{
+    const raw=img.getAttribute('src')||'';
+    if(!raw.startsWith('img/'))return;
+    const slot=gsSlotFromSrc(raw);
+    if(map[slot])img.src=map[slot];
+  });
+  const hero=document.querySelector('.hero');
+  if(hero&&map['hero']){hero.style.backgroundImage='url("'+map['hero']+'")';hero.style.backgroundSize='cover';hero.style.backgroundPosition='center 35%';hero.style.backgroundRepeat='no-repeat';}
+}
+try{const c=localStorage.getItem('gs_photos');if(c)gsApplyPhotos(JSON.parse(c));}catch(_){}
+api('photos').then(m=>{gsApplyPhotos(m);try{localStorage.setItem('gs_photos',JSON.stringify(m));}catch(_){}}).catch(()=>{});
 </script>
 </body>
 </html>

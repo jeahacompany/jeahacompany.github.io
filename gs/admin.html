@@ -125,6 +125,16 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
 .seas-block .h{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-weight:600}
 .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
 .rooms-edit{overflow-x:auto}
+.pgrp{margin-bottom:18px}.pgrp-t{font-weight:600;font-size:.9rem;color:var(--sub);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--line2)}
+.pgrid-in{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.pcard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel2)}
+.pthumb{position:relative;aspect-ratio:4/3;background:var(--line)}
+.pthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.pbadge{position:absolute;top:6px;left:6px;font-size:.66rem;font-weight:700;padding:.16em .5em;border-radius:999px;background:var(--line);color:var(--sub)}
+.pbadge.on{background:var(--con-bg);color:var(--con)}
+.plabel{font-size:.82rem;font-weight:600;padding:8px 10px 0}
+.pacts{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 10px 10px}
+.pacts .mini{width:100%}
 .re-tbl{width:100%;border-collapse:collapse;font-size:.88rem;min-width:560px}
 .re-tbl th,.re-tbl td{border-bottom:1px solid var(--line2);padding:8px 10px;text-align:left}
 .re-tbl th{background:var(--panel2);color:var(--sub);font-size:.76rem}
@@ -193,7 +203,7 @@ const SB=supabase.createClient('https://epxjjvowhlxaksviyhus.supabase.co','sb_pu
 const el=id=>document.getElementById(id);
 const won=n=>Number(n||0).toLocaleString('ko-KR');
 let TOKEN=localStorage.getItem('gs_admin_token')||null;
-let ALL=[],CFG=null,VIEW='list',FILTER='all',Q='',calRef=new Date();
+let ALL=[],CFG=null,PHOTOS={},VIEW='list',FILTER='all',Q='',calRef=new Date();
 async function api(action,payload){const{data,error}=await SB.rpc('api',{action,payload:payload||{},token:TOKEN});if(error)throw error;return data;}
 const ST={requested:['입금대기','p-req','req'],confirmed:['확정','p-con','con'],cancelled:['취소','p-can','can']};
 const WD=['일','월','화','수','목','금','토'],DAY_KO=['주중','금','토','공휴일'],SEAS=[['off','비수기',''],['mid','준성수기','#0F87FF'],['high','성수기','#FF0000']];
@@ -217,6 +227,7 @@ async function loadAll(){
   try{ALL=await api('admin.reservations')||[];}catch(e){logout();return;}
   if(ALL&&ALL.ok===false){logout();return;}
   try{CFG=await api('admin.config');}catch(e){CFG=null;}
+  try{PHOTOS=await api('photos')||{};}catch(e){PHOTOS={};}
   renderView();
 }
 function setView(v){VIEW=v;document.querySelectorAll('#vtabs button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
@@ -335,11 +346,68 @@ function renderSettings(){
           <td><input type="checkbox" class="r-active" ${r.active?'checked':''}></td>
           <td><button class="mini" onclick="saveRoom('${r.id}')">저장</button></td></tr>`).join('')}
       </tbody></table></div>
+    </div>
+    <div class="sec">
+      <h3>사진 관리</h3><div class="d">홈페이지에 나오는 사진을 직접 바꿉니다. 파일(JPG·PNG)을 고르면 자동으로 웹에 맞게 줄여서 적용됩니다. 가로로 찍은 사진을 권장합니다. ‘기본으로’를 누르면 원래 사진으로 되돌아갑니다.</div>
+      <div id="photoGrid" class="pgrid"></div>
     </div>`;
   el('prRoom').addEventListener('change',renderPMatrix);
   el('savePrice').addEventListener('click',savePrice);
   renderPMatrix();
+  renderPhotos();
 }
+const PHOTO_SLOTS=[
+  {g:'메인',items:[['hero','메인 대문(배경)']]},
+  {g:'편백 객실',items:[['pyeonbaek-1','편백 사진 1'],['pyeonbaek-2','편백 사진 2'],['pyeonbaek-3','편백 사진 3'],['pyeonbaek-4','편백 사진 4'],['pyeonbaek-5','편백 사진 5'],['pyeonbaek-6','편백 사진 6']]},
+  {g:'황토방',items:[['hwangto-1','황토 사진 1'],['hwangto-2','황토 사진 2'],['hwangto-3','황토 사진 3'],['hwangto-4','황토 사진 4'],['hwangto-5','황토 사진 5'],['hwangto-6','황토 사진 6']]},
+  {g:'데크텐트',items:[['deck-1','데크텐트 사진 1'],['deck-2','데크텐트 사진 2']]},
+  {g:'계곡·전경',items:[['scene-1','전경 사진 1'],['scene-2','전경 사진 2'],['scene-3','전경 사진 3']]},
+];
+function renderPhotos(){
+  const host=el('photoGrid');if(!host)return;
+  host.innerHTML=PHOTO_SLOTS.map(grp=>`<div class="pgrp"><div class="pgrp-t">${grp.g}</div><div class="pgrid-in">${
+    grp.items.map(([slot,label])=>{
+      const custom=!!PHOTOS[slot];
+      const src=custom?PHOTOS[slot]:('img/'+slot+'.jpg');
+      return `<div class="pcard" data-slot="${slot}">
+        <div class="pthumb"><img src="${src}" alt="${label}" loading="lazy"><span class="pbadge ${custom?'on':''}">${custom?'교체됨':'기본'}</span></div>
+        <div class="plabel">${label}</div>
+        <div class="pacts">
+          <label class="mini pri" style="cursor:pointer;text-align:center">사진 변경<input type="file" accept="image/*" style="display:none" onchange="uploadPhoto('${slot}',this)"></label>
+          <button class="mini" ${custom?'':'disabled'} onclick="resetPhoto('${slot}')">기본으로</button>
+        </div>
+      </div>`;
+    }).join('')
+  }</div></div>`).join('');
+}
+function gsResize(file){return new Promise((res,rej)=>{
+  const img=new Image();const url=URL.createObjectURL(file);
+  img.onload=()=>{URL.revokeObjectURL(url);
+    const MAX=1400;let{width:w,height:h}=img;
+    if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}
+    const c=document.createElement('canvas');c.width=w;c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    res(c.toDataURL('image/jpeg',0.82));
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('이미지를 읽지 못했습니다'));};
+  img.src=url;
+});
+window.uploadPhoto=async function(slot,input){
+  const file=input.files&&input.files[0];if(!file)return;
+  if(!/^image\//.test(file.type)){toast('이미지 파일만 올릴 수 있습니다');return;}
+  toast('사진 처리 중…');
+  try{
+    let uri=await gsResize(file);
+    if(uri.length>1500000){uri=await new Promise(r=>{const i=new Image();i.onload=()=>{const MAX=1000;let w=i.width,h=i.height;if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(i,0,0,w,h);r(c.toDataURL('image/jpeg',0.75));};i.src=uri;});}
+    const res=await api('admin.set_photo',{slot,data_uri:uri});
+    if(res&&res.ok){PHOTOS[slot]=uri;renderPhotos();toast('사진이 교체되었습니다');}
+    else{toast((res&&res.error)||'저장 실패');}
+  }catch(e){toast('사진 처리 오류');}
+};
+window.resetPhoto=async function(slot){
+  if(!confirm('이 사진을 기본 사진으로 되돌릴까요?'))return;
+  try{const res=await api('admin.del_photo',{slot});if(res&&res.ok){delete PHOTOS[slot];renderPhotos();toast('기본 사진으로 되돌렸습니다');}else{toast('실패');}}catch(e){toast('오류가 발생했습니다');}
+};
 function renderPMatrix(){
   const rid=el('prRoom').value,prices=CFG.prices||[];
   const priceOf=(sk,dt)=>{const p=prices.find(x=>x.room_id===rid&&x.season_kind===sk&&x.daytype===dt);return p?p.price:0;};
