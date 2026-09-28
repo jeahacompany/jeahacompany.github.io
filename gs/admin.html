@@ -391,7 +391,7 @@ function gsResize(file){return new Promise((res,rej)=>{
   };
   img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('이미지를 읽지 못했습니다'));};
   img.src=url;
-});
+});}
 window.uploadPhoto=async function(slot,input){
   const file=input.files&&input.files[0];if(!file)return;
   if(!/^image\//.test(file.type)){toast('이미지 파일만 올릴 수 있습니다');return;}
