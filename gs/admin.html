@@ -207,6 +207,16 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
 .rcard dt{color:var(--faint)}.rcard dd{margin:0;text-align:right}
 @media(max-width:760px){.tblscroll{display:none}.cards{display:flex}}
 .foot-note{margin-top:26px;text-align:center;color:var(--faint);font-size:.78rem}
+.listmeta{font-size:.8rem;color:var(--faint);margin:2px 2px 10px}
+#periods button.active{background:var(--clay);color:#fff}
+.dtl{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:14px}
+.dtl-row{display:flex;padding:11px 14px;border-bottom:1px solid var(--line2);font-size:.92rem}
+.dtl-row:last-child{border-bottom:none}
+.dtl-row:nth-child(odd){background:var(--panel2)}
+.dtl-k{width:110px;flex-shrink:0;color:var(--sub);font-weight:600}
+.dtl-v{flex:1;color:var(--ink)}
+.btn.line.dang2{color:var(--can);border-color:color-mix(in srgb,var(--can) 40%,var(--line))}
+.btn.line.dang2:hover{background:var(--can-bg);border-color:var(--can)}
 </style>
 </head>
 <body>
@@ -255,7 +265,15 @@ const SB=supabase.createClient('https://epxjjvowhlxaksviyhus.supabase.co','sb_pu
 const el=id=>document.getElementById(id);
 const won=n=>Number(n||0).toLocaleString('ko-KR');
 let TOKEN=localStorage.getItem('gs_admin_token')||null;
-let ALL=[],CFG=null,PHOTOS={},VIEW='list',FILTER='all',Q='',calRef=new Date();
+let ALL=[],CFG=null,PHOTOS={},VIEW='list',FILTER='all',PERIOD='all',Q='',calRef=new Date();
+function roomName(id){const r=(CFG&&CFG.rooms||[]).find(x=>x.id===id);return r?r.name:id;}
+function todayStr(){return fday(new Date());}
+function periodMatch(created){if(PERIOD==='all')return true;const d=fday(created),t=new Date();t.setHours(0,0,0,0);const cd=new Date(created);cd.setHours(0,0,0,0);
+  if(PERIOD==='today')return d===todayStr();
+  if(PERIOD==='week')return (t-cd)/864e5<7 && cd<=t;
+  if(PERIOD==='month'){const n=new Date();return cd.getFullYear()===n.getFullYear()&&cd.getMonth()===n.getMonth();}
+  return true;}
+const PERIOD_KO={all:'전체 기간',today:'오늘',week:'최근 7일',month:'이번 달'};
 async function api(action,payload){const{data,error}=await SB.rpc('api',{action,payload:payload||{},token:TOKEN});if(error)throw error;return data;}
 const ST={requested:['입금대기','p-req','req'],confirmed:['확정','p-con','con'],cancelled:['취소','p-can','can']};
 const WD=['일','월','화','수','목','금','토'],DAY_KO=['주중','금','토','공휴일'],SEAS=[['off','비수기',''],['mid','준성수기','#0F87FF'],['high','성수기','#FF0000']];
@@ -290,33 +308,36 @@ function renderView(){if(VIEW==='list')renderList();else if(VIEW==='cal')renderC
 /* ===== 예약 목록 ===== */
 function counts(){const c={all:ALL.length,requested:0,confirmed:0,cancelled:0};ALL.forEach(r=>c[r.status]=(c[r.status]||0)+1);return c;}
 function renderList(){
-  const c=counts();let sales=0;ALL.forEach(r=>{if(r.status==='confirmed')sales+=r.total_price;});
+  const c=counts();
+  const today=todayStr();
+  let sales=0,monthSales=0,upcoming=0;const now=new Date();
+  ALL.forEach(r=>{if(r.status==='confirmed'){sales+=r.total_price;const ci=new Date(r.checkin+'T00:00');if(ci.getFullYear()===now.getFullYear()&&ci.getMonth()===now.getMonth())monthSales+=r.total_price;if(r.checkin>=today)upcoming++;}});
   let rows=ALL.slice();
   if(FILTER!=='all')rows=rows.filter(r=>r.status===FILTER);
-  if(Q){const q=Q.toLowerCase();rows=rows.filter(r=>(r.guest_name||'').toLowerCase().includes(q)||(r.guest_phone||'').includes(q)||(r.room_id||'').includes(q));}
-  const body=rows.length?rows.map(r=>{const st=ST[r.status]||[r.status,''];
-    const acts=r.status==='cancelled'?'<span class="dash">—</span>':
-      (r.status==='requested'?`<button class="mini pri" onclick="setStatus(${r.id},'confirmed')">입금확인</button> `:'')+`<button class="mini dang" onclick="setStatus(${r.id},'cancelled')">취소</button>`;
-    return `<tr>
+  rows=rows.filter(r=>periodMatch(r.created_at));
+  if(Q){const q=Q.toLowerCase();rows=rows.filter(r=>(r.guest_name||'').toLowerCase().includes(q)||(r.guest_phone||'').includes(q)||(r.room_id||'').includes(q)||roomName(r.room_id).toLowerCase().includes(q));}
+  const actBtns=r=>r.status==='cancelled'?'':(r.status==='requested'?`<button class="mini pri" onclick="event.stopPropagation();setStatus(${r.id},'confirmed')">입금확인</button> `:'')+`<button class="mini dang" onclick="event.stopPropagation();setStatus(${r.id},'cancelled')">취소</button>`;
+  const body=rows.length?rows.map(r=>{const st=ST[r.status]||[r.status,''];const a=actBtns(r);
+    return `<tr onclick="openDetail(${r.id})" style="cursor:pointer">
       <td><span class="pill ${st[1]}">${st[0]}</span></td>
-      <td><b>${r.room_id}</b></td>
+      <td><b>${roomName(r.room_id)}</b></td>
       <td class="sched"><b>${fdate(r.checkin)} → ${fdate(r.checkout)}</b><span>${r.nights}박</span></td>
-      <td class="guest"><b>${r.guest_name||''}</b><a href="tel:${(r.guest_phone||'').replace(/[^0-9]/g,'')}">${r.guest_phone||''}</a></td>
+      <td class="guest"><b>${r.guest_name||''}</b><a href="tel:${(r.guest_phone||'').replace(/[^0-9]/g,'')}" onclick="event.stopPropagation()">${r.guest_phone||''}</a></td>
       <td class="num">${r.guests||'-'}명</td>
       <td class="amt">${won(r.total_price)}<span style="font-size:.72em;color:var(--faint)"> 원</span></td>
       <td class="applied">${fday(r.created_at)}</td>
-      <td><div class="acts">${acts}</div></td></tr>`;}).join(''):`<tr><td colspan="8"><div class="state"><b>${ALL.length?'결과가 없습니다':'아직 예약이 없습니다'}</b>${ALL.length?'필터·검색을 바꿔보세요.':'홈페이지 예약이 접수되면 여기 표시됩니다.'}</div></td></tr>`;
-  const cards=rows.map(r=>{const st=ST[r.status]||[r.status,''];const acts=r.status==='cancelled'?'':(r.status==='requested'?`<button class="mini pri" onclick="setStatus(${r.id},'confirmed')">입금확인</button> `:'')+`<button class="mini dang" onclick="setStatus(${r.id},'cancelled')">취소</button>`;
-    return `<div class="rcard"><div class="h"><span class="pill ${st[1]}">${st[0]}</span><b class="amt">${won(r.total_price)} 원</b></div>
-      <dl><dt>객실</dt><dd>${r.room_id}</dd><dt>일정</dt><dd>${fdate(r.checkin)}→${fdate(r.checkout)} ${r.nights}박</dd><dt>예약자</dt><dd>${r.guest_name||''} (${r.guests||'-'}명)</dd><dt>연락처</dt><dd><a href="tel:${(r.guest_phone||'').replace(/[^0-9]/g,'')}" style="color:var(--moss)">${r.guest_phone||''}</a></dd></dl>
-      <div class="acts" style="margin-top:10px">${acts||'-'}</div></div>`;}).join('');
+      <td><div class="acts">${a||'<span class=dash>—</span>'}</div></td></tr>`;}).join(''):`<tr><td colspan="8"><div class="state"><b>${ALL.length?'결과가 없습니다':'아직 예약이 없습니다'}</b>${ALL.length?'필터·검색·기간을 바꿔보세요.':'홈페이지 예약이 접수되면 여기 표시됩니다.'}</div></td></tr>`;
+  const cards=rows.map(r=>{const st=ST[r.status]||[r.status,''];const a=actBtns(r);
+    return `<div class="rcard" onclick="openDetail(${r.id})" style="cursor:pointer"><div class="h"><span class="pill ${st[1]}">${st[0]}</span><b class="amt">${won(r.total_price)} 원</b></div>
+      <dl><dt>객실</dt><dd>${roomName(r.room_id)}</dd><dt>일정</dt><dd>${fdate(r.checkin)}→${fdate(r.checkout)} ${r.nights}박</dd><dt>예약자</dt><dd>${r.guest_name||''} (${r.guests||'-'}명)</dd><dt>연락처</dt><dd><a href="tel:${(r.guest_phone||'').replace(/[^0-9]/g,'')}" onclick="event.stopPropagation()" style="color:var(--moss)">${r.guest_phone||''}</a></dd></dl>
+      <div class="acts" style="margin-top:10px">${a||'-'}</div></div>`;}).join('');
   el('viewList').innerHTML=`
     <div class="tiles">
       <div class="tile"><div class="lab">전체 예약</div><div class="v">${c.all}<small> 건</small></div></div>
       <div class="tile req"><div class="lab">입금 대기</div><div class="v">${c.requested}<small> 건</small></div></div>
-      <div class="tile con"><div class="lab">확정</div><div class="v">${c.confirmed}<small> 건</small></div></div>
-      <div class="tile can"><div class="lab">취소</div><div class="v">${c.cancelled}<small> 건</small></div></div>
-      <div class="tile sales"><div class="lab">확정 매출</div><div class="v">${won(sales)}<small> 원</small></div></div>
+      <div class="tile con"><div class="lab">다가오는 예약</div><div class="v">${upcoming}<small> 건</small></div></div>
+      <div class="tile sales"><div class="lab">이번달 매출</div><div class="v">${won(monthSales)}<small> 원</small></div></div>
+      <div class="tile sales"><div class="lab">누적 확정매출</div><div class="v">${won(sales)}<small> 원</small></div></div>
     </div>
     <div class="toolbar">
       <div class="chips" id="chips">
@@ -325,16 +346,51 @@ function renderList(){
         <button data-f="confirmed" class="${FILTER==='confirmed'?'active':''}">확정 <span class="c">${c.confirmed}</span></button>
         <button data-f="cancelled" class="${FILTER==='cancelled'?'active':''}">취소 <span class="c">${c.cancelled}</span></button>
       </div>
+      <div class="chips" id="periods">
+        ${['all','today','week','month'].map(p=>`<button data-p="${p}" class="${PERIOD===p?'active':''}">${PERIOD_KO[p]}</button>`).join('')}
+      </div>
       <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="q" placeholder="예약자·연락처·객실" value="${Q.replace(/"/g,'&quot;')}"></div>
       <button class="btn" id="addBtn" style="margin-left:auto">+ 수기 예약</button>
     </div>
+    <div class="listmeta">표시 ${rows.length}건 · 행을 누르면 상세정보</div>
     <div class="card"><div class="tblscroll"><table>
       <thead><tr><th>상태</th><th>객실</th><th>일정</th><th>예약자 · 연락처</th><th>인원</th><th class="r">금액</th><th>신청일</th><th></th></tr></thead>
       <tbody>${body}</tbody></table></div><div class="cards">${cards}</div></div>`;
   el('chips').addEventListener('click',e=>{const b=e.target.closest('button');if(b){FILTER=b.dataset.f;renderList();}});
+  el('periods').addEventListener('click',e=>{const b=e.target.closest('button');if(b){PERIOD=b.dataset.p;renderList();}});
   el('q').addEventListener('input',e=>{Q=e.target.value.trim();const p=e.target.selectionStart;renderList();const nq=el('q');nq.focus();try{nq.setSelectionRange(p,p);}catch(_){}});
   el('addBtn').addEventListener('click',openAddModal);
 }
+window.openDetail=function(id){
+  const r=ALL.find(x=>x.id===id);if(!r)return;const st=ST[r.status]||[r.status,''];
+  const phone=(r.guest_phone||'').replace(/[^0-9]/g,'');
+  const created=new Date(r.created_at);const cstr=`${fday(r.created_at)} ${String(created.getHours()).padStart(2,'0')}:${String(created.getMinutes()).padStart(2,'0')}`;
+  const row=(k,v)=>`<div class="dtl-row"><span class="dtl-k">${k}</span><span class="dtl-v">${v}</span></div>`;
+  const acts=r.status==='cancelled'?'<span style="color:var(--faint);font-size:.85rem">취소된 예약입니다</span>':
+    (r.status==='requested'?`<button class="btn" onclick="detailAct(${r.id},'confirmed')">입금 확인 → 확정</button>`:'')+`<button class="btn line dang2" onclick="detailAct(${r.id},'cancelled')">예약 취소</button>`;
+  el('modalHost').innerHTML=`<div class="ov" id="ov"><div class="modal">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span class="pill ${st[1]}">${st[0]}</span><h3 style="margin:0">예약 상세 #${r.id}</h3></div>
+    <div class="dtl">
+      ${row('객실',roomName(r.room_id))}
+      ${row('체크인',fdate(r.checkin)+'  15:00')}
+      ${row('체크아웃',fdate(r.checkout)+'  11:00')}
+      ${row('숙박',r.nights+'박')}
+      ${row('인원',(r.guests||'-')+'명')}
+      ${row('결제금액','<b>'+won(r.total_price)+' 원</b> (무통장입금)')}
+      ${row('예약자',r.guest_name||'-')}
+      ${row('연락처',phone?`<a href="tel:${phone}" style="color:var(--moss)">${r.guest_phone}</a>`:'-')}
+      ${row('신청일시',cstr)}
+      ${r.memo?row('메모',r.memo):''}
+      ${row('개인정보 동의',r.agree_privacy?'✅ 동의':'—')}
+      ${row('마케팅 수신',r.agree_marketing?'✅ 동의':'미동의')}
+    </div>
+    <div class="foot" style="margin-top:18px">${acts}<button class="btn line" id="dClose">닫기</button></div>
+  </div></div>`;
+  el('ov').addEventListener('click',e=>{if(e.target.id==='ov')el('modalHost').innerHTML='';});
+  el('dClose').onclick=()=>el('modalHost').innerHTML='';
+};
+window.detailAct=async function(id,status){const label=status==='confirmed'?'입금확인(확정)':'취소';if(!confirm(`예약 #${id} 을(를) "${label}" 처리할까요?`))return;
+  try{const r=await api('admin.set_status',{id,status});if(r&&r.ok===false){toast(r.error||'실패');return;}el('modalHost').innerHTML='';toast(status==='confirmed'?'확정 처리했습니다':'취소했습니다');await loadAll();}catch(e){toast('오류가 발생했습니다');}};
 async function setStatus(id,status){const label=status==='confirmed'?'입금확인(확정)':'취소';if(!confirm(`예약 #${id} 을(를) "${label}" 처리할까요?`))return;
   try{const r=await api('admin.set_status',{id,status});if(r&&r.ok===false){toast(r.error||'실패');return;}toast(status==='confirmed'?'확정 처리했습니다':'취소했습니다');await loadAll();}catch(e){toast('오류가 발생했습니다');}}
 window.setStatus=setStatus;
