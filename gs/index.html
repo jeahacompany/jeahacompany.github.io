@@ -712,11 +712,11 @@ el('roomSlider').addEventListener('click',e=>{const c=e.target.closest('.rs-card
 function rsScroll(dir){var s=el('roomSlider');if(!s)return;var start=s.scrollLeft,d=dir*Math.min(440,s.clientWidth*0.8),t0=performance.now();function step(t){var p=Math.min(1,(t-t0)/320);var e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;s.scrollLeft=start+d*e;if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
 el('rsPrev').onclick=function(){rsScroll(-1);};
 el('rsNext').onclick=function(){rsScroll(1);};
-// 마우스 드래그로 밀기(PC)
+// 마우스 드래그로 밀기(PC) - 일반 클릭은 방해하지 않음
 (function(){var s=el('roomSlider');if(!s)return;var down=false,sx=0,sl=0,moved=false;
-  s.addEventListener('pointerdown',e=>{down=true;moved=false;sx=e.clientX;sl=s.scrollLeft;try{s.setPointerCapture(e.pointerId);}catch(_){}});
-  s.addEventListener('pointermove',e=>{if(!down)return;var dx=e.clientX-sx;if(Math.abs(dx)>5)moved=true;s.scrollLeft=sl-dx;});
-  s.addEventListener('pointerup',()=>{down=false;});
+  s.addEventListener('mousedown',e=>{down=true;moved=false;sx=e.clientX;sl=s.scrollLeft;});
+  window.addEventListener('mousemove',e=>{if(!down)return;var dx=e.clientX-sx;if(Math.abs(dx)>8){moved=true;s.scrollLeft=sl-dx;}});
+  window.addEventListener('mouseup',()=>{down=false;setTimeout(function(){moved=false;},0);});
   s.addEventListener('click',e=>{if(moved){e.preventDefault();e.stopPropagation();}},true);
 })();
 async function calc(){rstatus.textContent='';const s=new Date(ci.value+'T00:00'),e=new Date(co.value+'T00:00');if(!(s<e)){quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃은 체크인 이후여야 합니다.</div>';lastQuote=null;return;}const room=ROOMS.find(r=>r.id===sel.value);quote.innerHTML='<div class="line">요금 계산 중…</div>';try{const q=await api('quote',{room_id:sel.value,checkin:ci.value,checkout:co.value});lastQuote=q;const detail=(q.detail||[]).map(n=>`<div class="line"><span>${fmtd(n.date)} <span class="badge b-${n.season}">${SEASON_KO[n.season]}·${DAY_KO[n.daytype]}</span></span><span>${won(n.price)}원</span></div>`).join('');const ot=optTotal();const grand=q.total+ot;const ol=optLines();quote.innerHTML=`<div class="line" style="color:var(--ink);font-weight:600"><span>${room?room.name:''} · ${q.nights}박</span><span>${room?('기준 '+room.cap_base+'인'):''}</span></div><div class="nights-detail">${detail}</div><div class="line" style="font-weight:600;margin-top:6px"><span>객실 요금</span><span>${won(q.total)}원</span></div>${ol}<div class="total"><span>총 결제금액</span><b>${won(grand)}<small>원</small></b></div><div class="pay">무통장입금 · <b>${acctStr()}</b><br>예약 신청 후 입금이 확인되면 문자로 확정 안내드립니다.</div>`;}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">요금을 불러오지 못했습니다.</div>';lastQuote=null;}}
