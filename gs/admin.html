@@ -127,6 +127,17 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
 .srow{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .srow input{padding:.4em .6em;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink);width:90px;text-align:center;font-family:var(--mono)}
 .srow .x{color:var(--can);cursor:pointer;font-weight:700;padding:0 4px}
+.optrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.optrow:first-child{border-top:0}
+.optrow input[type=text]{padding:.45em .6em;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink)}
+.optrow .o-name{flex:1;min-width:150px}
+.optrow .rchk{display:flex;align-items:center;gap:5px;font-size:.88rem;color:var(--ink)}
+.optnew{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.optnew input{padding:.5em .7em;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink)}
+.optnew #noName{flex:1;min-width:160px}
+.hol-list{display:flex;flex-wrap:wrap;gap:8px}
+.holchip{display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:.35em .8em;font-size:.85rem;color:var(--ink);font-family:var(--mono)}
+.holchip .x{color:var(--can);cursor:pointer;font-weight:700}
 .seas-block{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
 .seas-block .h{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-weight:600}
 .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
@@ -541,6 +552,25 @@ function renderSettings(){
       <h3>시즌(성수기·준성수기) 날짜</h3><div class="d">매년 반복되는 날짜 기준입니다. 예: 07-15 ~ 08-24. 저장하면 요금이 자동 적용됩니다.</div>
       ${seasBlocks}
     </div>
+    <div class="sec">
+      <h3>추가 옵션 관리</h3><div class="d">숯불바베큐 등 예약 시 선택하는 유료 옵션입니다. 금액·사용여부를 바꾸면 예약 페이지에 바로 반영됩니다.</div>
+      <div class="opt-list">${optListHTML()}</div>
+      <div class="optnew">
+        <input type="text" id="noName" placeholder="옵션명 (예: 숯불바베큐 2kg)">
+        <input type="text" id="noUnit" placeholder="단위(1회)" style="max-width:110px">
+        <input type="text" inputmode="numeric" class="pinp" id="noPrice" placeholder="금액" style="max-width:130px">
+        <button class="mini pri" onclick="addOption()">+ 옵션 추가</button>
+      </div>
+    </div>
+    <div class="sec">
+      <h3>공휴일 관리</h3><div class="d">공휴일로 지정된 날짜는 <b>공휴일 요금</b>이 적용됩니다. 내년 이후 공휴일도 여기서 추가하세요.</div>
+      <div class="hol-list">${holListHTML()}</div>
+      <div class="optnew">
+        <input type="date" id="nhDate">
+        <input type="text" id="nhLabel" placeholder="명칭(예: 추석)" style="max-width:160px">
+        <button class="mini pri" onclick="addHoliday()">+ 공휴일 추가</button>
+      </div>
+    </div>
     <details class="sec" data-id="__gallery__" ${openRooms.has('__gallery__')?'open':''} ontoggle="onRoomToggle('__gallery__',this)" style="cursor:pointer">
       <summary style="list-style:none"><h3 style="display:inline">대문·전경·갤러리 사진</h3> ${chevSvg()}<div class="d" style="margin-top:6px">객실에 속하지 않는 홈페이지 사진들입니다 (맨 위 대문, 계곡 전경, 갤러리 추가컷).</div></summary>
       <div class="pgrid-in" style="margin-top:14px">${GALLERY_SLOTS.map(([s,l])=>photoCard(s,l)).join('')}</div>
@@ -585,6 +615,34 @@ window.saveSeason=async function(kind){const blk=document.querySelector(`.seas-b
   try{const r=await api('admin.set_season',{kind,ranges});if(r&&r.ok===false){toast(r.error||'실패');return;}CFG=await api('admin.config');toast('시즌 날짜 저장 완료');}catch(e){toast('시즌 저장 오류');}};
 window.saveRoom=async function(id){const acc=document.querySelector(`.racc[data-id="${id}"]`);if(!acc)return;const payload={id,name:acc.querySelector('.r-name').value.trim(),cap_base:parseInt(acc.querySelector('.r-base').value)||1,cap_max:parseInt(acc.querySelector('.r-max').value)||1,active:acc.querySelector('.r-active').checked};
   try{const r=await api('admin.set_room',payload);if(r&&r.ok===false){toast(r.error||'실패');return;}CFG=await api('admin.config');renderSettings();toast(id+' 정보 저장 완료');}catch(e){toast('객실 저장 오류');}};
+
+/* ===== 추가 옵션 편집 ===== */
+function optListHTML(){const opts=(CFG&&CFG.options)||[];if(!opts.length)return '<div style="color:var(--faint);font-size:.85rem;padding:6px 0">등록된 옵션이 없습니다.</div>';
+  return opts.map(o=>`<div class="optrow" data-id="${o.id}">
+    <input type="text" class="o-name" value="${(o.name||'').replace(/"/g,'&quot;')}" placeholder="옵션명">
+    <input type="text" class="o-unit" value="${(o.unit||'').replace(/"/g,'&quot;')}" placeholder="단위" style="max-width:90px">
+    <div class="pcell" style="max-width:130px"><input type="text" inputmode="numeric" class="pinp o-price" value="${won(o.price)}"><span class="wsuffix">원</span></div>
+    <label class="rchk"><input type="checkbox" class="o-active" ${o.active?'checked':''}> 사용</label>
+    <button class="mini pri" onclick="saveOption('${o.id}')">저장</button>
+    <button class="mini" onclick="delOption('${o.id}')">삭제</button>
+  </div>`).join('');}
+window.saveOption=async function(id){const row=document.querySelector(`.optrow[data-id="${id}"]`);if(!row)return;
+  const payload={id,name:row.querySelector('.o-name').value.trim(),unit:row.querySelector('.o-unit').value.trim(),price:parseInt(String(row.querySelector('.o-price').value).replace(/[^0-9]/g,''))||0,active:row.querySelector('.o-active').checked};
+  try{const r=await api('admin.set_option',payload);if(r&&r.ok===false){toast(r.error||'실패');return;}CFG=await api('admin.config');renderSettings();toast('옵션 저장 완료');}catch(e){toast('옵션 저장 오류');}};
+window.addOption=async function(){const name=el('noName').value.trim();if(!name){toast('옵션명을 입력하세요');return;}
+  const payload={name,unit:el('noUnit').value.trim(),price:parseInt(String(el('noPrice').value).replace(/[^0-9]/g,''))||0,active:true};
+  try{const r=await api('admin.set_option',payload);if(r&&r.ok===false){toast(r.error||'실패');return;}CFG=await api('admin.config');renderSettings();toast('옵션 추가 완료');}catch(e){toast('옵션 추가 오류');}};
+window.delOption=async function(id){if(!confirm('이 옵션을 삭제할까요? (기존 예약 기록은 그대로 유지됩니다)'))return;
+  try{const r=await api('admin.del_option',{id});if(r&&r.ok===false){toast(r.error||'실패');return;}CFG=await api('admin.config');renderSettings();toast('옵션 삭제 완료');}catch(e){toast('옵션 삭제 오류');}};
+
+/* ===== 공휴일 편집 ===== */
+function holListHTML(){const hs=(CFG&&CFG.holidays)||[];if(!hs.length)return '<div style="color:var(--faint);font-size:.85rem;padding:6px 0">등록된 공휴일이 없습니다.</div>';
+  return hs.map(h=>{const d=(typeof h==='string')?h:h.d;const lb=(typeof h==='string')?'':(h.label||'');
+    return `<span class="holchip">${d}${lb?` · ${lb}`:''} <span class="x" onclick="delHoliday('${d}')">✕</span></span>`;}).join('');}
+window.addHoliday=async function(){const d=el('nhDate').value;if(!d){toast('날짜를 선택하세요');return;}
+  try{const r=await api('admin.set_holiday',{d,label:el('nhLabel').value.trim()});if(r&&r.ok===false){toast(r.error||'실패');return;}CFG=await api('admin.config');renderSettings();toast('공휴일 추가 완료');}catch(e){toast('공휴일 추가 오류');}};
+window.delHoliday=async function(d){if(!confirm(d+' 공휴일을 삭제할까요?'))return;
+  try{const r=await api('admin.del_holiday',{d});if(r&&r.ok===false){toast(r.error||'실패');return;}CFG=await api('admin.config');renderSettings();toast('공휴일 삭제 완료');}catch(e){toast('공휴일 삭제 오류');}};
 
 /* ===== 수기 예약 모달 ===== */
 function openAddModal(){

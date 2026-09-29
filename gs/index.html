@@ -216,6 +216,18 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
 .rp-n{font-weight:700;font-size:1.02rem;color:var(--ink)}
 .rp-m{font-size:.84rem;color:var(--sub);margin-top:2px}
 .rp-p{font-size:.9rem;color:var(--forest);font-weight:700;margin-top:4px}
+/* 옵션 선택 */
+.optbox{border:1px solid var(--line);border-radius:14px;background:var(--paper);padding:12px 14px}
+.optbox .opt-h{font-weight:700;color:var(--ink);font-size:.95rem;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.opt-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.opt-item:first-of-type{border-top:0}
+.opt-item .oc{width:20px;height:20px;flex:0 0 auto;accent-color:var(--forest)}
+.opt-item .on{flex:1;min-width:0}
+.opt-item .on b{display:block;font-weight:600;color:var(--ink);font-size:.92rem;line-height:1.35}
+.opt-item .on small{color:var(--sub);font-size:.8rem}
+.opt-item .op{color:var(--forest);font-weight:700;font-size:.9rem;white-space:nowrap}
+.opt-item .oq{width:58px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:.9rem}
+.opt-item .oq[disabled]{opacity:.4}
 /* booking calendar */
 .calwrap{border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;background:var(--paper)}
 .calbar2{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -432,6 +444,7 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
         </div>
         <div class="fld"><label for="room">객실 선택</label><select id="room"></select></div>
         <div class="roomprev" id="roomPrev"></div>
+        <div class="optbox" id="optWrap" hidden></div>
         <div class="quote" id="quote"></div>
         <div class="fld-row">
           <div class="fld"><label for="gname">예약자 성함</label><input type="text" id="gname" placeholder="홍길동" autocomplete="name"></div>
@@ -506,7 +519,7 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
       <details><summary>반려동물 동반이 되나요?</summary><div class="a">죄송합니다. 반려동물 동반 입실은 불가합니다.</div></details>
       <details><summary>주차는 가능한가요?</summary><div class="a">네, 주차 공간이 마련되어 있습니다.</div></details>
       <details><summary>계곡이 가까운가요?</summary><div class="a">펜션 바로 앞에 원효계곡이 있어 물놀이와 산책을 즐기실 수 있습니다.</div></details>
-      <details><summary>결제·환불 규정은 어떻게 되나요?</summary><div class="a">무통장입금(우리은행 1002-067-626314, 예금주 한다연)이며, 숙박일 5일 전까지 전액 환불·5일 미만 50% 환불·당일 환불은 불가합니다.</div></details>
+      <details><summary>결제·환불 규정은 어떻게 되나요?</summary><div class="a">무통장입금(우리은행 1002-067-626314, 예금주 한다연)입니다. 예약 후 24시간 이내 취소 시 전액 환불되며, 이후에는 이용일 5일 전까지 전액 환불·이용일 5일 전부터는 결제금액의 50%가 차감됩니다.</div></details>
     </div>
   </div>
 </section>
@@ -531,9 +544,10 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
         </ul>
         <h3 style="margin:24px 0 14px;font-size:1.05rem">환불 규정</h3>
         <ul class="rules">
-          <li>숙박일 <b>5일 전</b>까지 취소 시 전액 환불</li>
-          <li>숙박일 <b>5일 미만</b> 취소 시 50% 환불</li>
-          <li>이용 <b>당일 취소·환불 불가</b></li>
+          <li>예약 후 <b>24시간 이내</b> 취소 시 전액 환불(수수료 없음)</li>
+          <li>이용일 <b>5일 전</b>까지 취소 시 전액 환불</li>
+          <li>이용일 <b>5일 전부터</b>는 결제금액의 <b>50% 차감</b> 후 환불</li>
+          <li>추가 옵션(숯불바베큐 등) 비용도 위 규정에 따라 함께 적용됩니다</li>
           <li>날짜·객실 변경은 <b>예약 취소 후 재예약</b>으로 진행됩니다</li>
         </ul>
       </div>
@@ -619,6 +633,24 @@ el('calPrev').addEventListener('click',()=>{CAL.ref=new Date(CAL.ref.getFullYear
 el('calNext').addEventListener('click',()=>{CAL.ref=new Date(CAL.ref.getFullYear(),CAL.ref.getMonth()+1,1);renderCal();});
 renderCal();
 async function loadRooms(){try{ROOMS=await api('rooms')||[];sel.innerHTML=ROOMS.map(r=>`<option value="${r.id}">${r.name} · ${r.type} (기준 ${r.cap_base}/최대 ${r.cap_max}인)</option>`).join('');renderRoomPreview();calc();}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">객실 정보를 불러오지 못했습니다.</div>';}}
+// ===== 추가 옵션(숯불바베큐 등) =====
+let OPTIONS=[]; const SELOPT={}; // id -> qty
+async function loadOptions(){try{OPTIONS=await api('options')||[];}catch(_){OPTIONS=[];}renderOptions();}
+function renderOptions(){const w=el('optWrap');if(!w)return;if(!OPTIONS.length){w.hidden=true;w.innerHTML='';return;}
+  w.hidden=false;
+  w.innerHTML='<div class="opt-h">🔥 추가 옵션</div>'+OPTIONS.map(o=>{
+    const on=SELOPT[o.id]>0, qty=SELOPT[o.id]||1;
+    return `<label class="opt-item"><input type="checkbox" class="oc" data-oid="${o.id}" ${on?'checked':''}${o.required?' checked disabled':''}>
+      <span class="on"><b>${o.name}</b>${o.unit?`<small>단위 ${o.unit}</small>`:''}</span>
+      <input type="number" class="oq" data-oid="${o.id}" min="1" value="${qty}" ${on||o.required?'':'disabled'}>
+      <span class="op">${won(o.price)}원</span></label>`;}).join('');
+  if(OPTIONS.some(o=>o.required))OPTIONS.forEach(o=>{if(o.required&&!SELOPT[o.id])SELOPT[o.id]=1;});
+  w.querySelectorAll('.oc').forEach(c=>c.addEventListener('change',e=>{const id=+e.target.dataset.oid;const q=w.querySelector('.oq[data-oid="'+id+'"]');if(e.target.checked){SELOPT[id]=parseInt(q.value)||1;q.disabled=false;}else{delete SELOPT[id];q.disabled=true;}calc();}));
+  w.querySelectorAll('.oq').forEach(q=>q.addEventListener('input',e=>{const id=+e.target.dataset.oid;let v=parseInt(e.target.value)||1;if(v<1)v=1;if(SELOPT[id]!==undefined)SELOPT[id]=v;calc();}));
+}
+function optTotal(){let t=0;OPTIONS.forEach(o=>{const q=SELOPT[o.id];if(q>0)t+=o.price*q;});return t;}
+function optPayload(){return Object.keys(SELOPT).filter(id=>SELOPT[id]>0).map(id=>({id:+id,qty:SELOPT[id]}));}
+function optLines(){return OPTIONS.filter(o=>SELOPT[o.id]>0).map(o=>`<div class="line"><span>${o.name} × ${SELOPT[o.id]}</span><span>${won(o.price*SELOPT[o.id])}원</span></div>`).join('');}
 const ROOM_MAIN_F={py1:'pyeonbaek-1',py2:'pyeonbaek-2',py3:'pyeonbaek-3',py4:'pyeonbaek-4',hw5:'hwangto-1',hw6:'hwangto-2',dk1:'deck-1',dk2:'deck-2',dk3:'scene-2'};
 let RP={imgs:[],i:0};
 function renderRoomPreview(){
@@ -635,15 +667,15 @@ function renderRoomPreview(){
   box.classList.add('on');
 }
 window.rpGo=function(d){if(!RP.imgs.length)return;RP.i=(RP.i+d+RP.imgs.length)%RP.imgs.length;const im=el('rpImg');if(im)im.src=RP.imgs[RP.i];const dt=el('rpDots');if(dt)dt.textContent=(RP.i+1)+' / '+RP.imgs.length;};
-async function calc(){rstatus.textContent='';const s=new Date(ci.value+'T00:00'),e=new Date(co.value+'T00:00');if(!(s<e)){quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃은 체크인 이후여야 합니다.</div>';lastQuote=null;return;}const room=ROOMS.find(r=>r.id===sel.value);quote.innerHTML='<div class="line">요금 계산 중…</div>';try{const q=await api('quote',{room_id:sel.value,checkin:ci.value,checkout:co.value});lastQuote=q;const detail=(q.detail||[]).map(n=>`<div class="line"><span>${fmtd(n.date)} <span class="badge b-${n.season}">${SEASON_KO[n.season]}·${DAY_KO[n.daytype]}</span></span><span>${won(n.price)}원</span></div>`).join('');quote.innerHTML=`<div class="line" style="color:var(--ink);font-weight:600"><span>${room?room.name:''} · ${q.nights}박</span><span>${room?('기준 '+room.cap_base+'인'):''}</span></div><div class="nights-detail">${detail}</div><div class="total"><span>총 결제금액</span><b>${won(q.total)}<small>원</small></b></div><div class="pay">무통장입금 · <b>우리은행 1002-067-626314</b> (예금주 한다연)<br>예약 신청 후 입금이 확인되면 문자로 확정 안내드립니다.</div>`;}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">요금을 불러오지 못했습니다.</div>';lastQuote=null;}}
-async function reserve(){const name=el('gname').value.trim(),phone=el('gphone').value.trim(),guests=parseInt(el('guests').value)||0;if(!lastQuote){rstatus.innerHTML='<span style="color:var(--clay)">날짜와 객실을 먼저 선택해 주세요.</span>';return;}if(!name||!phone){rstatus.innerHTML='<span style="color:var(--clay)">성함과 연락처를 입력해 주세요.</span>';return;}if(!el('agPriv').checked){rstatus.innerHTML='<span style="color:var(--clay)">개인정보 수집·이용(필수)에 동의해 주세요.</span>';return;}const b=el('reserveBtn');b.disabled=true;const o=b.textContent;b.textContent='신청 중…';try{const r=await api('reserve',{room_id:sel.value,checkin:ci.value,checkout:co.value,guest_name:name,guest_phone:phone,guests,agree_privacy:el('agPriv').checked,agree_marketing:el('agMkt').checked});if(r&&r.ok){rstatus.innerHTML=`<span style="color:var(--forest);font-weight:600">✓ 예약 신청이 접수되었습니다! 총 ${won(r.total)}원 · 무통장입금(우리은행 1002-067-626314) 확인 후 문자로 확정 안내드립니다. 문의 010-7930-6100</span>`;b.textContent='신청 완료 ✓';}else{rstatus.innerHTML=`<span style="color:var(--clay)">${(r&&r.error)||'예약 신청에 실패했습니다.'}</span>`;b.disabled=false;b.textContent=o;}}catch(e){rstatus.innerHTML='<span style="color:var(--clay)">오류가 발생했습니다. 전화(010-7930-6100)로 문의해 주세요.</span>';b.disabled=false;b.textContent=o;}}
+async function calc(){rstatus.textContent='';const s=new Date(ci.value+'T00:00'),e=new Date(co.value+'T00:00');if(!(s<e)){quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃은 체크인 이후여야 합니다.</div>';lastQuote=null;return;}const room=ROOMS.find(r=>r.id===sel.value);quote.innerHTML='<div class="line">요금 계산 중…</div>';try{const q=await api('quote',{room_id:sel.value,checkin:ci.value,checkout:co.value});lastQuote=q;const detail=(q.detail||[]).map(n=>`<div class="line"><span>${fmtd(n.date)} <span class="badge b-${n.season}">${SEASON_KO[n.season]}·${DAY_KO[n.daytype]}</span></span><span>${won(n.price)}원</span></div>`).join('');const ot=optTotal();const grand=q.total+ot;const ol=optLines();quote.innerHTML=`<div class="line" style="color:var(--ink);font-weight:600"><span>${room?room.name:''} · ${q.nights}박</span><span>${room?('기준 '+room.cap_base+'인'):''}</span></div><div class="nights-detail">${detail}</div><div class="line" style="font-weight:600;margin-top:6px"><span>객실 요금</span><span>${won(q.total)}원</span></div>${ol}<div class="total"><span>총 결제금액</span><b>${won(grand)}<small>원</small></b></div><div class="pay">무통장입금 · <b>우리은행 1002-067-626314</b> (예금주 한다연)<br>예약 신청 후 입금이 확인되면 문자로 확정 안내드립니다.</div>`;}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">요금을 불러오지 못했습니다.</div>';lastQuote=null;}}
+async function reserve(){const name=el('gname').value.trim(),phone=el('gphone').value.trim(),guests=parseInt(el('guests').value)||0;if(!lastQuote){rstatus.innerHTML='<span style="color:var(--clay)">날짜와 객실을 먼저 선택해 주세요.</span>';return;}if(!name||!phone){rstatus.innerHTML='<span style="color:var(--clay)">성함과 연락처를 입력해 주세요.</span>';return;}if(!el('agPriv').checked){rstatus.innerHTML='<span style="color:var(--clay)">개인정보 수집·이용(필수)에 동의해 주세요.</span>';return;}const b=el('reserveBtn');b.disabled=true;const o=b.textContent;b.textContent='신청 중…';try{const r=await api('reserve',{room_id:sel.value,checkin:ci.value,checkout:co.value,guest_name:name,guest_phone:phone,guests,options:optPayload(),agree_privacy:el('agPriv').checked,agree_marketing:el('agMkt').checked});if(r&&r.ok){rstatus.innerHTML=`<span style="color:var(--forest);font-weight:600">✓ 예약 신청이 접수되었습니다! 총 ${won(r.total)}원 · 무통장입금(우리은행 1002-067-626314) 확인 후 문자로 확정 안내드립니다. 문의 010-7930-6100</span>`;b.textContent='신청 완료 ✓';}else{rstatus.innerHTML=`<span style="color:var(--clay)">${(r&&r.error)||'예약 신청에 실패했습니다.'}</span>`;b.disabled=false;b.textContent=o;}}catch(e){rstatus.innerHTML='<span style="color:var(--clay)">오류가 발생했습니다. 전화(010-7930-6100)로 문의해 주세요.</span>';b.disabled=false;b.textContent=o;}}
 [sel,ci,co].forEach(x=>x.addEventListener('change',calc));
 sel.addEventListener('change',renderRoomPreview);
 el('reserveBtn').addEventListener('click',reserve);
 el('agAll').addEventListener('change',e=>{el('agPriv').checked=e.target.checked;el('agMkt').checked=e.target.checked;});
 [el('agPriv'),el('agMkt')].forEach(x=>x.addEventListener('change',()=>{el('agAll').checked=el('agPriv').checked&&el('agMkt').checked;}));
 el('agPrivView').addEventListener('click',e=>{e.preventDefault();el('agPrivText').hidden=!el('agPrivText').hidden;});
-loadRooms();
+loadRooms();loadOptions();
 
 // ===== 관리자 교체 사진 반영 (기본은 정적파일=빠름, 바꾼 것만 DB에서 덮어씀) =====
 let GS_PHOTOS={};
