@@ -218,7 +218,12 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
 .rp-p{font-size:.9rem;color:var(--forest);font-weight:700;margin-top:4px}
 /* 객실 슬라이더 */
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.roomslider{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.rswrap{position:relative}
+.rsnav{position:absolute;top:44%;transform:translateY(-50%);z-index:3;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.96);color:var(--forest);font-size:1.5rem;line-height:1;cursor:pointer;box-shadow:0 4px 12px -4px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center;padding:0}
+.rsnav:hover{background:var(--forest);color:#fff;border-color:var(--forest)}
+.rsprev{left:-8px}.rsnext{right:-8px}
+.roomslider{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;cursor:grab}
+.roomslider:active{cursor:grabbing}
 .roomslider::-webkit-scrollbar{height:6px}.roomslider::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 .rs-card{flex:0 0 46%;max-width:210px;scroll-snap-align:start;border:2px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel);padding:0;cursor:pointer;text-align:left;transition:.15s;font-family:inherit}
 .rs-card img{width:100%;height:104px;object-fit:cover;display:block}
@@ -455,7 +460,7 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
           <div class="calsel" id="calSel">체크인 날짜를 선택하세요</div>
         </div>
         <div class="fld"><label for="room">객실 선택 <span style="font-weight:400;color:var(--stone);font-size:.82em">— 옆으로 밀어 방을 골라보세요</span></label>
-          <div class="roomslider" id="roomSlider"></div>
+          <div class="rswrap"><button type="button" class="rsnav rsprev" id="rsPrev" aria-label="이전 객실">‹</button><div class="roomslider" id="roomSlider"></div><button type="button" class="rsnav rsnext" id="rsNext" aria-label="다음 객실">›</button></div>
           <select id="room" class="visually-hidden" aria-label="객실 선택"></select>
         </div>
         <div class="roomprev" id="roomPrev"></div>
@@ -684,6 +689,16 @@ window.rpGo=function(d){if(!RP.imgs.length)return;RP.i=(RP.i+d+RP.imgs.length)%R
 function roomThumbF(rid){const slots=(typeof gsRoomSlots==='function')?gsRoomSlots(rid):[];return slots.length?GS_PHOTOS[slots[0]]:'img/'+(ROOM_MAIN_F[rid]||'scene-1')+'.jpg';}
 function renderRoomSlider(){const box=el('roomSlider');if(!box)return;box.innerHTML=ROOMS.map(r=>`<button type="button" class="rs-card${r.id===sel.value?' on':''}" data-id="${r.id}"><img src="${roomThumbF(r.id)}" alt="${r.name}" loading="lazy"><div class="rs-b"><b>${r.name}</b><span>${won(r.price_from)}원~</span></div></button>`).join('');}
 el('roomSlider').addEventListener('click',e=>{const c=e.target.closest('.rs-card');if(!c)return;sel.value=c.dataset.id;sel.dispatchEvent(new Event('change'));c.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});});
+// 좌우 화살표
+el('rsPrev').addEventListener('click',()=>el('roomSlider').scrollBy({left:-250,behavior:'smooth'}));
+el('rsNext').addEventListener('click',()=>el('roomSlider').scrollBy({left:250,behavior:'smooth'}));
+// 마우스 드래그로 밀기(PC)
+(function(){var s=el('roomSlider');if(!s)return;var down=false,sx=0,sl=0,moved=false;
+  s.addEventListener('pointerdown',e=>{down=true;moved=false;sx=e.clientX;sl=s.scrollLeft;try{s.setPointerCapture(e.pointerId);}catch(_){}});
+  s.addEventListener('pointermove',e=>{if(!down)return;var dx=e.clientX-sx;if(Math.abs(dx)>5)moved=true;s.scrollLeft=sl-dx;});
+  s.addEventListener('pointerup',()=>{down=false;});
+  s.addEventListener('click',e=>{if(moved){e.preventDefault();e.stopPropagation();}},true);
+})();
 async function calc(){rstatus.textContent='';const s=new Date(ci.value+'T00:00'),e=new Date(co.value+'T00:00');if(!(s<e)){quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃은 체크인 이후여야 합니다.</div>';lastQuote=null;return;}const room=ROOMS.find(r=>r.id===sel.value);quote.innerHTML='<div class="line">요금 계산 중…</div>';try{const q=await api('quote',{room_id:sel.value,checkin:ci.value,checkout:co.value});lastQuote=q;const detail=(q.detail||[]).map(n=>`<div class="line"><span>${fmtd(n.date)} <span class="badge b-${n.season}">${SEASON_KO[n.season]}·${DAY_KO[n.daytype]}</span></span><span>${won(n.price)}원</span></div>`).join('');const ot=optTotal();const grand=q.total+ot;const ol=optLines();quote.innerHTML=`<div class="line" style="color:var(--ink);font-weight:600"><span>${room?room.name:''} · ${q.nights}박</span><span>${room?('기준 '+room.cap_base+'인'):''}</span></div><div class="nights-detail">${detail}</div><div class="line" style="font-weight:600;margin-top:6px"><span>객실 요금</span><span>${won(q.total)}원</span></div>${ol}<div class="total"><span>총 결제금액</span><b>${won(grand)}<small>원</small></b></div><div class="pay">무통장입금 · <b>${acctStr()}</b><br>예약 신청 후 입금이 확인되면 문자로 확정 안내드립니다.</div>`;}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">요금을 불러오지 못했습니다.</div>';lastQuote=null;}}
 async function reserve(){const name=el('gname').value.trim(),phone=el('gphone').value.trim(),guests=parseInt(el('guests').value)||0;if(!lastQuote){rstatus.innerHTML='<span style="color:var(--clay)">날짜와 객실을 먼저 선택해 주세요.</span>';return;}if(!name||!phone){rstatus.innerHTML='<span style="color:var(--clay)">성함과 연락처를 입력해 주세요.</span>';return;}if(!el('agPriv').checked){rstatus.innerHTML='<span style="color:var(--clay)">개인정보 수집·이용(필수)에 동의해 주세요.</span>';return;}const b=el('reserveBtn');b.disabled=true;const o=b.textContent;b.textContent='신청 중…';try{const r=await api('reserve',{room_id:sel.value,checkin:ci.value,checkout:co.value,guest_name:name,guest_phone:phone,guests,options:optPayload(),agree_privacy:el('agPriv').checked,agree_marketing:el('agMkt').checked});if(r&&r.ok){rstatus.innerHTML=`<span style="color:var(--forest);font-weight:600">✓ 예약 신청이 접수되었습니다! 총 ${won(r.total)}원 · 무통장입금(${acctStr()}) 확인 후 문자로 확정 안내드립니다. 문의 ${(GS_SET.phone||'010-9781-9969')}</span>`;b.textContent='신청 완료 ✓';}else{rstatus.innerHTML=`<span style="color:var(--clay)">${(r&&r.error)||'예약 신청에 실패했습니다.'}</span>`;b.disabled=false;b.textContent=o;}}catch(e){rstatus.innerHTML='<span style="color:var(--clay)">오류가 발생했습니다. 전화(010-9781-9969)로 문의해 주세요.</span>';b.disabled=false;b.textContent=o;}}
 [sel,ci,co].forEach(x=>x.addEventListener('change',calc));
