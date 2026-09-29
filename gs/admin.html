@@ -12,11 +12,11 @@
 <style>
 :root{
   color-scheme:light;
-  --paper:#eef2ea;--panel:#ffffff;--panel2:#f4f7f0;--ink:#1e2a22;--sub:#586458;--faint:#8c978b;
-  --forest:#2f5239;--forest-d:#24402c;--moss:#5f8352;--clay:#b5793f;--clay-d:#9c6532;--line:#e4e8dd;--line2:#eef1e9;
-  --shadow:0 1px 2px rgba(28,44,32,.05),0 10px 26px -16px rgba(28,44,32,.20);
-  --shadow-lift:0 2px 6px rgba(28,44,32,.06),0 16px 32px -18px rgba(28,44,32,.28);
-  --req:#9a6f18;--req-bg:#fbf1d5;--con:#2f6b3f;--con-bg:#e2f0e3;--can:#b0493b;--can-bg:#f8e5e0;
+  --paper:#f5f2ec;--panel:#ffffff;--panel2:#f3f0e9;--ink:#22302a;--sub:#5c665b;--faint:#9aa295;
+  --forest:#22402d;--forest-d:#1a3223;--moss:#5f8352;--clay:#bf8552;--clay-d:#9c6532;--line:#e7e3d9;--line2:#efece4;
+  --shadow:0 1px 2px rgba(28,40,30,.04),0 8px 22px -16px rgba(28,40,30,.15);
+  --shadow-lift:0 2px 6px rgba(28,40,30,.05),0 14px 30px -18px rgba(28,40,30,.20);
+  --req:#9a6f18;--req-bg:#f7edd3;--con:#2f6b3f;--con-bg:#e4efe2;--can:#b0493b;--can-bg:#f6e4df;
   --serif:"Nanum Myeongjo",serif;--sans:"Pretendard Variable","Pretendard",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;--mono:"Pretendard Variable","Pretendard",sans-serif;
 }
 *{box-sizing:border-box}html,body{margin:0}
@@ -25,16 +25,23 @@ h1,h2,h3{font-family:var(--serif);margin:0;letter-spacing:-.01em}
 .mono,.num{font-variant-numeric:tabular-nums}
 button{font-family:var(--sans);cursor:pointer}
 .hidden{display:none!important}
-.top{position:sticky;top:0;z-index:20;background:linear-gradient(120deg,#2f5239,#3a6446);color:#eef2e8;box-shadow:0 2px 12px -4px rgba(28,44,32,.35)}
-.top .in{max-width:1160px;margin:0 auto;padding:15px 22px;display:flex;align-items:center;gap:14px}
-.logo{display:flex;align-items:center;gap:10px}
-.logo .mark{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:1.15rem;color:#fff;font-weight:700}
-.logo b{font-family:var(--serif);font-size:1.12rem;color:#fff;display:block;line-height:1.1}
-.logo span{font-size:.64rem;letter-spacing:.22em;text-transform:uppercase;color:#bcd3ae}
-.top .spacer{flex:1}.top .who{font-size:.82rem;color:#c9dabd;margin-right:6px}
-.tbtn{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.22);border-radius:9px;padding:.5em .9em;font-size:.85rem;font-weight:500;transition:.15s}
-.tbtn:hover{background:rgba(255,255,255,.24)}
-.wrap{max-width:1160px;margin:0 auto;padding:24px 22px 64px}
+#dashView{display:flex;min-height:100vh}
+.side{position:sticky;top:0;align-self:flex-start;height:100vh;width:214px;flex:0 0 214px;background:linear-gradient(180deg,#284a32,#1a3223);color:#dfe7dc;display:flex;flex-direction:column;padding:22px 14px;z-index:20}
+.side-brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px}
+.side-brand .mark{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:1.15rem;color:#fff;font-weight:800}
+.side-brand b{font-family:var(--serif);font-size:1.12rem;color:#fff;display:block;line-height:1.15}
+.side-brand span{font-size:.58rem;letter-spacing:.26em;text-transform:uppercase;color:#a9c4a0}
+.side-nav{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.side-nav button{display:flex;align-items:center;gap:11px;border:none;background:transparent;color:#cfe0c6;font-size:.9rem;font-weight:500;padding:.72em .8em;border-radius:9px;text-align:left;border-left:3px solid transparent;transition:.15s}
+.side-nav button svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.side-nav button:hover{background:rgba(255,255,255,.08);color:#fff}
+.side-nav button.active{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--clay)}
+.side-foot{margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:8px}
+.side-foot .who{font-size:.78rem;color:#bcd0b2;padding:0 8px 2px}
+.tbtn{width:100%;text-align:left;background:transparent;color:#cfe0c6;border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:.5em .8em;font-size:.82rem;font-weight:500;transition:.15s}
+.tbtn:hover{background:rgba(255,255,255,.1);color:#fff}
+.main{flex:1;min-width:0;padding:26px 32px 64px;max-width:1180px}
+@media(max-width:820px){#dashView{flex-direction:column}.side{width:auto;flex:none;height:auto;position:sticky;top:0;flex-direction:row;align-items:center;padding:10px 14px;gap:6px}.side-brand{padding:0 8px 0 2px}.side-brand span{display:none}.side-nav{flex-direction:row;margin:0;gap:2px}.side-nav button{padding:.5em .7em;border-left:none;border-bottom:3px solid transparent;border-radius:7px}.side-nav button span{display:none}.side-nav button.active{border-left:none;border-bottom-color:var(--clay)}.side-foot{margin:0 0 0 auto;padding:0;border:none;flex-direction:row}.side-foot .who{display:none}.tbtn{width:auto;padding:.45em .7em}.main{padding:20px 16px 48px}}
 /* login */
 .login-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 .login{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:38px 34px}
@@ -45,31 +52,22 @@ button{font-family:var(--sans);cursor:pointer}
 .fld label{font-size:.76rem;font-weight:600;color:var(--sub)}
 .fld input,.fld select{font-family:var(--sans);font-size:.98rem;padding:.62em .8em;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--ink);width:100%}
 .fld input:focus,.fld select:focus{outline:none;border-color:var(--moss);box-shadow:0 0 0 3px color-mix(in srgb,var(--moss) 22%,transparent)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4em;font-weight:600;font-size:.92rem;padding:.72em 1.2em;border-radius:11px;border:1px solid transparent;background:var(--forest);color:#fff;transition:.15s;box-shadow:0 4px 12px -5px rgba(47,82,57,.5)}
-.btn:hover{background:var(--forest-d);box-shadow:0 6px 16px -6px rgba(47,82,57,.6)}.btn:disabled{opacity:.5;cursor:default;box-shadow:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4em;font-weight:600;font-size:.9rem;padding:.66em 1.15em;border-radius:9px;border:1px solid transparent;background:var(--forest);color:#fff;transition:.15s}
+.btn:hover{background:var(--forest-d)}.btn:disabled{opacity:.5;cursor:default;box-shadow:none}
 .btn.line{background:#fff;border-color:var(--line);color:var(--ink);box-shadow:none}.btn.line:hover{border-color:var(--moss);background:var(--panel2)}
 .msg{font-size:.85rem;margin-top:12px;min-height:1.1em}.msg.err{color:var(--can)}
-/* view tabs */
-.phead{display:flex;align-items:center;gap:14px;margin:4px 0 20px;flex-wrap:wrap}
-.phead h1{font-size:1.55rem}
-.phead .date{color:var(--faint);font-size:.85rem;margin-left:auto;font-family:var(--mono)}
-.vtabs{display:flex;background:#fff;border:1px solid var(--line);border-radius:14px;padding:5px;gap:4px;box-shadow:var(--shadow);margin-bottom:22px;width:100%;max-width:520px}
-.vtabs button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:.5em;border:none;background:transparent;color:var(--sub);font-size:.92rem;font-weight:600;padding:.7em .9em;border-radius:10px;transition:.15s}
-.vtabs button svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.vtabs button:hover{background:var(--panel2);color:var(--forest)}
-.vtabs button.active{background:var(--forest);color:#fff;box-shadow:0 4px 12px -4px rgba(47,82,57,.5)}
-.vtabs button.active:hover{background:var(--forest)}
-@media(max-width:560px){.vtabs button span{display:none}.vtabs{max-width:none}}
+/* page head */
+.phead{display:flex;align-items:baseline;gap:14px;margin:2px 0 22px;flex-wrap:wrap}
+.phead h1{font-size:1.7rem;font-weight:800;letter-spacing:-.01em}
+.phead .date{color:var(--faint);font-size:.82rem;margin-left:auto}
 /* tiles */
-.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
-.tile{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;position:relative;overflow:hidden;box-shadow:var(--shadow);transition:.18s}
-.tile:hover{box-shadow:var(--shadow-lift);transform:translateY(-2px)}
-.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--moss)}
-.tile.req::before{background:var(--req)}.tile.con::before{background:var(--con)}.tile.can::before{background:var(--can)}.tile.sales::before{background:var(--clay)}
-.tile .lab{font-size:.78rem;color:var(--sub);font-weight:600}
-.tile .v{font-family:var(--serif);font-size:1.95rem;line-height:1.15;margin-top:6px;font-variant-numeric:tabular-nums;color:var(--ink)}
-.tile .v small{font-size:.9rem;color:var(--faint);font-weight:400;font-family:var(--sans)}
-.tile.sales .v{color:var(--clay-d)}
+.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;transition:.18s}
+.tile:hover{box-shadow:var(--shadow)}
+.tile .lab{font-size:.76rem;color:var(--sub);font-weight:500;letter-spacing:.01em}
+.tile .v{font-family:var(--serif);font-size:1.75rem;line-height:1.1;margin-top:8px;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:700}
+.tile .v small{font-size:.8rem;color:var(--faint);font-weight:400;font-family:var(--sans);margin-left:2px}
+.tile.sales .v{color:var(--clay-d)}.tile.con .v{color:var(--con)}
 @media(max-width:900px){.tiles{grid-template-columns:repeat(2,1fr)}.tile.sales{grid-column:span 2}}
 /* toolbar */
 .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
@@ -81,7 +79,7 @@ button{font-family:var(--sans);cursor:pointer}
 .search input{width:100%;padding:.55em .8em .55em 2.1em;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font-size:.88rem}
 .search svg{position:absolute;left:.65em;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:var(--faint)}
 /* table */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);overflow:hidden}
 .tblscroll{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:820px}
 thead th{background:var(--panel2);color:var(--sub);font-weight:600;font-size:.76rem;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -116,9 +114,9 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
 .rvchip.con{background:var(--con-bg);border-color:var(--con);color:var(--con)}
 @media(max-width:700px){.cell{min-height:70px}.rvchip{font-size:.62rem}}
 /* settings */
-.sec{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:24px 26px;margin-bottom:18px}
-.sec h3{font-size:1.18rem;margin-bottom:4px;padding-left:12px;position:relative}
-.sec h3::before{content:"";position:absolute;left:0;top:.15em;bottom:.15em;width:4px;border-radius:2px;background:var(--moss)}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:24px 26px;margin-bottom:18px}
+.sec h3{font-size:1.2rem;font-weight:700;margin-bottom:4px;padding-left:12px;position:relative}
+.sec h3::before{content:"";position:absolute;left:0;top:.18em;bottom:.18em;width:3px;border-radius:2px;background:var(--clay)}
 .sec .d{color:var(--sub);font-size:.86rem;margin-bottom:16px}
 .pmatrix{width:100%;border-collapse:collapse;font-size:.88rem;min-width:520px}
 .pmatrix th,.pmatrix td{border:1px solid var(--line2);padding:7px 8px;text-align:center}
@@ -254,29 +252,31 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
 </div>
 
 <div id="dashView" class="hidden">
-  <div class="top"><div class="in">
-    <div class="logo"><span class="mark">H</span><div><b>히든밸리 펜션</b><span>예약 관리자</span></div></div>
-    <div class="spacer"></div><span class="who" id="who"></span>
-    <button class="tbtn" id="refreshBtn">↻ 새로고침</button>
-    <button class="tbtn" id="logoutBtn">로그아웃</button>
-  </div></div>
-  <div class="wrap">
+  <aside class="side">
+    <div class="side-brand"><span class="mark">H</span><div><b>히든밸리</b><span>Hidden Valley</span></div></div>
+    <nav class="side-nav" id="vtabs">
+      <button data-v="list" class="active"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>예약</span></button>
+      <button data-v="cal"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>캘린더</span></button>
+      <button data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>요금·객실</span></button>
+      <button data-v="stats"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg><span>매출</span></button>
+    </nav>
+    <div class="side-foot">
+      <span class="who" id="who"></span>
+      <button class="tbtn" id="refreshBtn">새로고침</button>
+      <button class="tbtn" id="logoutBtn">로그아웃</button>
+    </div>
+  </aside>
+  <main class="main">
     <div class="phead">
       <h1 id="ptitle">예약 현황</h1>
       <span class="date" id="today"></span>
-    </div>
-    <div class="vtabs" id="vtabs">
-      <button data-v="list" class="active"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>예약 목록</span></button>
-      <button data-v="cal"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>캘린더</span></button>
-      <button data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>요금·객실·사진</span></button>
-      <button data-v="stats"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg><span>매출 통계</span></button>
     </div>
     <div id="viewList"></div>
     <div id="viewCal" class="hidden"></div>
     <div id="viewSettings" class="hidden"></div>
     <div id="viewStats" class="hidden"></div>
     <div class="foot-note">히든밸리 펜션 예약관리 · 도반글로벌</div>
-  </div>
+  </main>
 </div>
 
 <div id="modalHost"></div>
