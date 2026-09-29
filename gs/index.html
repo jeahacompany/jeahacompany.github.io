@@ -709,7 +709,7 @@ function roomThumbF(rid){const slots=(typeof gsRoomSlots==='function')?gsRoomSlo
 function renderRoomSlider(){const box=el('roomSlider');if(!box)return;box.innerHTML=ROOMS.map(r=>`<button type="button" class="rs-card${r.id===sel.value?' on':''}" data-id="${r.id}"><img src="${roomThumbF(r.id)}" alt="${r.name}" loading="lazy"><div class="rs-b"><b>${r.name}</b><span>${won(r.price_from)}원~</span></div></button>`).join('');}
 el('roomSlider').addEventListener('click',e=>{const c=e.target.closest('.rs-card');if(!c)return;sel.value=c.dataset.id;sel.dispatchEvent(new Event('change'));c.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});});
 // 좌우 화살표 (scroll-snap 충돌 없이 수동 애니메이션)
-function rsScroll(dir){var s=el('roomSlider');if(!s)return;var start=s.scrollLeft,d=dir*Math.min(440,s.clientWidth*0.8),t0=performance.now();function step(t){var p=Math.min(1,(t-t0)/320);var e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;s.scrollLeft=start+d*e;if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
+function rsScroll(dir){var s=el('roomSlider');if(!s)return;var step=Math.round(s.clientWidth*0.85)||240;s.scrollLeft=s.scrollLeft+dir*step;}
 el('rsPrev').onclick=function(){rsScroll(-1);};
 el('rsNext').onclick=function(){rsScroll(1);};
 // 마우스 드래그로 밀기(PC) - 일반 클릭은 방해하지 않음
