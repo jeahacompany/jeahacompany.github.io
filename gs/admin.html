@@ -364,8 +364,8 @@ function counts(){const c={all:ALL.length,requested:0,confirmed:0,cancelled:0};A
 function renderList(){
   const c=counts();
   const today=todayStr();
-  let sales=0,monthSales=0,upcoming=0;const now=new Date();
-  ALL.forEach(r=>{if(r.status==='confirmed'){sales+=r.total_price;const ci=new Date(r.checkin+'T00:00');if(ci.getFullYear()===now.getFullYear()&&ci.getMonth()===now.getMonth())monthSales+=r.total_price;if(r.checkin>=today)upcoming++;}});
+  let sales=0,monthSales=0,upcoming=0;const now=new Date();const todayMid=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  ALL.forEach(r=>{if(r.status==='confirmed'){sales+=r.total_price;const ci=new Date(r.checkin+'T00:00');if(ci.getFullYear()===now.getFullYear()&&ci.getMonth()===now.getMonth())monthSales+=r.total_price;if(ci>=todayMid)upcoming++;}});
   let rows=ALL.slice();
   if(FILTER!=='all')rows=rows.filter(r=>r.status===FILTER);
   rows=rows.filter(r=>periodMatch(r.created_at));
