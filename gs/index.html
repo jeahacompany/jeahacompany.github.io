@@ -203,15 +203,19 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
 .faq .a{padding:0 18px 16px;color:var(--sub);font-size:.93rem}
 .rc{position:relative}
 .rc-cnt{position:absolute;top:10px;right:10px;background:rgba(28,40,30,.72);color:#fff;font-size:.74rem;font-weight:600;padding:.2em .6em;border-radius:999px;backdrop-filter:blur(2px)}
-/* room preview */
-.roomprev{display:none;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--paper);margin-top:-4px}
-.roomprev.on{display:flex}
-.roomprev img{width:96px;height:72px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--line2)}
-.roomprev .rp-b{min-width:0;flex:1}
-.roomprev .rp-n{font-weight:700;font-size:1rem;color:var(--ink)}
-.roomprev .rp-m{font-size:.82rem;color:var(--sub);margin-top:2px}
-.roomprev .rp-p{font-size:.86rem;color:var(--forest);font-weight:700;margin-top:3px}
-.roomprev .rp-more{font-size:.72rem;color:var(--stone);margin-top:1px}
+/* room preview carousel */
+.roomprev{display:none;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--paper);margin-top:-4px}
+.roomprev.on{display:block}
+.rp-carousel{position:relative;aspect-ratio:16/10;background:var(--line2)}
+.rp-carousel img{width:100%;height:100%;object-fit:cover;display:block}
+.rp-nav{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;border:none;background:rgba(0,0,0,.42);color:#fff;font-size:1.4rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.rp-nav:hover{background:rgba(0,0,0,.62)}
+.rp-prev{left:10px}.rp-next{right:10px}
+.rp-dots{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.5);color:#fff;font-size:.74rem;font-weight:600;padding:.2em .6em;border-radius:999px;font-variant-numeric:tabular-nums}
+.rp-info{padding:12px 14px}
+.rp-n{font-weight:700;font-size:1.02rem;color:var(--ink)}
+.rp-m{font-size:.84rem;color:var(--sub);margin-top:2px}
+.rp-p{font-size:.9rem;color:var(--forest);font-weight:700;margin-top:4px}
 /* booking calendar */
 .calwrap{border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;background:var(--paper)}
 .calbar2{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -616,13 +620,21 @@ el('calNext').addEventListener('click',()=>{CAL.ref=new Date(CAL.ref.getFullYear
 renderCal();
 async function loadRooms(){try{ROOMS=await api('rooms')||[];sel.innerHTML=ROOMS.map(r=>`<option value="${r.id}">${r.name} · ${r.type} (기준 ${r.cap_base}/최대 ${r.cap_max}인)</option>`).join('');renderRoomPreview();calc();}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">객실 정보를 불러오지 못했습니다.</div>';}}
 const ROOM_MAIN_F={py1:'pyeonbaek-1',py2:'pyeonbaek-2',py3:'pyeonbaek-3',py4:'pyeonbaek-4',hw5:'hwangto-1',hw6:'hwangto-2',dk1:'deck-1',dk2:'deck-2',dk3:'scene-2'};
+let RP={imgs:[],i:0};
 function renderRoomPreview(){
   const box=el('roomPrev');if(!box)return;const rid=sel.value;const room=ROOMS.find(r=>r.id===rid);if(!room){box.classList.remove('on');return;}
   const slots=(typeof gsRoomSlots==='function')?gsRoomSlots(rid):[];
-  const imgs=slots.length?slots.map(s=>GS_PHOTOS[s]):['img/'+(ROOM_MAIN_F[rid]||'scene-1')+'.jpg'];
-  box.innerHTML=`<img src="${imgs[0]}" alt="${room.name}"><div class="rp-b"><div class="rp-n">${room.name} · ${room.type}</div><div class="rp-m">기준 ${room.cap_base}인 · 최대 ${room.cap_max}인</div><div class="rp-p">${won(room.price_from)}원~ <span style="color:var(--stone);font-weight:400">(비수기 주중)</span></div>${imgs.length>1?`<div class="rp-more">📷 사진 ${imgs.length}장 · 갤러리는 위 '객실' 메뉴에서</div>`:''}</div>`;
+  RP.imgs=slots.length?slots.map(s=>GS_PHOTOS[s]):['img/'+(ROOM_MAIN_F[rid]||'scene-1')+'.jpg'];RP.i=0;
+  const multi=RP.imgs.length>1;
+  box.innerHTML=`
+    <div class="rp-carousel">
+      <img id="rpImg" src="${RP.imgs[0]}" alt="${room.name}">
+      ${multi?`<button type="button" class="rp-nav rp-prev" onclick="rpGo(-1)" aria-label="이전 사진">‹</button><button type="button" class="rp-nav rp-next" onclick="rpGo(1)" aria-label="다음 사진">›</button><div class="rp-dots" id="rpDots">1 / ${RP.imgs.length}</div>`:''}
+    </div>
+    <div class="rp-info"><div class="rp-n">${room.name} · ${room.type}</div><div class="rp-m">기준 ${room.cap_base}인 · 최대 ${room.cap_max}인${multi?` · 사진 ${RP.imgs.length}장`:''}</div><div class="rp-p">${won(room.price_from)}원~ <span style="color:var(--stone);font-weight:400">(비수기 주중)</span></div></div>`;
   box.classList.add('on');
 }
+window.rpGo=function(d){if(!RP.imgs.length)return;RP.i=(RP.i+d+RP.imgs.length)%RP.imgs.length;const im=el('rpImg');if(im)im.src=RP.imgs[RP.i];const dt=el('rpDots');if(dt)dt.textContent=(RP.i+1)+' / '+RP.imgs.length;};
 async function calc(){rstatus.textContent='';const s=new Date(ci.value+'T00:00'),e=new Date(co.value+'T00:00');if(!(s<e)){quote.innerHTML='<div class="line" style="color:var(--clay)">체크아웃은 체크인 이후여야 합니다.</div>';lastQuote=null;return;}const room=ROOMS.find(r=>r.id===sel.value);quote.innerHTML='<div class="line">요금 계산 중…</div>';try{const q=await api('quote',{room_id:sel.value,checkin:ci.value,checkout:co.value});lastQuote=q;const detail=(q.detail||[]).map(n=>`<div class="line"><span>${fmtd(n.date)} <span class="badge b-${n.season}">${SEASON_KO[n.season]}·${DAY_KO[n.daytype]}</span></span><span>${won(n.price)}원</span></div>`).join('');quote.innerHTML=`<div class="line" style="color:var(--ink);font-weight:600"><span>${room?room.name:''} · ${q.nights}박</span><span>${room?('기준 '+room.cap_base+'인'):''}</span></div><div class="nights-detail">${detail}</div><div class="total"><span>총 결제금액</span><b>${won(q.total)}<small>원</small></b></div><div class="pay">무통장입금 · <b>우리은행 1002-067-626314</b> (예금주 한다연)<br>예약 신청 후 입금이 확인되면 문자로 확정 안내드립니다.</div>`;}catch(e){quote.innerHTML='<div class="line" style="color:var(--clay)">요금을 불러오지 못했습니다.</div>';lastQuote=null;}}
 async function reserve(){const name=el('gname').value.trim(),phone=el('gphone').value.trim(),guests=parseInt(el('guests').value)||0;if(!lastQuote){rstatus.innerHTML='<span style="color:var(--clay)">날짜와 객실을 먼저 선택해 주세요.</span>';return;}if(!name||!phone){rstatus.innerHTML='<span style="color:var(--clay)">성함과 연락처를 입력해 주세요.</span>';return;}if(!el('agPriv').checked){rstatus.innerHTML='<span style="color:var(--clay)">개인정보 수집·이용(필수)에 동의해 주세요.</span>';return;}const b=el('reserveBtn');b.disabled=true;const o=b.textContent;b.textContent='신청 중…';try{const r=await api('reserve',{room_id:sel.value,checkin:ci.value,checkout:co.value,guest_name:name,guest_phone:phone,guests,agree_privacy:el('agPriv').checked,agree_marketing:el('agMkt').checked});if(r&&r.ok){rstatus.innerHTML=`<span style="color:var(--forest);font-weight:600">✓ 예약 신청이 접수되었습니다! 총 ${won(r.total)}원 · 무통장입금(우리은행 1002-067-626314) 확인 후 문자로 확정 안내드립니다. 문의 010-7930-6100</span>`;b.textContent='신청 완료 ✓';}else{rstatus.innerHTML=`<span style="color:var(--clay)">${(r&&r.error)||'예약 신청에 실패했습니다.'}</span>`;b.disabled=false;b.textContent=o;}}catch(e){rstatus.innerHTML='<span style="color:var(--clay)">오류가 발생했습니다. 전화(010-7930-6100)로 문의해 주세요.</span>';b.disabled=false;b.textContent=o;}}
 [sel,ci,co].forEach(x=>x.addEventListener('change',calc));
