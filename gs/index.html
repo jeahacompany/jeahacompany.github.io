@@ -583,6 +583,7 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
         <a class="fbtn call" href="tel:01097819969" aria-label="전화하기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>전화하기</a>
         <a class="fbtn" href="sms:01097819969" aria-label="문자 문의"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>문자 문의</a>
         <a class="fbtn js-insta" href="https://www.instagram.com/hiddenvalley.kr/" target="_blank" rel="noopener" aria-label="인스타그램"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.4"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.6" cy="6.4" r="1.25" fill="currentColor" stroke="none"/></svg>인스타그램</a>
+        <a class="fbtn js-naver" href="https://map.naver.com/p/search/히든벨리펜션" target="_blank" rel="noopener" aria-label="네이버 플레이스"><svg viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#03C75A"/><path d="M8.1 16.8V7.2h2.35l3.3 5.15V7.2h2.15v9.6h-2.35l-3.3-5.15v5.15z" fill="#fff"/></svg>네이버 플레이스</a>
       </div>
     </div>
   </div>
@@ -680,6 +681,7 @@ async function loadSettings(){try{GS_SET=await api('settings')||{};}catch(_){GS_
 function gsApplySettings(){
   try{
     if(GS_SET.instagram)document.querySelectorAll('a.js-insta').forEach(a=>a.href=GS_SET.instagram);
+    document.querySelectorAll('a.js-naver').forEach(a=>{if(GS_SET.naver_place){a.href=GS_SET.naver_place;a.style.display='';}else{a.style.display='none';}});
     document.querySelectorAll('.js-acct').forEach(e=>e.textContent=acctStr());
     document.querySelectorAll('.js-acctline').forEach(e=>e.textContent=`${GS_SET.bank_name||'농협'} ${GS_SET.bank_account||'351-9781-9969-53'}, 예금주 ${GS_SET.bank_holder||'한다연'}`);
     if(GS_SET.phone)document.querySelectorAll('.js-phone').forEach(e=>e.textContent=GS_SET.phone);
