@@ -328,7 +328,7 @@ function setView(v){VIEW=v;document.querySelectorAll('#vtabs button').forEach(b=
 function renderView(){if(VIEW==='list')renderList();else if(VIEW==='cal')renderCal();else if(VIEW==='stats')renderStats();else renderSettings();}
 /* ===== 매출 통계 ===== */
 function renderStats(){
-  const conf=ALL.filter(r=>r.status==='confirmed');
+  const conf=ALL.filter(r=>r.status==='confirmed'&&r.source!=='block');
   const now=new Date();const months=[];for(let i=11;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);}
   const mSales={},mCnt={};months.forEach(m=>{mSales[m]=0;mCnt[m]=0;});
   conf.forEach(r=>{const m=(r.checkin||'').slice(0,7);if(m in mSales){mSales[m]+=r.total_price;mCnt[m]++;}});
@@ -360,18 +360,18 @@ function renderStats(){
 }
 
 /* ===== 예약 목록 ===== */
-function counts(){const c={all:ALL.length,requested:0,confirmed:0,cancelled:0};ALL.forEach(r=>c[r.status]=(c[r.status]||0)+1);return c;}
+function counts(){const rows=ALL.filter(r=>r.source!=='block');const c={all:rows.length,requested:0,confirmed:0,cancelled:0};rows.forEach(r=>c[r.status]=(c[r.status]||0)+1);return c;}
 function renderList(){
   const c=counts();
   const today=todayStr();
   let sales=0,monthSales=0,upcoming=0;const now=new Date();const todayMid=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  ALL.forEach(r=>{if(r.status==='confirmed'){sales+=r.total_price;const ci=new Date(r.checkin+'T00:00');if(ci.getFullYear()===now.getFullYear()&&ci.getMonth()===now.getMonth())monthSales+=r.total_price;if(ci>=todayMid)upcoming++;}});
+  ALL.forEach(r=>{if(r.source==='block')return;if(r.status==='confirmed'){sales+=r.total_price;const ci=new Date(r.checkin+'T00:00');if(ci.getFullYear()===now.getFullYear()&&ci.getMonth()===now.getMonth())monthSales+=r.total_price;if(ci>=todayMid)upcoming++;}});
   let rows=ALL.slice();
   if(FILTER!=='all')rows=rows.filter(r=>r.status===FILTER);
   rows=rows.filter(r=>periodMatch(r.created_at));
   if(Q){const q=Q.toLowerCase();rows=rows.filter(r=>(r.guest_name||'').toLowerCase().includes(q)||(r.guest_phone||'').includes(q)||(r.room_id||'').includes(q)||roomName(r.room_id).toLowerCase().includes(q));}
   const actBtns=r=>r.status==='cancelled'?'':(r.status==='requested'?`<button class="mini pri" onclick="event.stopPropagation();setStatus(${r.id},'confirmed')">입금확인</button> `:'')+`<button class="mini dang" onclick="event.stopPropagation();setStatus(${r.id},'cancelled')">취소</button>`;
-  const body=rows.length?rows.map(r=>{const st=ST[r.status]||[r.status,''];const a=actBtns(r);
+  const body=rows.length?rows.map(r=>{const st=r.source==='block'?['🚫 판매중지','']:(ST[r.status]||[r.status,'']);const a=actBtns(r);
     return `<tr onclick="openDetail(${r.id})" style="cursor:pointer">
       <td><span class="pill ${st[1]}">${st[0]}</span></td>
       <td><b>${roomName(r.room_id)}</b></td>
@@ -381,7 +381,7 @@ function renderList(){
       <td class="amt">${won(r.total_price)}<span style="font-size:.72em;color:var(--faint)"> 원</span></td>
       <td class="applied">${fday(r.created_at)}</td>
       <td><div class="acts">${a||'<span class=dash>—</span>'}</div></td></tr>`;}).join(''):`<tr><td colspan="8"><div class="state"><b>${ALL.length?'결과가 없습니다':'아직 예약이 없습니다'}</b>${ALL.length?'필터·검색·기간을 바꿔보세요.':'홈페이지 예약이 접수되면 여기 표시됩니다.'}</div></td></tr>`;
-  const cards=rows.map(r=>{const st=ST[r.status]||[r.status,''];const a=actBtns(r);
+  const cards=rows.map(r=>{const st=r.source==='block'?['🚫 판매중지','']:(ST[r.status]||[r.status,'']);const a=actBtns(r);
     return `<div class="rcard" onclick="openDetail(${r.id})" style="cursor:pointer"><div class="h"><span class="pill ${st[1]}">${st[0]}</span><b class="amt">${won(r.total_price)} 원</b></div>
       <dl><dt>객실</dt><dd>${roomName(r.room_id)}</dd><dt>일정</dt><dd>${fdate(r.checkin)}→${fdate(r.checkout)} ${r.nights}박</dd><dt>예약자</dt><dd>${r.guest_name||''} (${r.guests||'-'}명)</dd><dt>연락처</dt><dd><a href="tel:${(r.guest_phone||'').replace(/[^0-9]/g,'')}" onclick="event.stopPropagation()" style="color:var(--moss)">${r.guest_phone||''}</a></dd></dl>
       <div class="acts" style="margin-top:10px">${a||'-'}</div></div>`;}).join('');
@@ -404,7 +404,8 @@ function renderList(){
         ${['all','today','week','month'].map(p=>`<button data-p="${p}" class="${PERIOD===p?'active':''}">${PERIOD_KO[p]}</button>`).join('')}
       </div>
       <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="q" placeholder="예약자·연락처·객실" value="${Q.replace(/"/g,'&quot;')}"></div>
-      <button class="btn" id="addBtn" style="margin-left:auto">+ 수기 예약</button>
+      <button class="btn" id="blockBtn" style="margin-left:auto">🚫 날짜 막기</button>
+      <button class="btn" id="addBtn">+ 수기 예약</button>
     </div>
     <div class="listmeta">표시 ${rows.length}건 · 행을 누르면 상세정보</div>
     <div class="card"><div class="tblscroll"><table>
@@ -414,14 +415,15 @@ function renderList(){
   el('periods').addEventListener('click',e=>{const b=e.target.closest('button');if(b){PERIOD=b.dataset.p;renderList();}});
   el('q').addEventListener('input',e=>{Q=e.target.value.trim();const p=e.target.selectionStart;renderList();const nq=el('q');nq.focus();try{nq.setSelectionRange(p,p);}catch(_){}});
   el('addBtn').addEventListener('click',openAddModal);
+  el('blockBtn').addEventListener('click',openBlockModal);
 }
 window.openDetail=function(id){
-  const r=ALL.find(x=>x.id===id);if(!r)return;const st=ST[r.status]||[r.status,''];
+  const r=ALL.find(x=>x.id===id);if(!r)return;const st=r.source==='block'?['🚫 판매중지','']:(ST[r.status]||[r.status,'']);
   const phone=(r.guest_phone||'').replace(/[^0-9]/g,'');
   const created=new Date(r.created_at);const cstr=`${fday(r.created_at)} ${String(created.getHours()).padStart(2,'0')}:${String(created.getMinutes()).padStart(2,'0')}`;
   const row=(k,v)=>`<div class="dtl-row"><span class="dtl-k">${k}</span><span class="dtl-v">${v}</span></div>`;
-  const acts=r.status==='cancelled'?'<span style="color:var(--faint);font-size:.85rem">취소된 예약입니다</span>':
-    (r.status==='requested'?`<button class="btn" onclick="detailAct(${r.id},'confirmed')">입금 확인 → 확정</button>`:'')+`<button class="btn line dang2" onclick="detailAct(${r.id},'cancelled')">예약 취소</button>`;
+  const statusActs=r.status==='cancelled'?'':((r.status==='requested'?`<button class="btn" onclick="detailAct(${r.id},'confirmed')">입금 확인 → 확정</button>`:'')+`<button class="btn line dang2" onclick="detailAct(${r.id},'cancelled')">예약 취소</button>`);
+  const acts=statusActs+`<button class="btn line" onclick="openEditModal(${r.id})">✏️ 수정</button><button class="btn line dang2" onclick="deleteReservation(${r.id})">🗑 삭제</button>`;
   el('modalHost').innerHTML=`<div class="ov" id="ov"><div class="modal">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span class="pill ${st[1]}">${st[0]}</span><h3 style="margin:0">예약 상세 #${r.id}</h3></div>
     <div class="dtl">
@@ -434,6 +436,7 @@ window.openDetail=function(id){
       ${row('예약자',r.guest_name||'-')}
       ${row('연락처',phone?`<a href="tel:${phone}" style="color:var(--moss)">${r.guest_phone}</a>`:'-')}
       ${row('신청일시',cstr)}
+      ${(Array.isArray(r.options)&&r.options.length)?row('추가옵션',r.options.map(o=>`${o.name} ×${o.qty} <b>${won(o.amount||o.price*o.qty)}원</b>`).join('<br>')):''}
       ${r.memo?row('메모',r.memo):''}
       ${row('개인정보 동의',r.agree_privacy?'✅ 동의':'—')}
       ${row('마케팅 수신',r.agree_marketing?'✅ 동의':'미동의')}
@@ -669,6 +672,60 @@ function openAddModal(){
       if(r&&r.ok){el('modalHost').innerHTML='';toast('수기 예약 등록 완료 ('+won(r.total)+'원)');await loadAll();}
       else{el('mMsg').innerHTML='<span style="color:var(--can)">'+((r&&r.error)||'등록 실패')+'</span>';b.disabled=false;b.textContent='등록';}
     }catch(e){el('mMsg').innerHTML='<span style="color:var(--can)">오류가 발생했습니다.</span>';b.disabled=false;b.textContent='등록';}
+  };
+}
+
+/* ===== 예약 수정 ===== */
+window.openEditModal=function(id){
+  const r=ALL.find(x=>x.id===id);if(!r)return;
+  const rooms=(CFG&&CFG.rooms)||[];
+  el('modalHost').innerHTML=`<div class="ov" id="ov"><div class="modal">
+    <h3>예약 수정 #${r.id}</h3>
+    <div class="fld"><label>객실</label><select id="eRoom">${rooms.map(x=>`<option value="${x.id}" ${x.id===r.room_id?'selected':''}>${x.name}</option>`).join('')}</select></div>
+    <div class="row2"><div class="fld"><label>체크인</label><input type="date" id="eCi" value="${r.checkin}"></div><div class="fld"><label>체크아웃</label><input type="date" id="eCo" value="${r.checkout}"></div></div>
+    <div class="row2"><div class="fld"><label>예약자</label><input type="text" id="eName" value="${(r.guest_name||'').replace(/"/g,'&quot;')}"></div><div class="fld"><label>연락처</label><input type="tel" id="ePhone" value="${(r.guest_phone||'').replace(/"/g,'&quot;')}"></div></div>
+    <div class="row2"><div class="fld"><label>인원</label><input type="number" id="eGuests" value="${r.guests||2}" min="1"></div><div class="fld"><label>결제금액(원)</label><input type="text" inputmode="numeric" class="pinp" id="ePrice" value="${won(r.total_price)}"></div></div>
+    <div class="row2"><div class="fld"><label>상태</label><select id="eStatus"><option value="confirmed" ${r.status==='confirmed'?'selected':''}>확정</option><option value="requested" ${r.status==='requested'?'selected':''}>입금대기</option><option value="cancelled" ${r.status==='cancelled'?'selected':''}>취소</option></select></div><div class="fld"><label> </label><div style="font-size:.8rem;color:var(--faint);padding-top:10px">날짜·객실 변경 시 중복은 자동 검사되지 않으니 캘린더로 확인하세요</div></div></div>
+    <div class="fld"><label>메모</label><input type="text" id="eMemo" value="${(r.memo||'').replace(/"/g,'&quot;')}" placeholder="요청사항·옵션·이메일 등"></div>
+    <div class="msg" id="eMsg" style="color:var(--sub)"></div>
+    <div class="foot"><button class="btn line" id="eCancel">닫기</button><button class="btn" id="eSave">저장</button></div>
+  </div></div>`;
+  el('ov').addEventListener('click',e=>{if(e.target.id==='ov')el('modalHost').innerHTML='';});
+  el('eCancel').onclick=()=>el('modalHost').innerHTML='';
+  el('eSave').onclick=async()=>{
+    const b=el('eSave');b.disabled=true;b.textContent='저장 중…';
+    try{const res=await api('admin.update_reservation',{id:r.id,room_id:el('eRoom').value,checkin:el('eCi').value,checkout:el('eCo').value,guest_name:el('eName').value.trim(),guest_phone:el('ePhone').value.trim(),guests:parseInt(el('eGuests').value)||null,total_price:parseInt(String(el('ePrice').value).replace(/[^0-9]/g,''))||0,status:el('eStatus').value,memo:el('eMemo').value});
+      if(res&&res.ok){el('modalHost').innerHTML='';toast('예약 수정 완료');await loadAll();}
+      else{el('eMsg').innerHTML='<span style="color:var(--can)">'+((res&&res.error)||'저장 실패')+'</span>';b.disabled=false;b.textContent='저장';}
+    }catch(e){el('eMsg').innerHTML='<span style="color:var(--can)">오류가 발생했습니다.</span>';b.disabled=false;b.textContent='저장';}
+  };
+};
+window.deleteReservation=async function(id){
+  if(!confirm('예약 #'+id+' 을(를) 완전히 삭제할까요?\n삭제하면 되돌릴 수 없습니다. (단순 취소는 "예약 취소"를 쓰세요)'))return;
+  try{const r=await api('admin.delete_reservation',{id});if(r&&r.ok===false){toast(r.error||'실패');return;}el('modalHost').innerHTML='';toast('삭제했습니다');await loadAll();}catch(e){toast('오류가 발생했습니다');}
+};
+/* ===== 날짜 막기(판매중지) ===== */
+function openBlockModal(){
+  const rooms=(CFG&&CFG.rooms)||[];
+  const t=new Date();t.setHours(0,0,0,0);const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+  const ci=iso(t),co=iso(new Date(t.getTime()+864e5));
+  el('modalHost').innerHTML=`<div class="ov" id="ov"><div class="modal">
+    <h3>🚫 날짜 막기 (판매중지)</h3>
+    <div style="font-size:.85rem;color:var(--sub);margin-bottom:10px">선택한 객실·기간을 온라인 예약에서 잠급니다. (정비·개인사용·전화선점 등)</div>
+    <div class="fld"><label>객실</label><select id="bRoom">${rooms.map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}</select></div>
+    <div class="row2"><div class="fld"><label>시작일</label><input type="date" id="bCi" value="${ci}"></div><div class="fld"><label>종료일(체크아웃)</label><input type="date" id="bCo" value="${co}"></div></div>
+    <div class="fld"><label>사유(선택)</label><input type="text" id="bLabel" placeholder="예: 정비, 개인사용, 전화예약 선점"></div>
+    <div class="msg" id="bMsg" style="color:var(--sub)"></div>
+    <div class="foot"><button class="btn line" id="bCancel">취소</button><button class="btn" id="bSave">막기</button></div>
+  </div></div>`;
+  el('ov').addEventListener('click',e=>{if(e.target.id==='ov')el('modalHost').innerHTML='';});
+  el('bCancel').onclick=()=>el('modalHost').innerHTML='';
+  el('bSave').onclick=async()=>{
+    const b=el('bSave');b.disabled=true;b.textContent='처리 중…';
+    try{const res=await api('admin.add_block',{room_id:el('bRoom').value,checkin:el('bCi').value,checkout:el('bCo').value,label:el('bLabel').value.trim()||'판매중지'});
+      if(res&&res.ok){el('modalHost').innerHTML='';toast('해당 기간을 막았습니다');await loadAll();}
+      else{el('bMsg').innerHTML='<span style="color:var(--can)">'+((res&&res.error)||'실패')+'</span>';b.disabled=false;b.textContent='막기';}
+    }catch(e){el('bMsg').innerHTML='<span style="color:var(--can)">오류가 발생했습니다.</span>';b.disabled=false;b.textContent='막기';}
   };
 }
 
