@@ -222,7 +222,7 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
 .rsnav{position:absolute;top:44%;transform:translateY(-50%);z-index:3;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.96);color:var(--forest);font-size:1.5rem;line-height:1;cursor:pointer;box-shadow:0 4px 12px -4px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center;padding:0}
 .rsnav:hover{background:var(--forest);color:#fff;border-color:var(--forest)}
 .rsprev{left:-8px}.rsnext{right:-8px}
-.roomslider{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;cursor:grab}
+.roomslider{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;cursor:grab}
 .roomslider:active{cursor:grabbing}
 .roomslider::-webkit-scrollbar{height:6px}.roomslider::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 .rs-card{flex:0 0 46%;max-width:210px;scroll-snap-align:start;border:2px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel);padding:0;cursor:pointer;text-align:left;transition:.15s;font-family:inherit}
@@ -689,9 +689,10 @@ window.rpGo=function(d){if(!RP.imgs.length)return;RP.i=(RP.i+d+RP.imgs.length)%R
 function roomThumbF(rid){const slots=(typeof gsRoomSlots==='function')?gsRoomSlots(rid):[];return slots.length?GS_PHOTOS[slots[0]]:'img/'+(ROOM_MAIN_F[rid]||'scene-1')+'.jpg';}
 function renderRoomSlider(){const box=el('roomSlider');if(!box)return;box.innerHTML=ROOMS.map(r=>`<button type="button" class="rs-card${r.id===sel.value?' on':''}" data-id="${r.id}"><img src="${roomThumbF(r.id)}" alt="${r.name}" loading="lazy"><div class="rs-b"><b>${r.name}</b><span>${won(r.price_from)}원~</span></div></button>`).join('');}
 el('roomSlider').addEventListener('click',e=>{const c=e.target.closest('.rs-card');if(!c)return;sel.value=c.dataset.id;sel.dispatchEvent(new Event('change'));c.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});});
-// 좌우 화살표
-el('rsPrev').addEventListener('click',()=>el('roomSlider').scrollBy({left:-250,behavior:'smooth'}));
-el('rsNext').addEventListener('click',()=>el('roomSlider').scrollBy({left:250,behavior:'smooth'}));
+// 좌우 화살표 (scroll-snap 충돌 없이 수동 애니메이션)
+function rsScroll(dir){var s=el('roomSlider');if(!s)return;var start=s.scrollLeft,d=dir*Math.min(440,s.clientWidth*0.8),t0=performance.now();function step(t){var p=Math.min(1,(t-t0)/320);var e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;s.scrollLeft=start+d*e;if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
+el('rsPrev').onclick=function(){rsScroll(-1);};
+el('rsNext').onclick=function(){rsScroll(1);};
 // 마우스 드래그로 밀기(PC)
 (function(){var s=el('roomSlider');if(!s)return;var down=false,sx=0,sl=0,moved=false;
   s.addEventListener('pointerdown',e=>{down=true;moved=false;sx=e.clientX;sl=s.scrollLeft;try{s.setPointerCapture(e.pointerId);}catch(_){}});
