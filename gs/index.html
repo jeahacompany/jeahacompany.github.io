@@ -39,6 +39,12 @@ a{color:inherit}
   .book .left{padding:26px 16px}
   .book .form{padding:20px 14px}
   .calwrap{padding:12px 8px 10px}
+  /* 모바일: 방 슬라이더 → 2칸 그리드(옆으로 안 밀리고 전부 아래로 보임) */
+  .roomslider{flex-wrap:wrap;overflow-x:visible;scroll-snap-type:none;gap:8px;cursor:default}
+  .rs-card{flex:0 0 calc(50% - 4px);max-width:none}
+  .rsnav{display:none}
+  /* 미리보기 썸네일도 줄바꿈(옆 스크롤 없음) */
+  .rp-thumbs{flex-wrap:wrap;overflow-x:visible}
 }
 .eyebrow{font-size:.8rem;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--moss)}
 .klabel{font-size:.74rem;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--stone)}
