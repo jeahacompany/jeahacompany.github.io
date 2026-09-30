@@ -39,12 +39,6 @@ a{color:inherit}
   .book .left{padding:26px 16px}
   .book .form{padding:20px 14px}
   .calwrap{padding:12px 8px 10px}
-  /* 모바일: 방 슬라이더 → 2칸 그리드(옆으로 안 밀리고 전부 아래로 보임) */
-  .roomslider{flex-wrap:wrap;overflow-x:visible;scroll-snap-type:none;gap:8px;cursor:default}
-  .rs-card{flex:0 0 calc(50% - 4px);max-width:none}
-  .rsnav{display:none}
-  /* 미리보기 썸네일도 줄바꿈(옆 스크롤 없음) */
-  .rp-thumbs{flex-wrap:wrap;overflow-x:visible}
 }
 .eyebrow{font-size:.8rem;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--moss)}
 .klabel{font-size:.74rem;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--stone)}
@@ -254,7 +248,14 @@ footer{background:#1f3629;color:#c7d4c0;padding:64px 0 34px;margin-top:24px}
 .rs-card .rs-b span{font-size:.82rem;color:var(--forest);font-weight:600}
 .rs-card.on{border-color:var(--forest);box-shadow:0 6px 16px -8px rgba(47,82,57,.5)}
 .rs-card.on .rs-b{background:var(--forest)}.rs-card.on .rs-b b{color:#fff}.rs-card.on .rs-b span{color:#cfe0c6}
-@media(max-width:520px){.rs-card{flex-basis:60%}}
+/* 모바일: 방 슬라이더 → 2칸 그리드 (옆으로 안 밀림, 전부 아래로 보임) */
+@media(max-width:560px){
+  .roomslider{flex-wrap:wrap;overflow-x:visible;scroll-snap-type:none;gap:8px;cursor:default;padding:4px 0 6px}
+  .rs-card{flex:0 0 calc(50% - 4px);max-width:none}
+  .rs-card img{height:96px}
+  .rsnav{display:none !important}
+  .rp-thumbs{flex-wrap:wrap;overflow-x:visible}
+}
 /* 옵션 선택 */
 .optbox{border:1px solid var(--line);border-radius:14px;background:var(--paper);padding:12px 14px}
 .optbox .opt-h{font-weight:700;color:var(--ink);font-size:.95rem;margin-bottom:8px;display:flex;align-items:center;gap:6px}
