@@ -31,6 +31,15 @@ img{max-width:100%;display:block}
 h1,h2,h3{font-family:var(--sans);font-weight:800;line-height:1.22;letter-spacing:-.025em;margin:0;text-wrap:balance}
 a{color:inherit}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+/* 모바일: 좌우 넓게(여백 축소) + 스와이프 흔들림 방지 */
+.roomslider,.rp-thumbs{overscroll-behavior-x:contain}
+@media(max-width:560px){
+  .wrap{padding:0 14px}
+  .book{border-radius:18px}
+  .book .left{padding:26px 16px}
+  .book .form{padding:20px 14px}
+  .calwrap{padding:12px 8px 10px}
+}
 .eyebrow{font-size:.8rem;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--moss)}
 .klabel{font-size:.74rem;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--stone)}
 .btn{display:inline-flex;align-items:center;gap:.5em;font-weight:600;font-size:.95rem;padding:.85em 1.5em;border-radius:999px;border:1px solid transparent;cursor:pointer;text-decoration:none;transition:.2s}
