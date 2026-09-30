@@ -116,6 +116,10 @@
   table.quote{width:100%; border-collapse:collapse;}
   table.quote th, table.quote td{border:1px solid var(--border); padding:8px 6px; font-size:13px; text-align:center; font-variant-numeric:tabular-nums;}
   table.quote thead th{background:var(--orange); color:#fff;}
+  /* 보기 모달에서 직접 수정 가능한 칸 (관리자) */
+  table.quote td.ve, h2.ve{cursor:text;}
+  table.quote td.ve:hover{background:#fffbe6;}
+  table.quote td.ve:focus, h2.ve:focus{background:#fff6df; outline:2px solid var(--orange); outline-offset:-2px;}
   table.quote td.label{background:var(--orange-light); font-weight:bold;}
   tr.total-label td{background:var(--tan); font-weight:bold; font-size:14px;}
   tr.total-amount td{color:var(--red); font-weight:bold; font-size:18px;}
@@ -1584,6 +1588,65 @@ function quoteTableHtml(rows, bank){
   return html;
 }
 
+// 관리자 전용: 보기 모달에서 제품명·수량·단가를 직접 고쳐 이미지로 공유 (이미지용 · 저장 안 됨)
+function editableQuoteTableHtml(items, bank){
+  window._veItems = (items||[]).map(x=>({...x}));
+  let feePct = 0;
+  (items||[]).forEach(x=>{ if(String(x.item||'').indexOf('결제대행')===0){ const m=String(x.item||'').match(/(\d+(?:\.\d+)?)\s*%/); if(m) feePct=parseFloat(m[1]); } });
+  window._veFeePct = feePct;
+  let html = `<thead><tr><th>항목</th><th>제품명</th><th>판매처</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th><th>합계</th></tr></thead><tbody>`;
+  (items||[]).forEach((x,i)=>{
+    const note = x.note ? ' <span style="font-weight:normal; font-size:11px; color:#777;">('+esc(x.note)+')</span>' : '';
+    const isFee = String(x.item||'').indexOf('결제대행')===0;
+    const hasQty = !(x.qty===''||x.qty==null);
+    const hasUnit = !(x.unit===''||x.unit==null);
+    html += `<tr data-i="${i}">
+      <td class="label">${esc(x.item)}${note}</td>
+      <td class="ve" contenteditable="true">${esc(x.product||'')}</td>
+      <td class="ve" contenteditable="true">${esc(x.seller||'')}</td>
+      <td class="ve ve-qty" ${hasQty?'contenteditable="true"':''} oninput="recalcViewQuote()">${hasQty?x.qty:''}</td>
+      <td class="ve ve-unit" ${(hasUnit&&!isFee)?'contenteditable="true"':''} oninput="recalcViewQuote()">${hasUnit?won(x.unit):''}</td>
+      <td class="ve-supply">${won(x.supply)}</td>
+      <td class="ve-tax">${won((x.supply||0)*0.1)}</td>
+      <td class="ve-total">${won((x.supply||0)*1.1)}</td>
+    </tr>`;
+  });
+  const t = quoteTotals(items);
+  html += `<tr class="total-label"><td colspan="5">소계</td><td id="ve-subSupply">${won(t.supply)}</td><td id="ve-subTax">${won(t.tax)}</td><td id="ve-subTot">${won(t.supply+t.tax)}</td></tr>`;
+  html += `<tr class="total-label"><td colspan="5">합계 금액</td><td colspan="3" style="color:var(--red); font-size:17px;"><span id="ve-grand">${won(t.total)}</span></td></tr>`;
+  html += `<tr class="account-label"><td colspan="8">입금 계좌</td></tr>`;
+  html += `<tr class="account-value"><td colspan="8">${esc(bank.bank)} ${esc(bank.account)} ${esc(bank.holder)}</td></tr>`;
+  html += `<tr class="account-note"><td colspan="8">※ 상기 계좌로 입금이 확인된 후 캠페인 진행이 시작됩니다.<br>빠른 진행을 위해 입금 후 단톡방에 입금 내역 공유 부탁드립니다.</td></tr>`;
+  html += `</tbody>`;
+  return html;
+}
+// 보기 모달에서 수량·단가 고칠 때 공급가액·세액·합계·소계·결제대행 즉시 재계산
+function recalcViewQuote(){
+  const items = window._veItems||[]; const feePct = window._veFeePct||0;
+  let feeBase = 0;
+  document.querySelectorAll('#viewQuoteCapture tr[data-i]').forEach(tr=>{
+    const it = items[+tr.dataset.i]; if(!it || String(it.item||'').indexOf('결제대행')===0) return;
+    const qEl = tr.querySelector('.ve-qty'), uEl = tr.querySelector('.ve-unit');
+    const qty = (qEl && qEl.textContent.trim()!=='') ? numOf(qEl.textContent) : (Number(it.qty)||0);
+    const hasUnit = !(it.unit===''||it.unit==null);
+    const unit = (uEl && uEl.textContent.trim()!=='') ? numOf(uEl.textContent) : 0;
+    const supply = hasUnit ? Math.round(unit*qty) : (Number(it.supply)||0);
+    it._supply = supply;
+    if(it.feeBase===true || String(it.item||'')==='제품값') feeBase += supply;
+    const s=tr.querySelector('.ve-supply'), t=tr.querySelector('.ve-tax'), to=tr.querySelector('.ve-total');
+    if(s) s.textContent=won(supply); if(t) t.textContent=won(supply*0.1); if(to) to.textContent=won(supply*1.1);
+  });
+  document.querySelectorAll('#viewQuoteCapture tr[data-i]').forEach(tr=>{
+    const it = items[+tr.dataset.i]; if(!it || String(it.item||'').indexOf('결제대행')!==0) return;
+    const supply = Math.round(feeBase*feePct/100); it._supply = supply;
+    const s=tr.querySelector('.ve-supply'), t=tr.querySelector('.ve-tax'), to=tr.querySelector('.ve-total');
+    if(s) s.textContent=won(supply); if(t) t.textContent=won(supply*0.1); if(to) to.textContent=won(supply*1.1);
+  });
+  const totSupply = items.reduce((s,it)=> s + (it._supply!=null?it._supply:(Number(it.supply)||0)), 0);
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=won(v); };
+  set('ve-subSupply',totSupply); set('ve-subTax',totSupply*0.1); set('ve-subTot',totSupply*1.1); set('ve-grand',totSupply*1.1);
+}
+
 function renderPreview(){
   const dateVal = document.getElementById('quoteDate').value;
   const dateShort = dateVal ? dateVal.slice(2).replace(/-/g,'. ') : '';
@@ -1840,9 +1903,10 @@ function viewQuote(id){
         <button class="btn secondary" onclick="copyViewQuote()">📋 텍스트 복사</button>
         <button class="btn" onclick="copyQuoteImage('viewQuoteCapture', this)">📷 이미지로 복사</button>
       </div>
+      ${role==='admin' ? '<div style="font-size:12.5px; color:#a65b00; background:#fff8ec; border:1px solid #ffe0b3; border-radius:8px; padding:8px 12px; margin-bottom:10px;">✏️ 표의 <b>제품명·수량·단가</b>를 직접 눌러 고칠 수 있어요. 고치면 <b>금액이 자동 계산</b>됩니다. (고친 값은 이 이미지에만 반영 · 저장 안 됨)</div>' : ''}
       <div id="viewQuoteCapture" style="background:#fff;">
-        <h2 style="margin:0 0 8px;">${(q.date ? String(q.date).slice(2).replace(/-/g,'. ') + ' ' : '')}${esc(q.client)} 견적서</h2>
-        <table class="quote">${quoteTableHtml(q.items, q.bankSnapshot)}</table>
+        <h2 style="margin:0 0 8px;" ${role==='admin'?'contenteditable="true" class="ve"':''}>${(q.date ? String(q.date).slice(2).replace(/-/g,'. ') + ' ' : '')}${esc(q.client)} 견적서</h2>
+        <table class="quote">${role==='admin' ? editableQuoteTableHtml(q.items, q.bankSnapshot) : quoteTableHtml(q.items, q.bankSnapshot)}</table>
       </div>
     </div>
     <div style="margin-top:20px;">${guideHtml}</div>
