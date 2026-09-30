@@ -183,6 +183,10 @@
   .settle-card.total .val{color:#fff;}
   .margin-cell{color:#a65b00; font-weight:bold; cursor:pointer; white-space:nowrap;}
   .margin-cell:hover{background:#fff1e3; text-decoration:underline;}
+  .total-cell{cursor:pointer; white-space:nowrap;}
+  .total-cell:hover{background:#fff1e3; color:#a65b00;}
+  .total-cell .edit-pen{font-size:10px; opacity:0; margin-left:3px;}
+  .total-cell:hover .edit-pen{opacity:.65;}
   .settle-toolbar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:4px 0 14px;}
   .settle-toolbar label{font-weight:bold;}
   .settle-toolbar input[type=month]{padding:9px 11px; border:1px solid var(--line); border-radius:var(--radius-sm); font-size:14px; margin-left:6px; background:#F9FAFB;}
@@ -922,6 +926,38 @@ async function resetMarginDetail(id){
     if(document.getElementById('admin-tab-settlement').classList.contains('active')) renderSettlement();
     alert('기본 계산값으로 되돌렸습니다.');
   }catch(e){ if(!handleSessionError(e)) alert('실패: ' + e.message); }
+}
+// 전체 기록에서 매출(합계금액) 바로 수정 — 주 매출라인(리뷰어)에 차액을 반영해 저장(마진도 같이 조정됨)
+function editQuoteTotalPrompt(id){
+  const q = quotes.find(x=>x.id===id); if(!q) return;
+  const cur = quoteTotal(q);
+  const v = prompt('이 견적의 매출(합계금액)을 입력하세요. (원)\n\n지금: ' + won(cur) + '원', cur);
+  if(v===null) return;
+  const n = numOf(v);
+  if(!(n>0)){ alert('숫자를 올바르게 입력해주세요.'); return; }
+  if(n === cur) return;
+  applyQuoteTotal(id, n);
+}
+async function applyQuoteTotal(id, newTotal){
+  const q = quotes.find(x=>x.id===id); if(!q) return;
+  const base = marginBreakdown(q.items);
+  const cur = (Array.isArray(q.marginDetail) && q.marginDetail.length)
+    ? q.marginDetail.map(r=>({...r}))
+    : base.map(r=>({ label:r.label, qty:r.qty, revenue:Number(r.revenue)||0, cost:Number(r.cost)||0, margin:(Number(r.revenue)||0)-(Number(r.cost)||0), note:r.note }));
+  const curSum = cur.reduce((s,r)=> s + (Number(r.revenue)||0), 0);
+  const delta = Math.round(newTotal) - curSum;
+  let idx = cur.findIndex(r=> String(r.label||'').indexOf('리뷰어')===0);
+  if(idx<0) idx = cur.findIndex(r=> (Number(r.revenue)||0) > 0);
+  if(idx<0) idx = 0;
+  cur[idx].revenue = Math.max(0, (Number(cur[idx].revenue)||0) + delta);
+  cur[idx].margin  = cur[idx].revenue - (Number(cur[idx].cost)||0);
+  q.marginDetail = cur; q.marginAdj = '';
+  renderAdminRecords();
+  try{
+    await call('setMarginDetail', token, id, JSON.stringify(cur));
+    if(document.getElementById('admin-tab-settlement').classList.contains('active')) renderSettlement();
+    if(document.getElementById('admin-tab-accounting').classList.contains('active')) renderAccounting();
+  }catch(e){ if(!handleSessionError(e)) alert('저장 실패: ' + e.message); }
 }
 // 견적에서 품목(제품명) 목록 뽑기 — 캠페인 우선, 없으면 견적 항목에서
 function quoteProducts(q){
@@ -1908,7 +1944,7 @@ function renderAdminRecords(){
         <td class="plat-cell" data-full="${esc(quotePlatformLabel(q))}">${esc(quotePlatformLabel(q))}</td>
         <td>${q.date}${ddBadge}</td>
         <td class="prod-cell" data-full="${esc(q.client)} — ${esc(quoteProductLabel(q))}">${esc(quoteProductLabel(q))}</td>
-        <td>${won(quoteTotal(q))}원${isTotalOverridden(q)?' <span class="adj-tag">조정</span>':''}</td>
+        <td class="total-cell" onclick="editQuoteTotalPrompt('${q.id}')" title="클릭하면 매출(합계금액)을 수정할 수 있어요">${won(quoteTotal(q))}원${isTotalOverridden(q)?' <span class="adj-tag">조정</span>':''}<span class="edit-pen">✏️</span></td>
         <td>${qy}건</td>
         <td class="margin-cell" title="클릭하면 항목별 세부 마진이 펼쳐집니다" onclick="toggleMarginRow('${q.id}','m')">+${won(mg)}원${isMarginOverridden(q)?' <span class="adj-tag">조정</span>':''} ▾</td>
         <td style="color:#a65b00;">${won(per)}원</td>
