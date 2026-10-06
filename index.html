@@ -1604,11 +1604,11 @@ function editableQuoteTableHtml(items, bank){
       <td class="label">${esc(x.item)}${note}</td>
       <td class="ve" contenteditable="true">${esc(x.product||'')}</td>
       <td class="ve" contenteditable="true">${esc(x.seller||'')}</td>
-      <td class="ve ve-qty" ${hasQty?'contenteditable="true"':''} oninput="recalcViewQuote()">${hasQty?x.qty:''}</td>
-      <td class="ve ve-unit" ${(hasUnit&&!isFee)?'contenteditable="true"':''} oninput="recalcViewQuote()">${hasUnit?won(x.unit):''}</td>
+      <td class="ve ve-qty" ${hasQty?'contenteditable="true"':''} oninput="veOnUnitQty(this.parentElement)">${hasQty?x.qty:''}</td>
+      <td class="ve ve-unit" ${(hasUnit&&!isFee)?'contenteditable="true"':''} oninput="veOnUnitQty(this.parentElement)">${hasUnit?won(x.unit):''}</td>
       <td class="ve-supply">${won(x.supply)}</td>
       <td class="ve-tax">${won((x.supply||0)*0.1)}</td>
-      <td class="ve-total">${won((x.supply||0)*1.1)}</td>
+      <td class="ve-total${!isFee?' ve':''}" ${!isFee?'contenteditable="true" oninput="veOnTotal(this.parentElement)"':''}>${won((x.supply||0)*1.1)}</td>
     </tr>`;
   });
   const t = quoteTotals(items);
@@ -1620,31 +1620,52 @@ function editableQuoteTableHtml(items, bank){
   html += `</tbody>`;
   return html;
 }
-// 보기 모달에서 수량·단가 고칠 때 공급가액·세액·합계·소계·결제대행 즉시 재계산
-function recalcViewQuote(){
+// 공급가액(ve-supply)을 기준으로 결제대행·소계·합계금액 재계산 (정방향·역산 공통)
+function veRecompute(){
   const items = window._veItems||[]; const feePct = window._veFeePct||0;
   let feeBase = 0;
   document.querySelectorAll('#viewQuoteCapture tr[data-i]').forEach(tr=>{
     const it = items[+tr.dataset.i]; if(!it || String(it.item||'').indexOf('결제대행')===0) return;
-    const qEl = tr.querySelector('.ve-qty'), uEl = tr.querySelector('.ve-unit');
-    const qty = (qEl && qEl.textContent.trim()!=='') ? numOf(qEl.textContent) : (Number(it.qty)||0);
-    const hasUnit = !(it.unit===''||it.unit==null);
-    const unit = (uEl && uEl.textContent.trim()!=='') ? numOf(uEl.textContent) : 0;
-    const supply = hasUnit ? Math.round(unit*qty) : (Number(it.supply)||0);
-    it._supply = supply;
-    if(it.feeBase===true || String(it.item||'')==='제품값') feeBase += supply;
-    const s=tr.querySelector('.ve-supply'), t=tr.querySelector('.ve-tax'), to=tr.querySelector('.ve-total');
-    if(s) s.textContent=won(supply); if(t) t.textContent=won(supply*0.1); if(to) to.textContent=won(supply*1.1);
+    const sup = numOf(tr.querySelector('.ve-supply').textContent);
+    if(it.feeBase===true || String(it.item||'')==='제품값') feeBase += sup;
   });
   document.querySelectorAll('#viewQuoteCapture tr[data-i]').forEach(tr=>{
     const it = items[+tr.dataset.i]; if(!it || String(it.item||'').indexOf('결제대행')!==0) return;
-    const supply = Math.round(feeBase*feePct/100); it._supply = supply;
-    const s=tr.querySelector('.ve-supply'), t=tr.querySelector('.ve-tax'), to=tr.querySelector('.ve-total');
-    if(s) s.textContent=won(supply); if(t) t.textContent=won(supply*0.1); if(to) to.textContent=won(supply*1.1);
+    const sup = Math.round(feeBase*feePct/100), tax = Math.round(sup*0.1);
+    tr.querySelector('.ve-supply').textContent=won(sup);
+    tr.querySelector('.ve-tax').textContent=won(tax);
+    tr.querySelector('.ve-total').textContent=won(sup+tax);
   });
-  const totSupply = items.reduce((s,it)=> s + (it._supply!=null?it._supply:(Number(it.supply)||0)), 0);
+  let totSupply=0;
+  document.querySelectorAll('#viewQuoteCapture tr[data-i] .ve-supply').forEach(td=> totSupply += numOf(td.textContent));
+  const tax = Math.round(totSupply*0.1);
   const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=won(v); };
-  set('ve-subSupply',totSupply); set('ve-subTax',totSupply*0.1); set('ve-subTot',totSupply*1.1); set('ve-grand',totSupply*1.1);
+  set('ve-subSupply',totSupply); set('ve-subTax',tax); set('ve-subTot',totSupply+tax); set('ve-grand',totSupply+tax);
+}
+// [기본] 단가·수량 수정 → 공급가액 = 단가 × 수량
+function veOnUnitQty(tr){
+  const it = (window._veItems||[])[+tr.dataset.i]; if(!it) return;
+  const qEl=tr.querySelector('.ve-qty'), uEl=tr.querySelector('.ve-unit');
+  const qty = (qEl && qEl.textContent.trim()!=='') ? numOf(qEl.textContent) : (Number(it.qty)||0);
+  const unit = (uEl && uEl.textContent.trim()!=='') ? numOf(uEl.textContent) : 0;
+  const sup = Math.round(unit*qty), tax = Math.round(sup*0.1);
+  tr.querySelector('.ve-supply').textContent=won(sup);
+  tr.querySelector('.ve-tax').textContent=won(tax);
+  tr.querySelector('.ve-total').textContent=won(sup+tax);
+  veRecompute();
+}
+// [역산] 합계 수정 → 공급가액 = 합계 ÷ 1.1, 단가 = 공급가액 ÷ 수량 (총액 정확히 맞추기용)
+function veOnTotal(tr){
+  const it = (window._veItems||[])[+tr.dataset.i]; if(!it) return;
+  const total = Math.round(numOf(tr.querySelector('.ve-total').textContent));
+  const sup = Math.round(total/1.1), tax = total - sup;
+  const qEl=tr.querySelector('.ve-qty');
+  const qty = (qEl && qEl.textContent.trim()!=='') ? numOf(qEl.textContent) : (Number(it.qty)||0);
+  tr.querySelector('.ve-supply').textContent=won(sup);
+  tr.querySelector('.ve-tax').textContent=won(tax);
+  const uEl=tr.querySelector('.ve-unit');
+  if(uEl && qty>0) uEl.textContent=won(Math.round(sup/qty));
+  veRecompute();
 }
 
 function renderPreview(){
@@ -1903,7 +1924,7 @@ function viewQuote(id){
         <button class="btn secondary" onclick="copyViewQuote()">📋 텍스트 복사</button>
         <button class="btn" onclick="copyQuoteImage('viewQuoteCapture', this)">📷 이미지로 복사</button>
       </div>
-      ${role==='admin' ? '<div style="font-size:12.5px; color:#a65b00; background:#fff8ec; border:1px solid #ffe0b3; border-radius:8px; padding:8px 12px; margin-bottom:10px;">✏️ 표의 <b>제품명·수량·단가</b>를 직접 눌러 고칠 수 있어요. 고치면 <b>금액이 자동 계산</b>됩니다. (고친 값은 이 이미지에만 반영 · 저장 안 됨)</div>' : ''}
+      ${role==='admin' ? '<div style="font-size:12.5px; color:#a65b00; background:#fff8ec; border:1px solid #ffe0b3; border-radius:8px; padding:8px 12px; margin-bottom:10px;">✏️ 표의 <b>제품명·수량·단가·합계</b>를 직접 눌러 고칠 수 있어요. <b>단가</b>를 고치면 합계가, <b>합계</b>를 고치면 단가가 자동 계산됩니다(총액 맞추기용 역산). <span style="color:#999;">(이 이미지에만 반영 · 저장 안 됨)</span></div>' : ''}
       <div id="viewQuoteCapture" style="background:#fff;">
         <h2 style="margin:0 0 8px;" ${role==='admin'?'contenteditable="true" class="ve"':''}>${(q.date ? String(q.date).slice(2).replace(/-/g,'. ') + ' ' : '')}${esc(q.client)} 견적서</h2>
         <table class="quote">${role==='admin' ? editableQuoteTableHtml(q.items, q.bankSnapshot) : quoteTableHtml(q.items, q.bankSnapshot)}</table>
