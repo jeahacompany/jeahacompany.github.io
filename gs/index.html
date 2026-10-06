@@ -702,7 +702,9 @@ async function api(action,payload){const{data,error}=await SB.rpc('api',{action,
   function flush(ka){if(!Q.length)return;var batch=Q.splice(0,Q.length);
     var body=JSON.stringify({action:'track',payload:{anon:anon,sess:sess,ref:REF,src:SRC,device:device,batch:batch}});
     try{fetch(EP,{method:'POST',headers:{'Content-Type':'application/json','apikey':AK,'Authorization':'Bearer '+AK},body:body,keepalive:!!ka}).catch(function(){});}catch(_){}}
-  function push(type,extra){var e={t:type,s:(window.__gsSec||'')};
+  function push(type,extra){
+    if((type==='select_room'||type==='quote'||type==='reserve_click')&&!seenRooms){seenRooms=true;Q.push({t:'view_rooms',s:(window.__gsSec||'book')});}
+    var e={t:type,s:(window.__gsSec||'')};
     if(extra&&extra.room)e.room=extra.room; if(extra&&extra.meta)e.meta=extra.meta; Q.push(e);
     if(t)clearTimeout(t);
     if(type==='reserve_done'||type==='reserve_click')flush(false);
