@@ -362,6 +362,13 @@ async function renderAnalytics(){
     return `<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:.86rem;margin-bottom:3px"><span>${nm}</span><span style="font-weight:600">${s.cnt}명</span></div><div style="height:11px;background:#eceae3;border-radius:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--clay)"></div></div></div>`;}).join(''):'<div class="d">데이터 없음</div>';
   const rtHTML=(a.rooms_top||[]).length?(a.rooms_top||[]).map((r,i)=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.9rem"><span>${i+1}. ${roomName(r.room)}</span><span style="font-weight:600">${r.cnt}회</span></div>`).join(''):'<div class="d">데이터 없음</div>';
   const exHTML=(a.exits||[]).length?(a.exits||[]).map(x=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.9rem"><span>${SECKO[x.sec]||x.sec}</span><span style="font-weight:600">${x.cnt}명</span></div>`).join(''):'<div class="d">데이터 없음</div>';
+  const spHTML=(a.src_perf||[]).length?('<table style="width:100%;border-collapse:collapse;font-size:.86rem"><tr style="color:var(--sub)"><th style="padding:4px 0;text-align:left;font-weight:600">유입처</th><th style="text-align:right;font-weight:600">방문</th><th style="text-align:right;font-weight:600">예약</th><th style="text-align:right;font-weight:600">전환율</th></tr>'+(a.src_perf).map(s=>{const nm=SRCKO[s.src]||s.src;const cv=s.visits?Math.round(s.done/s.visits*1000)/10:0;return `<tr style="border-top:1px solid var(--line)"><td style="padding:6px 0">${nm}</td><td style="text-align:right">${s.visits}</td><td style="text-align:right;font-weight:600">${s.done}</td><td style="text-align:right;color:var(--forest);font-weight:700">${cv}%</td></tr>`;}).join('')+'</table>'):'<div class="d">데이터 없음</div>';
+  const rbsHTML=(a.revenue_by_source||[]).length?(a.revenue_by_source).map(s=>{const nm=SRCKO[s.src]||s.src;return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.9rem"><span>${nm} <span style="color:var(--sub);font-size:.82rem">· ${s.cnt}건</span></span><span style="font-weight:700;color:var(--forest)">${won(s.rev)}원</span></div>`;}).join(''):'<div class="d">아직 신규 예약 매출이 없습니다 (유입처는 신규 예약부터 기록)</div>';
+  const DOWK=['일','월','화','수','목','금','토'];const hm=a.heatmap||[];let hmMax=1;hm.forEach(x=>{if(x.c>hmMax)hmMax=x.c;});
+  const hmCell=(d,h)=>{const o=hm.find(x=>x.dow===d&&x.h===h);const c=o?o.c:0;const al=c?(0.18+0.82*c/hmMax):0;return `<td title="${DOWK[d]} ${h}시 · ${c}명" style="min-width:12px;height:15px;background:rgba(18,128,90,${al.toFixed(2)});border-radius:2px"></td>`;};
+  let hmRows='';for(let d=0;d<7;d++){hmRows+=`<tr><td style="font-size:.72rem;color:var(--sub);padding-right:6px;white-space:nowrap">${DOWK[d]}</td>`;for(let h=0;h<24;h++)hmRows+=hmCell(d,h);hmRows+='</tr>';}
+  let hmHead='<tr><td></td>';for(let h=0;h<24;h+=3)hmHead+=`<td colspan="3" style="font-size:.66rem;color:var(--sub);text-align:left">${h}시</td>`;hmHead+='</tr>';
+  const heatHTML=hm.length?`<div style="overflow-x:auto"><table style="border-collapse:separate;border-spacing:2px"><tbody>${hmHead}${hmRows}</tbody></table></div><div class="d" style="margin-top:6px">진할수록 방문이 많은 요일·시간대 (한국시간)</div>`:'<div class="d">데이터 없음</div>';
   box.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px">
       <div class="tile"><div class="lab">방문(세션)</div><div class="v">${tot.sessions}</div></div>
@@ -376,6 +383,11 @@ async function renderAnalytics(){
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:16px;align-items:start">
       <div class="sec"><h3>관심 많은 객실 TOP</h3><div style="margin-top:4px">${rtHTML}</div></div>
       <div class="sec"><h3>이탈 지점 (마지막으로 본 화면)</h3><div style="margin-top:4px">${exHTML}</div></div>
+    </div>
+    <div class="sec" style="margin-top:16px"><h3>📣 유입처별 광고 성과 (방문 → 예약 전환)</h3><div class="d">어느 채널이 실제 예약으로 이어지는지 — 광고비 배분의 근거</div><div style="margin-top:10px">${spHTML}</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:16px;align-items:start">
+      <div class="sec"><h3>💰 유입처별 매출</h3><div class="d">채널이 벌어들인 실제 예약 매출 (최근 30일)</div><div style="margin-top:8px">${rbsHTML}</div></div>
+      <div class="sec"><h3>🗓 요일 · 시간대 히트맵</h3><div class="d">언제 사람이 몰리는지 — 이벤트·발송 타이밍</div><div style="margin-top:8px">${heatHTML}</div></div>
     </div>
     <div class="d" style="margin-top:14px">· 최근 30일 기준 · 개인정보(이름·전화) 없이 익명 집계됩니다.</div>`;
 }
