@@ -445,6 +445,7 @@
       <button class="tab-btn" data-view="admin" data-tab="clients">고객 관리</button>
       <button class="tab-btn" data-view="admin" data-tab="settlement">💰 정산</button>
       <button class="tab-btn" data-view="admin" data-tab="accounting">🧾 회계</button>
+      <button class="tab-btn" data-view="admin" data-tab="saved">💾 저장내역</button>
       <button class="tab-btn" data-view="admin" data-tab="log">📋 접속·업데이트</button>
       <button class="tab-btn" data-view="admin" data-tab="company">회사 설정</button>
     </div>
@@ -614,6 +615,20 @@
             <tr><th>견적번호</th><th>날짜</th><th>고객사</th><th>공급가액</th><th>부가세</th><th>합계금액</th><th>입금</th><th>계산서</th></tr>
           </thead>
           <tbody id="accTbody"></tbody>
+        </table>
+        </div>
+      </div>
+
+      <!-- ===== 저장내역 탭: 저장한 견적서 스냅샷 ===== -->
+      <div class="tab-content" id="admin-tab-saved">
+        <div class="toolbar" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+          <span class="muted">견적 <b>보기</b> 화면에서 💾로 저장한 견적서예요. 항목을 누르면 다시 열려서 <b>수정·이미지 복사</b> 할 수 있어요.</span>
+          <button class="btn secondary" onclick="renderSavedQuotes()" style="margin-left:auto;">새로고침</button>
+        </div>
+        <div class="table-scroll">
+        <table class="records" id="savedQuotesTable">
+          <thead><tr><th>저장일</th><th>업체</th><th>제품명</th><th>수량</th><th>단가</th><th>합계금액</th><th>관리</th></tr></thead>
+          <tbody id="savedQuotesTbody"></tbody>
         </table>
         </div>
       </div>
@@ -1184,6 +1199,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(view==='admin' && btn.dataset.tab==='records') renderAdminRecords();
     if(view==='admin' && btn.dataset.tab==='settlement') renderSettlement();
     if(view==='admin' && btn.dataset.tab==='accounting') renderAccounting();
+    if(view==='admin' && btn.dataset.tab==='saved') renderSavedQuotes();
     if(view==='admin' && btn.dataset.tab==='log'){ renderUpdateLog(); }
   });
 });
@@ -1910,30 +1926,129 @@ function renderMyRecords(){
   });
 }
 
-function viewQuote(id){
-  const q = quotes.find(x=>x.id===id);
-  if(!q) return;
-  window._viewQuote = q;
-
-  // 캠페인 가이드는 관리자에서만 표시(+ 카톡용 복사 버튼). 고객 화면엔 안 보임.
-  const guideHtml = (role==='admin' && q.campaigns && q.campaigns.length) ? campaignGuideHtml(q.campaigns, true) : '';
-
+// 견적 보기/편집 모달 (일반 견적 & 저장 스냅샷 공용)
+function renderQuoteModal(opts){
+  const isAdmin = role==='admin';
+  window._viewClient = opts.client||'';
+  window._viewBank = opts.bank||{};
+  window._viewSourceId = opts.sourceQuoteId||null;
+  window._viewSavedId = opts.savedId||null;
+  window._viewQuote = { quoteNo: opts.titleText, client: opts.client, items: opts.items, bankSnapshot: opts.bank, campaigns: opts.campaigns||[] };
+  const saveBtns = !isAdmin ? '' : (opts.savedId
+    ? `<button class="btn ok" onclick="saveSnapshotOverwrite()">💾 덮어쓰기</button><button class="btn secondary" onclick="saveSnapshotNew()">📄 새로 저장</button>`
+    : `<button class="btn ok" onclick="saveSnapshotNew()">💾 저장내역에 저장</button>`);
   document.getElementById('viewModalBody').innerHTML = `
     <div id="previewArea" style="margin-top:0;">
       <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
         <button class="btn secondary" onclick="copyViewQuote()">📋 텍스트 복사</button>
         <button class="btn" onclick="copyQuoteImage('viewQuoteCapture', this)">📷 이미지로 복사</button>
+        ${saveBtns}
       </div>
-      ${role==='admin' ? '<div style="font-size:12.5px; color:#a65b00; background:#fff8ec; border:1px solid #ffe0b3; border-radius:8px; padding:8px 12px; margin-bottom:10px;">✏️ 표의 <b>제품명·수량·단가·합계</b>를 직접 눌러 고칠 수 있어요. <b>단가</b>를 고치면 합계가, <b>합계</b>를 고치면 단가가 자동 계산됩니다(총액 맞추기용 역산). <span style="color:#999;">(이 이미지에만 반영 · 저장 안 됨)</span></div>' : ''}
+      ${isAdmin ? '<div style="font-size:12.5px; color:#a65b00; background:#fff8ec; border:1px solid #ffe0b3; border-radius:8px; padding:8px 12px; margin-bottom:10px;">✏️ 표의 <b>제품명·수량·단가·합계</b>를 직접 눌러 고칠 수 있어요. <b>단가</b>를 고치면 합계가, <b>합계</b>를 고치면 단가가 자동 계산됩니다. 💾 버튼으로 <b>저장내역</b>에 저장할 수 있어요.</div>' : ''}
       <div id="viewQuoteCapture" style="background:#fff;">
-        <h2 style="margin:0 0 8px;" ${role==='admin'?'contenteditable="true" class="ve"':''}>${(q.date ? String(q.date).slice(2).replace(/-/g,'. ') + ' ' : '')}${esc(q.client)} 견적서</h2>
-        <table class="quote">${role==='admin' ? editableQuoteTableHtml(q.items, q.bankSnapshot) : quoteTableHtml(q.items, q.bankSnapshot)}</table>
+        <h2 style="margin:0 0 8px;" ${isAdmin?'contenteditable="true" class="ve"':''}>${esc(opts.titleText)}</h2>
+        <table class="quote">${isAdmin ? editableQuoteTableHtml(opts.items, opts.bank) : quoteTableHtml(opts.items, opts.bank)}</table>
       </div>
     </div>
-    <div style="margin-top:20px;">${guideHtml}</div>
-    ${role==='admin' ? marginDetailHtml(q) : ''}
+    <div style="margin-top:20px;">${opts.guideHtml||''}</div>
+    ${opts.marginHtml||''}
   `;
   document.getElementById('viewModal').style.display = 'flex';
+}
+function viewQuote(id){
+  const q = quotes.find(x=>x.id===id); if(!q) return;
+  const guideHtml = (role==='admin' && q.campaigns && q.campaigns.length) ? campaignGuideHtml(q.campaigns, true) : '';
+  renderQuoteModal({
+    titleText: (q.date ? String(q.date).slice(2).replace(/-/g,'. ') + ' ' : '') + q.client + ' 견적서',
+    client: q.client, items: q.items, bank: q.bankSnapshot, campaigns: q.campaigns,
+    guideHtml, marginHtml: (role==='admin' ? marginDetailHtml(q) : ''),
+    sourceQuoteId: q.id, savedId: null
+  });
+}
+// 저장내역에서 불러오기
+async function viewSavedQuote(savedId){
+  let snap;
+  try{ snap = await call('getQuoteSnapshot', token, savedId); }
+  catch(e){ if(!handleSessionError(e)) alert('불러오기 실패: ' + e.message); return; }
+  renderQuoteModal({
+    titleText: snap.title || ((snap.client||'') + ' 견적서'),
+    client: snap.client, items: snap.items||[], bank: snap.bankSnapshot||{},
+    guideHtml: '', marginHtml: '', sourceQuoteId: snap.sourceQuoteId||null, savedId: savedId
+  });
+}
+// 보기 모달의 현재(편집된) 상태를 읽어 저장용 객체로
+function readEditableQuote(){
+  const cap = document.getElementById('viewQuoteCapture');
+  const h2 = cap.querySelector('h2');
+  const meta = window._veItems || [];
+  const items = meta.map((it,i)=>{
+    const tr = cap.querySelector('tr[data-i="'+i+'"]'); const copy = {...it};
+    if(tr){
+      copy.product = tr.children[1].textContent.trim();
+      copy.seller  = tr.children[2].textContent.trim();
+      const qEl=tr.querySelector('.ve-qty'), uEl=tr.querySelector('.ve-unit'), sEl=tr.querySelector('.ve-supply');
+      if(qEl && qEl.textContent.trim()!=='') copy.qty = numOf(qEl.textContent);
+      if(uEl && uEl.textContent.trim()!=='') copy.unit = numOf(uEl.textContent);
+      if(sEl) copy.supply = numOf(sEl.textContent);
+    }
+    return copy;
+  });
+  const gEl = document.getElementById('ve-grand');
+  const total = gEl ? numOf(gEl.textContent) : (quoteTotals(items).total);
+  const reviewer = items.find(it=>String(it.item||'').indexOf('리뷰어')===0);
+  return {
+    title: h2 ? h2.textContent.trim() : '', client: window._viewClient||'',
+    items, bankSnapshot: window._viewBank||{}, total,
+    product: quoteProductLabel({items}), totalQty: quoteTotalQty(items)||0,
+    unit: reviewer ? (Number(reviewer.unit)||0) : 0, sourceQuoteId: window._viewSourceId||null
+  };
+}
+function _savedTabActive(){ const el=document.getElementById('admin-tab-saved'); return el && el.classList.contains('active'); }
+async function saveSnapshotNew(){
+  const obj = readEditableQuote();
+  try{
+    const r = await call('saveQuoteSnapshot', token, obj);
+    window._viewSavedId = r.id;   // 다음 저장부터는 덮어쓰기 대상
+    alert('저장되었습니다.\n"💾 저장내역" 탭에서 다시 볼 수 있어요.');
+    if(_savedTabActive()) renderSavedQuotes();
+  }catch(e){ if(!handleSessionError(e)) alert('저장 실패: ' + e.message); }
+}
+async function saveSnapshotOverwrite(){
+  if(!window._viewSavedId) return saveSnapshotNew();
+  if(!confirm('이 저장 견적을 지금 내용으로 덮어쓸까요?')) return;
+  const obj = readEditableQuote();
+  try{
+    await call('updateQuoteSnapshot', token, window._viewSavedId, obj);
+    alert('덮어썼습니다.');
+    if(_savedTabActive()) renderSavedQuotes();
+  }catch(e){ if(!handleSessionError(e)) alert('덮어쓰기 실패: ' + e.message); }
+}
+// 저장내역 목록
+async function renderSavedQuotes(){
+  const tbody = document.getElementById('savedQuotesTbody'); if(!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#999; padding:16px;">불러오는 중…</td></tr>';
+  try{
+    const list = await call('listQuoteSnapshots', token);
+    if(!list || !list.length){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#999; padding:20px;">저장된 견적서가 없습니다. 견적 <b>보기</b>에서 💾로 저장해보세요.</td></tr>'; return; }
+    tbody.innerHTML = list.map(s=>{
+      const dt = new Date(s.createdAt);
+      const d = isNaN(dt) ? '' : dt.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      return `<tr style="cursor:pointer;" onclick="viewSavedQuote('${s.id}')" title="누르면 열려서 수정·이미지복사 가능">
+        <td style="white-space:nowrap;">${esc(d)}</td>
+        <td>${esc(s.client||'')}</td>
+        <td class="prod-cell" data-full="${esc(s.product||'')}">${esc(s.product||'')}</td>
+        <td>${s.totalQty||0}건</td>
+        <td>${won(s.unit||0)}원</td>
+        <td style="font-weight:bold; color:#a65b00;">${won(s.total||0)}원</td>
+        <td onclick="event.stopPropagation()"><button class="btn danger" onclick="deleteSavedQuote('${s.id}','${esc((s.client||'')+' '+(s.product||''))}')">삭제</button></td>
+      </tr>`;
+    }).join('');
+  }catch(e){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#c0392b; padding:16px;">불러오기 실패</td></tr>'; }
+}
+async function deleteSavedQuote(id, label){
+  if(!confirm('"' + label + '" 저장 견적을 삭제할까요?')) return;
+  try{ await call('deleteQuoteSnapshot', token, id); renderSavedQuotes(); }
+  catch(e){ if(!handleSessionError(e)) alert('삭제 실패: ' + e.message); }
 }
 function closeQuoteModal(){
   document.getElementById('viewModal').style.display = 'none';
