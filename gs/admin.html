@@ -267,6 +267,7 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
       <button data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>요금·객실</span></button>
       <button data-v="stats"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg><span>매출</span></button>
       <button data-v="analytics"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>고객 행동</span></button>
+      <button data-v="notices"><svg viewBox="0 0 24 24"><path d="M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 0 1-5.8-1.6"/></svg><span>공지사항</span></button>
     </nav>
     <div class="side-foot">
       <span class="who" id="who"></span>
@@ -286,6 +287,7 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
     <div id="viewStats" class="hidden"></div>
     <div id="viewAnalytics" class="hidden"></div>
     <div id="viewCustomers" class="hidden"></div>
+    <div id="viewNotices" class="hidden"></div>
     <div class="foot-note">히든벨리 펜션 예약관리 · 히든벨리 2026</div>
   </main>
 </div>
@@ -335,9 +337,50 @@ async function loadAll(){
   renderView();
 }
 function setView(v){VIEW=v;document.querySelectorAll('#vtabs button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
-  el('viewList').classList.toggle('hidden',v!=='list');el('viewCal').classList.toggle('hidden',v!=='cal');el('viewSettings').classList.toggle('hidden',v!=='settings');el('viewStats').classList.toggle('hidden',v!=='stats');el('viewAnalytics').classList.toggle('hidden',v!=='analytics');el('viewCustomers').classList.toggle('hidden',v!=='customers');
-  el('ptitle').textContent=v==='list'?'예약 현황':v==='cal'?'예약 캘린더':v==='stats'?'매출 통계':v==='analytics'?'고객 행동 분석':v==='customers'?'고객 관리':'요금·객실 설정';renderView();}
-function renderView(){if(VIEW==='list')renderList();else if(VIEW==='cal')renderCal();else if(VIEW==='stats')renderStats();else if(VIEW==='analytics')renderAnalytics();else if(VIEW==='customers')renderCustomers();else renderSettings();}
+  el('viewList').classList.toggle('hidden',v!=='list');el('viewCal').classList.toggle('hidden',v!=='cal');el('viewSettings').classList.toggle('hidden',v!=='settings');el('viewStats').classList.toggle('hidden',v!=='stats');el('viewAnalytics').classList.toggle('hidden',v!=='analytics');el('viewCustomers').classList.toggle('hidden',v!=='customers');el('viewNotices').classList.toggle('hidden',v!=='notices');
+  el('ptitle').textContent=v==='list'?'예약 현황':v==='cal'?'예약 캘린더':v==='stats'?'매출 통계':v==='analytics'?'고객 행동 분석':v==='customers'?'고객 관리':v==='notices'?'공지사항 관리':'요금·객실 설정';renderView();}
+function renderView(){if(VIEW==='list')renderList();else if(VIEW==='cal')renderCal();else if(VIEW==='stats')renderStats();else if(VIEW==='analytics')renderAnalytics();else if(VIEW==='customers')renderCustomers();else if(VIEW==='notices')renderNotices();else renderSettings();}
+/* ===== 공지사항 관리 ===== */
+let NSTAGE=[];
+function nGet(){try{return JSON.parse((CFG&&CFG.settings&&CFG.settings.notices_json)||'[]')||[];}catch(_){return [];}}
+async function nPersist(arr){try{const r=await api('admin.set_settings',{items:{notices_json:JSON.stringify(arr)}});if(r&&r.ok===false){toast(r.error||'저장 실패');return false;}CFG=await api('admin.config');return true;}catch(e){toast('저장 중 오류');return false;}}
+function nDownscale(file){return new Promise(res=>{const r=new FileReader();r.onload=function(){const img=new Image();img.onload=function(){let mx=1280,w=img.width,h=img.height;if(w>mx||h>mx){if(w>h){h=Math.round(h*mx/w);w=mx;}else{w=Math.round(w*mx/h);h=mx;}}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);res(c.toDataURL('image/jpeg',0.82));};img.onerror=()=>res(null);img.src=r.result;};r.onerror=()=>res(null);r.readAsDataURL(file);});}
+function renderNotices(){
+  const box=el('viewNotices');const list=nGet();const today=new Date().toISOString().slice(0,10);
+  const stage=NSTAGE.map((u,i)=>`<div style="position:relative"><img src="${u}" style="width:74px;height:74px;object-fit:cover;border-radius:8px"><button onclick="nStageDel(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:0;background:var(--clay);color:#fff;cursor:pointer;font-size:.8rem;line-height:1">×</button></div>`).join('');
+  const form=`<div class="sec" style="margin-bottom:18px"><h3>새 소식 올리기</h3>
+    <div style="display:grid;gap:10px;margin-top:10px;max-width:660px">
+      <input id="nTitle" placeholder="제목 (예: 가을 단풍이 물들었어요 🍁)" style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:.95rem;font-family:inherit">
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <input id="nDate" type="date" value="${today}" style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.9rem"><input type="checkbox" id="nPin"> 상단 고정(공지)</label>
+      </div>
+      <textarea id="nBody" rows="4" placeholder="내용을 입력하세요" style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:.95rem;font-family:inherit;resize:vertical"></textarea>
+      <div><label style="display:inline-block;padding:8px 14px;border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:.88rem;background:#fff">📷 사진 추가<input type="file" accept="image/*" multiple onchange="nAddPhotos(this.files)" style="display:none"></label><span style="color:var(--sub);font-size:.82rem;margin-left:8px">여러 장 가능 · 자동 최적화</span></div>
+      <div id="nStage" style="display:flex;gap:8px;flex-wrap:wrap">${stage}</div>
+      <div><button onclick="nSave()" style="padding:10px 22px;border:0;border-radius:10px;background:var(--forest);color:#fff;font-weight:700;cursor:pointer">소식 등록</button></div>
+    </div></div>`;
+  let items;
+  if(!list.length){items='<div class="d" style="padding:12px">아직 등록된 소식이 없습니다.</div>';}
+  else{list.sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||String(b.date||'').localeCompare(String(a.date||'')));
+    items=list.map(p=>`<div class="sec" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div style="min-width:0"><div style="font-size:.82rem;color:var(--sub)">${p.pinned?'<span style="color:var(--clay);font-weight:700">[공지] </span>':''}${p.date||''}</div>
+      <div style="font-weight:700;font-size:1.05rem;margin:2px 0">${(p.title||'(제목없음)').replace(/</g,'&lt;')}</div>
+      <div style="color:var(--sub);font-size:.88rem">${(p.body||'').replace(/</g,'&lt;').slice(0,80)}${(p.body||'').length>80?'…':''}${p.images&&p.images.length?(' · 📷'+p.images.length):''}</div></div>
+      <div style="display:flex;gap:6px;flex:none">
+        <button onclick="nPin('${p.id}')" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:.8rem">${p.pinned?'고정해제':'상단고정'}</button>
+        <button onclick="nDel('${p.id}')" style="padding:6px 10px;border:1px solid var(--clay);border-radius:8px;background:#fff;color:var(--clay);cursor:pointer;font-size:.8rem">삭제</button>
+      </div></div></div>`).join('');}
+  box.innerHTML=form+'<h3 style="margin:6px 0 10px">등록된 소식 ('+list.length+')</h3>'+items+'<div class="d" style="margin-top:10px">· 홈페이지 상단 「공지사항」 메뉴에 바로 노출됩니다 · 사진은 자동으로 용량 최적화됩니다.</div>';
+}
+window.nAddPhotos=async function(files){for(const f of files){if(NSTAGE.length>=12){toast('사진은 최대 12장');break;}const u=await nDownscale(f);if(u)NSTAGE.push(u);}renderNotices();};
+window.nStageDel=function(i){NSTAGE.splice(i,1);renderNotices();};
+window.nSave=async function(){const t=el('nTitle').value.trim(),b=el('nBody').value.trim(),d=el('nDate').value||new Date().toISOString().slice(0,10),pin=el('nPin').checked;
+  if(!t&&!NSTAGE.length){toast('제목이나 사진을 넣어주세요');return;}
+  const arr=nGet();arr.push({id:String(Date.now()),title:t,body:b,date:d,pinned:pin,images:NSTAGE.slice()});
+  if(await nPersist(arr)){NSTAGE=[];toast('소식이 등록되었습니다');renderNotices();}};
+window.nDel=async function(id){if(!confirm('이 소식을 삭제할까요?'))return;const arr=nGet().filter(p=>String(p.id)!==String(id));if(await nPersist(arr)){toast('삭제되었습니다');renderNotices();}};
+window.nPin=async function(id){const arr=nGet().map(p=>{if(String(p.id)===String(id))p.pinned=!p.pinned;return p;});if(await nPersist(arr)){renderNotices();}};
 /* ===== 고객 관리 (예약자 DB) ===== */
 let CQ='',CFILTER='all',CSORT='spend',COPEN='';
 function renderCustomers(){
