@@ -267,7 +267,6 @@ tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel2
       <button data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>요금·객실</span></button>
       <button data-v="stats"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg><span>매출</span></button>
       <button data-v="analytics"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>고객 행동</span></button>
-      <button data-v="customers"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>고객 관리</span></button>
     </nav>
     <div class="side-foot">
       <span class="who" id="who"></span>
@@ -340,7 +339,7 @@ function setView(v){VIEW=v;document.querySelectorAll('#vtabs button').forEach(b=
   el('ptitle').textContent=v==='list'?'예약 현황':v==='cal'?'예약 캘린더':v==='stats'?'매출 통계':v==='analytics'?'고객 행동 분석':v==='customers'?'고객 관리':'요금·객실 설정';renderView();}
 function renderView(){if(VIEW==='list')renderList();else if(VIEW==='cal')renderCal();else if(VIEW==='stats')renderStats();else if(VIEW==='analytics')renderAnalytics();else if(VIEW==='customers')renderCustomers();else renderSettings();}
 /* ===== 고객 관리 (예약자 DB) ===== */
-let CQ='';
+let CQ='',CFILTER='all';
 function renderCustomers(){
   const box=el('viewCustomers');
   const rows=(ALL||[]).filter(r=>r.source!=='block' && r.guest_phone && r.guest_phone!=='-');
@@ -355,25 +354,52 @@ function renderCustomers(){
     if(r.checkin&&(!c.last||r.checkin>c.last))c.last=r.checkin;
     if(r.agree_marketing)c.mkt=true;
   });
-  let list=Object.values(map);
+  const allList=Object.values(map);
+  const nowMs=Date.now();
+  const daysSince=lst=>{if(!lst)return null;const d=new Date(lst+'T00:00');return Math.round((nowMs-d.getTime())/864e5);};
+  const isTarget=c=>{const d=daysSince(c.last);return c.visits>0&&d!==null&&d>=300&&d<=430;};
+  const total=allList.length, repeat=allList.filter(c=>c.visits>=2).length, mkt=allList.filter(c=>c.mkt).length;
+  const targets=allList.filter(isTarget);
+  let list=allList.slice();
+  if(CFILTER==='repeat')list=list.filter(c=>c.visits>=2);
+  else if(CFILTER==='mkt')list=list.filter(c=>c.mkt);
+  else if(CFILTER==='target')list=list.filter(isTarget);
   const q=(CQ||'').trim();
   if(q)list=list.filter(c=>(c.name||'').includes(q)||(c.phone||'').includes(q));
-  list.sort((a,b)=>b.spend-a.spend||b.visits-a.visits);
-  const total=Object.keys(map).length, repeat=Object.values(map).filter(c=>c.visits>=2).length, mkt=Object.values(map).filter(c=>c.mkt).length;
-  const tiles=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:16px">
+  list.sort((a,b)=>(isTarget(b)-isTarget(a))||b.spend-a.spend||b.visits-a.visits);
+  const tiles=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:14px">
     <div class="tile"><div class="lab">총 고객</div><div class="v">${total}<small> 명</small></div></div>
     <div class="tile"><div class="lab">재방문(단골)</div><div class="v">${repeat}<small> 명</small></div></div>
-    <div class="tile sales"><div class="lab">마케팅 수신동의</div><div class="v">${mkt}<small> 명</small></div></div></div>`;
+    <div class="tile"><div class="lab">마케팅 수신동의</div><div class="v">${mkt}<small> 명</small></div></div>
+    <div class="tile sales"><div class="lab">🎯 재방문 유도 대상</div><div class="v">${targets.length}<small> 명</small></div></div></div>`;
+  const crm=`<div class="sec" style="border-left:4px solid var(--moss);margin-bottom:14px">
+    <h3 style="margin:0 0 4px">🎯 올해 다시 모실 고객 (작년 이맘때 방문)</h3>
+    <div class="d">약 1년 전(300~430일 전)에 다녀가신 <b>${targets.length}명</b> — 재방문 안내·쿠폰 보내기 딱 좋은 타이밍입니다. (마케팅 수신동의 고객에게만 발송)</div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="cSetFilter('target')" style="padding:8px 14px;border-radius:8px;border:1px solid var(--moss);background:var(--moss);color:#fff;font-weight:600;font-size:.86rem;cursor:pointer">대상만 보기</button>
+      <button onclick="cCopyTargets()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:600;font-size:.86rem;cursor:pointer">📋 마케팅 대상 연락처 복사</button>
+    </div></div>`;
+  const chips=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${[['all','전체'],['repeat','단골'],['mkt','마케팅동의'],['target','재방문대상']].map(o=>`<button onclick="cSetFilter('${o[0]}')" style="padding:6px 14px;border-radius:999px;border:1px solid ${CFILTER===o[0]?'var(--forest)':'var(--line)'};background:${CFILTER===o[0]?'var(--forest)':'#fff'};color:${CFILTER===o[0]?'#fff':'var(--ink)'};font-size:.84rem;cursor:pointer">${o[1]}</button>`).join('')}</div>`;
   const search=`<div style="margin-bottom:10px"><input id="cq" placeholder="이름·연락처 검색" value="${q.replace(/"/g,'&quot;')}" style="width:100%;max-width:320px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:.9rem;font-family:inherit"></div>`;
   let body;
   if(!list.length){body='<div class="d" style="padding:14px">표시할 고객이 없습니다.</div>';}
   else{body='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.9rem">'+
     '<tr style="color:var(--sub)"><th style="text-align:left;padding:8px 6px;font-weight:600">고객</th><th style="text-align:left;font-weight:600">연락처</th><th style="text-align:right;font-weight:600">방문</th><th style="text-align:right;font-weight:600">총 결제</th><th style="text-align:left;padding-left:12px;font-weight:600">최근 방문</th><th style="text-align:center;font-weight:600">마케팅</th></tr>'+
-    list.map(c=>`<tr style="border-top:1px solid var(--line)"><td style="padding:9px 6px;font-weight:600">${c.name}${c.visits>=2?' <span style="font-size:.68rem;color:#fff;background:var(--moss);border-radius:999px;padding:1px 6px;vertical-align:middle">단골</span>':''}</td><td>${c.phone}</td><td style="text-align:right">${c.visits}회${c.cancelled?` <span style="color:var(--clay);font-size:.76rem">(취소 ${c.cancelled})</span>`:''}</td><td style="text-align:right;font-weight:700;color:var(--forest)">${won(c.spend)}원</td><td style="padding-left:12px">${c.last||'-'}</td><td style="text-align:center">${c.mkt?'<span style="color:var(--forest);font-weight:700">✓</span>':'<span style="color:var(--stone)">-</span>'}</td></tr>`).join('')+
+    list.map(c=>{const tg=isTarget(c);return `<tr style="border-top:1px solid var(--line)${tg?';background:#fdf6e9':''}"><td style="padding:9px 6px;font-weight:600">${c.name}${c.visits>=2?' <span style="font-size:.68rem;color:#fff;background:var(--moss);border-radius:999px;padding:1px 6px;vertical-align:middle">단골</span>':''}${tg?' <span style="font-size:.68rem;color:#fff;background:var(--gold,#b08a3e);border-radius:999px;padding:1px 6px;vertical-align:middle">🎯재방문</span>':''}</td><td>${c.phone}</td><td style="text-align:right">${c.visits}회${c.cancelled?` <span style="color:var(--clay);font-size:.76rem">(취소 ${c.cancelled})</span>`:''}</td><td style="text-align:right;font-weight:700;color:var(--forest)">${won(c.spend)}원</td><td style="padding-left:12px">${c.last||'-'}</td><td style="text-align:center">${c.mkt?'<span style="color:var(--forest);font-weight:700">✓</span>':'<span style="color:var(--sub)">-</span>'}</td></tr>`;}).join('')+
     '</table></div>';}
-  box.innerHTML=tiles+search+body+'<div class="d" style="margin-top:12px">· 개인정보 수집·이용에 동의한 예약자 정보입니다. 마케팅(알림톡·문자)은 <b>수신동의(✓)</b> 고객에게만 발송하세요.</div>';
+  box.innerHTML=tiles+crm+chips+search+body+'<div class="d" style="margin-top:12px">· 개인정보 수집·이용에 동의한 예약자 정보입니다. 마케팅(알림톡·문자)은 <b>수신동의(✓)</b> 고객에게만 발송하세요.</div>';
   const cq=el('cq'); if(cq)cq.addEventListener('input',e=>{CQ=e.target.value;const p=e.target.selectionStart;renderCustomers();const n=el('cq');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(_){}}});
 }
+window.cSetFilter=function(f){CFILTER=f;renderCustomers();};
+function cFallbackCopy(txt,n){try{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast(n+'명 복사됨');}catch(e){toast('복사 실패');}}
+window.cCopyTargets=function(){
+  const map={};(ALL||[]).filter(r=>r.source!=='block'&&r.guest_phone&&r.guest_phone!=='-').forEach(r=>{const k=r.guest_phone;if(!map[k])map[k]={phone:r.guest_phone,visits:0,last:null,mkt:false};const c=map[k];if(r.status==='confirmed')c.visits++;if(r.checkin&&(!c.last||r.checkin>c.last))c.last=r.checkin;if(r.agree_marketing)c.mkt=true;});
+  const now=Date.now();
+  const phones=Object.values(map).filter(c=>{const d=c.last?Math.round((now-new Date(c.last+'T00:00').getTime())/864e5):null;return c.visits>0&&c.mkt&&d!==null&&d>=300&&d<=430;}).map(c=>c.phone);
+  if(!phones.length){toast('마케팅 동의한 재방문 대상이 없습니다');return;}
+  const txt=phones.join('\n');
+  try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast(phones.length+'명 연락처 복사됨'),()=>cFallbackCopy(txt,phones.length));}else cFallbackCopy(txt,phones.length);}catch(_){cFallbackCopy(txt,phones.length);}
+};
 /* ===== 고객 행동 분석 ===== */
 let ANA=null;
 async function renderAnalytics(){
