@@ -339,36 +339,41 @@ function setView(v){VIEW=v;document.querySelectorAll('#vtabs button').forEach(b=
   el('ptitle').textContent=v==='list'?'예약 현황':v==='cal'?'예약 캘린더':v==='stats'?'매출 통계':v==='analytics'?'고객 행동 분석':v==='customers'?'고객 관리':'요금·객실 설정';renderView();}
 function renderView(){if(VIEW==='list')renderList();else if(VIEW==='cal')renderCal();else if(VIEW==='stats')renderStats();else if(VIEW==='analytics')renderAnalytics();else if(VIEW==='customers')renderCustomers();else renderSettings();}
 /* ===== 고객 관리 (예약자 DB) ===== */
-let CQ='',CFILTER='all';
+let CQ='',CFILTER='all',CSORT='spend',COPEN='';
 function renderCustomers(){
   const box=el('viewCustomers');
   const rows=(ALL||[]).filter(r=>r.source!=='block' && r.guest_phone && r.guest_phone!=='-');
   const map={};
   rows.forEach(r=>{
     const key=r.guest_phone;
-    if(!map[key])map[key]={name:r.guest_name||'-',phone:r.guest_phone,visits:0,cancelled:0,spend:0,last:null,mkt:false,created:null};
+    if(!map[key])map[key]={name:r.guest_name||'-',phone:r.guest_phone,visits:0,cancelled:0,spend:0,last:null,mkt:false,created:null,resv:[]};
     const c=map[key]; const cr=r.created_at||r.checkin||'';
     if(!c.created||cr>c.created){c.created=cr; if(r.guest_name)c.name=r.guest_name;}
     if(r.status==='confirmed'){c.visits++; c.spend+=(+r.total_price||0);}
     if(r.status==='cancelled')c.cancelled++;
     if(r.checkin&&(!c.last||r.checkin>c.last))c.last=r.checkin;
     if(r.agree_marketing)c.mkt=true;
+    c.resv.push(r);
   });
   const allList=Object.values(map);
+  allList.forEach(c=>{c.grade=(c.visits>=3||c.spend>=600000)?'VIP':(c.visits>=2?'단골':'신규');c.resv.sort((x,y)=>(y.checkin||'').localeCompare(x.checkin||''));});
   const nowMs=Date.now();
   const daysSince=lst=>{if(!lst)return null;const d=new Date(lst+'T00:00');return Math.round((nowMs-d.getTime())/864e5);};
   const isTarget=c=>{const d=daysSince(c.last);return c.visits>0&&d!==null&&d>=300&&d<=430;};
   const total=allList.length, repeat=allList.filter(c=>c.visits>=2).length, mkt=allList.filter(c=>c.mkt).length;
   const targets=allList.filter(isTarget);
   let list=allList.slice();
-  if(CFILTER==='repeat')list=list.filter(c=>c.visits>=2);
+  if(CFILTER==='vip')list=list.filter(c=>c.grade==='VIP');
+  else if(CFILTER==='new')list=list.filter(c=>c.grade==='신규');
+  else if(CFILTER==='repeat')list=list.filter(c=>c.visits>=2);
   else if(CFILTER==='mkt')list=list.filter(c=>c.mkt);
   else if(CFILTER==='target')list=list.filter(isTarget);
   const q=(CQ||'').trim();
   if(q)list=list.filter(c=>(c.name||'').includes(q)||(c.phone||'').includes(q));
-  list.sort((a,b)=>(isTarget(b)-isTarget(a))||b.spend-a.spend||b.visits-a.visits);
+  list.sort((a,b)=>CSORT==='visits'?(b.visits-a.visits||b.spend-a.spend):CSORT==='recent'?((b.last||'').localeCompare(a.last||'')):CSORT==='name'?((a.name||'').localeCompare(b.name||'','ko')):(b.spend-a.spend||b.visits-a.visits));
   const tiles=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:14px">
     <div class="tile"><div class="lab">총 고객</div><div class="v">${total}<small> 명</small></div></div>
+    <div class="tile sales"><div class="lab">👑 VIP</div><div class="v">${allList.filter(c=>c.grade==='VIP').length}<small> 명</small></div></div>
     <div class="tile"><div class="lab">재방문(단골)</div><div class="v">${repeat}<small> 명</small></div></div>
     <div class="tile"><div class="lab">마케팅 수신동의</div><div class="v">${mkt}<small> 명</small></div></div>
     <div class="tile sales"><div class="lab">🎯 재방문 유도 대상</div><div class="v">${targets.length}<small> 명</small></div></div></div>`;
@@ -379,13 +384,13 @@ function renderCustomers(){
       <button onclick="cSetFilter('target')" style="padding:8px 14px;border-radius:8px;border:1px solid var(--moss);background:var(--moss);color:#fff;font-weight:600;font-size:.86rem;cursor:pointer">대상만 보기</button>
       <button onclick="cCopyTargets()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:600;font-size:.86rem;cursor:pointer">📋 마케팅 대상 연락처 복사</button>
     </div></div>`;
-  const chips=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${[['all','전체'],['repeat','단골'],['mkt','마케팅동의'],['target','재방문대상']].map(o=>`<button onclick="cSetFilter('${o[0]}')" style="padding:6px 14px;border-radius:999px;border:1px solid ${CFILTER===o[0]?'var(--forest)':'var(--line)'};background:${CFILTER===o[0]?'var(--forest)':'#fff'};color:${CFILTER===o[0]?'#fff':'var(--ink)'};font-size:.84rem;cursor:pointer">${o[1]}</button>`).join('')}</div>`;
+  const chips=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">${[['all','전체'],['vip','👑VIP'],['repeat','단골'],['new','신규'],['mkt','마케팅동의'],['target','재방문대상']].map(o=>`<button onclick="cSetFilter('${o[0]}')" style="padding:6px 14px;border-radius:999px;border:1px solid ${CFILTER===o[0]?'var(--forest)':'var(--line)'};background:${CFILTER===o[0]?'var(--forest)':'#fff'};color:${CFILTER===o[0]?'#fff':'var(--ink)'};font-size:.84rem;cursor:pointer">${o[1]}</button>`).join('')}<select onchange="cSortChange(this.value)" style="margin-left:auto;padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:.84rem;font-family:inherit"><option value="spend"${CSORT==='spend'?' selected':''}>결제액순</option><option value="visits"${CSORT==='visits'?' selected':''}>방문순</option><option value="recent"${CSORT==='recent'?' selected':''}>최근방문순</option><option value="name"${CSORT==='name'?' selected':''}>이름순</option></select><button onclick="cExportCsv()" style="padding:6px 13px;border-radius:8px;border:1px solid var(--forest);background:var(--forest);color:#fff;font-size:.84rem;font-weight:600;cursor:pointer">⬇ 명단 CSV</button></div>`;
   const search=`<div style="margin-bottom:10px"><input id="cq" placeholder="이름·연락처 검색" value="${q.replace(/"/g,'&quot;')}" style="width:100%;max-width:320px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:.9rem;font-family:inherit"></div>`;
   let body;
   if(!list.length){body='<div class="d" style="padding:14px">표시할 고객이 없습니다.</div>';}
   else{body='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.9rem">'+
     '<tr style="color:var(--sub)"><th style="text-align:left;padding:8px 6px;font-weight:600">고객</th><th style="text-align:left;font-weight:600">연락처</th><th style="text-align:right;font-weight:600">방문</th><th style="text-align:right;font-weight:600">총 결제</th><th style="text-align:left;padding-left:12px;font-weight:600">최근 방문</th><th style="text-align:center;font-weight:600">마케팅</th></tr>'+
-    list.map(c=>{const tg=isTarget(c);return `<tr style="border-top:1px solid var(--line)${tg?';background:#fdf6e9':''}"><td style="padding:9px 6px;font-weight:600">${c.name}${c.visits>=2?' <span style="font-size:.68rem;color:#fff;background:var(--moss);border-radius:999px;padding:1px 6px;vertical-align:middle">단골</span>':''}${tg?' <span style="font-size:.68rem;color:#fff;background:var(--gold,#b08a3e);border-radius:999px;padding:1px 6px;vertical-align:middle">🎯재방문</span>':''}</td><td>${c.phone}</td><td style="text-align:right">${c.visits}회${c.cancelled?` <span style="color:var(--clay);font-size:.76rem">(취소 ${c.cancelled})</span>`:''}</td><td style="text-align:right;font-weight:700;color:var(--forest)">${won(c.spend)}원</td><td style="padding-left:12px">${c.last||'-'}</td><td style="text-align:center">${c.mkt?'<span style="color:var(--forest);font-weight:700">✓</span>':'<span style="color:var(--sub)">-</span>'}</td></tr>`;}).join('')+
+    list.map(c=>{const tg=isTarget(c);const GB={VIP:'#b08a3e','단골':'#17a06a','신규':'#9aa89f'};const ph=(c.phone||'').replace(/[^0-9]/g,'');let tr=`<tr onclick="cRow('${c.phone}')" style="border-top:1px solid var(--line);cursor:pointer${tg?';background:#fdf6e9':''}"><td style="padding:9px 6px;font-weight:600">${c.name} <span style="font-size:.66rem;color:#fff;background:${GB[c.grade]||'#9aa89f'};border-radius:999px;padding:1px 7px;vertical-align:middle">${c.grade}</span>${tg?' <span style="font-size:.66rem;color:#fff;background:var(--gold,#b08a3e);border-radius:999px;padding:1px 6px;vertical-align:middle">🎯재방문</span>':''}</td><td>${c.phone} <a href="tel:${ph}" onclick="event.stopPropagation()" style="text-decoration:none">📞</a> <a href="sms:${ph}" onclick="event.stopPropagation()" style="text-decoration:none">💬</a></td><td style="text-align:right">${c.visits}회${c.cancelled?` <span style="color:var(--clay);font-size:.76rem">(취소 ${c.cancelled})</span>`:''}</td><td style="text-align:right;font-weight:700;color:var(--forest)">${won(c.spend)}원</td><td style="padding-left:12px">${c.last||'-'}</td><td style="text-align:center">${c.mkt?'<span style="color:var(--forest);font-weight:700">✓</span>':'<span style="color:var(--sub)">-</span>'}</td></tr>`;if(COPEN===c.phone){const h=(c.resv||[]).map(r=>{const rm=((CFG&&CFG.rooms)||[]).find(x=>x.id===r.room_id);const rn=rm?rm.name:(r.room_id||'');const st=r.status==='confirmed'?'확정':r.status==='cancelled'?'취소':r.status;const sc=r.status==='cancelled'?'var(--clay)':'var(--forest)';return `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:.82rem"><span>${r.checkin||''} · ${rn}</span><span style="color:${sc}">${st} · ${won(+r.total_price||0)}원</span></div>`;}).join('');tr+=`<tr><td colspan="6" style="background:#f3f1ea;padding:10px 14px"><div style="font-size:.78rem;color:var(--sub);margin-bottom:4px">예약 이력 ${(c.resv||[]).length}건</div>${h}</td></tr>`;}return tr;}).join('')+
     '</table></div>';}
   box.innerHTML=tiles+crm+chips+search+body+'<div class="d" style="margin-top:12px">· 개인정보 수집·이용에 동의한 예약자 정보입니다. 마케팅(알림톡·문자)은 <b>수신동의(✓)</b> 고객에게만 발송하세요.</div>';
   const cq=el('cq'); if(cq)cq.addEventListener('input',e=>{CQ=e.target.value;const p=e.target.selectionStart;renderCustomers();const n=el('cq');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(_){}}});
@@ -399,6 +404,21 @@ window.cCopyTargets=function(){
   if(!phones.length){toast('마케팅 동의한 재방문 대상이 없습니다');return;}
   const txt=phones.join('\n');
   try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast(phones.length+'명 연락처 복사됨'),()=>cFallbackCopy(txt,phones.length));}else cFallbackCopy(txt,phones.length);}catch(_){cFallbackCopy(txt,phones.length);}
+};
+window.cSortChange=function(v){CSORT=v;renderCustomers();};
+window.cRow=function(p){COPEN=(COPEN===p?'':p);renderCustomers();};
+window.cExportCsv=function(){
+  const map={};(ALL||[]).filter(r=>r.source!=='block'&&r.guest_phone&&r.guest_phone!=='-').forEach(r=>{const k=r.guest_phone;if(!map[k])map[k]={name:r.guest_name||'-',phone:k,visits:0,cancelled:0,spend:0,last:null,mkt:false};const c=map[k];if(r.guest_name)c.name=r.guest_name;if(r.status==='confirmed'){c.visits++;c.spend+=(+r.total_price||0);}if(r.status==='cancelled')c.cancelled++;if(r.checkin&&(!c.last||r.checkin>c.last))c.last=r.checkin;if(r.agree_marketing)c.mkt=true;});
+  const now=Date.now();let list=Object.values(map);
+  list.forEach(c=>{c.grade=(c.visits>=3||c.spend>=600000)?'VIP':(c.visits>=2?'단골':'신규');c.days=c.last?Math.round((now-new Date(c.last+'T00:00').getTime())/864e5):null;});
+  if(CFILTER==='vip')list=list.filter(c=>c.grade==='VIP');else if(CFILTER==='new')list=list.filter(c=>c.grade==='신규');else if(CFILTER==='repeat')list=list.filter(c=>c.visits>=2);else if(CFILTER==='mkt')list=list.filter(c=>c.mkt);else if(CFILTER==='target')list=list.filter(c=>c.visits>0&&c.days!==null&&c.days>=300&&c.days<=430);
+  const q=(CQ||'').trim();if(q)list=list.filter(c=>(c.name||'').includes(q)||(c.phone||'').includes(q));
+  list.sort((a,b)=>b.spend-a.spend);
+  if(!list.length){toast('내보낼 고객이 없습니다');return;}
+  const head=['이름','연락처','등급','방문','취소','총결제','최근방문','마케팅동의'];
+  const rows=list.map(c=>[c.name,c.phone,c.grade,c.visits,c.cancelled,c.spend,c.last||'',c.mkt?'Y':'N']);
+  const csv=[head].concat(rows).map(r=>r.map(v=>{v=String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(',')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='히든벨리_고객명단_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();},100);toast(list.length+'명 명단 내보냄');
 };
 /* ===== 고객 행동 분석 ===== */
 let ANA=null;
