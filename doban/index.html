@@ -1223,11 +1223,14 @@ function load() {
 
 // ─── 계산 헬퍼 ───
 function tasksOf(id){ return DB.작업.filter(function(t){return t.광고주ID===id;}); }
-function contractOf(id){ return tasksOf(id).reduce(function(s,t){return s+(Number(t.금액)||0);},0); }
+// 한 줄의 '부가세 포함 금액'. 단가가 있으면 식×단가(부호 그대로=할인은 마이너스), 없으면 저장된 금액.
+// ★ 예전엔 단가가 양수일 때만 계산해서 마이너스(할인) 줄이 빠지지 않고 오히려 더해지는 버그가 있었음.
+function lineAmtIncl(t){ var q=Number(t.수량)||0, u=Number(t.단가)||0; return (q>0 && u!==0) ? vatIncl(q*u) : (Number(t.금액)||0); }
+function contractOf(id){ return tasksOf(id).reduce(function(s,t){return s+lineAmtIncl(t);},0); }
 function roundOf(t){ return Number(t.차수)||1; }
 function roundsOf(id){ var s={}; tasksOf(id).forEach(function(t){s[roundOf(t)]=1;}); var a=Object.keys(s).map(Number).sort(function(x,y){return x-y;}); return a.length?a:[1]; }
 function maxRoundOf(id){ var a=roundsOf(id); return a[a.length-1]; }
-function roundSum(id,r){ return tasksOf(id).filter(function(t){return roundOf(t)===r;}).reduce(function(s,t){return s+(Number(t.금액)||0);},0); }
+function roundSum(id,r){ return tasksOf(id).filter(function(t){return roundOf(t)===r;}).reduce(function(s,t){return s+lineAmtIncl(t);},0); }
 // 견적 이름: 그 차수 작업의 견적명 있으면 사용, 없으면 새 견적 대기이름 또는 "N차"
 var NEWQNAME = {}; // {광고주ID_차수: 이름}
 var EXTRAROUNDS = {}; // {광고주ID: [차수]} 세션 중 만든 빈 견적(작업 없어도 탭 유지)
@@ -2871,7 +2874,7 @@ function previewQuote(){
 // 광고주 상세에서 견적서: round 'all'(전체) | 숫자(해당 차수만)
 function clientQuoteImage(id, round){
   var c=DB.광고주.filter(function(x){return x.ID===id;})[0];
-  var ts=tasksOf(id).filter(function(t){return (Number(t.금액)||0)>0 || (Number(t.단가)||0)>0;});
+  var ts=tasksOf(id).filter(function(t){return (Number(t.금액)||0)!==0 || (Number(t.단가)||0)!==0;});
   var subtitle='';
   if(round!=='all'){
     ts=ts.filter(function(t){return roundOf(t)===Number(round);});
@@ -2881,9 +2884,9 @@ function clientQuoteImage(id, round){
   var sub=0;
   var rows=ts.map(function(t){
     var qty=Number(t.수량)||0, unit=Number(t.단가)||0;
-    var line=(qty>0&&unit>0)?qty*unit:Math.round((Number(t.금액)||0)/1.1); // 부가세 전
+    var line=(qty>0&&unit!==0)?qty*unit:Math.round((Number(t.금액)||0)/1.1); // 부가세 전 (마이너스 단가=할인)
     sub+=line;
-    return [t.품목+(t.세부내용?' · '+t.세부내용:''), qty>0?qty:'', unit>0?unit:'', line];
+    return [t.품목+(t.세부내용?' · '+t.세부내용:''), qty>0?qty:'', unit!==0?unit:'', line];
   });
   var vat=Math.round(sub*0.1);
   var date=roundDateOf(id, round==='all'?CURROUND:Number(round))||todayStr();
@@ -3218,8 +3221,8 @@ function openClient(id, keepRound) {
     (function(){
       var rsub=0;
       var body = roundTs.length ? roundTs.map(function (t, ri) {
-        var amtIncl = Number(t.금액)||0, qty = Number(t.수량)||0, unit = Number(t.단가)||0;
-        var line = (qty>0 && unit>0) ? qty*unit : Math.round(amtIncl/1.1); // 부가세 전 금액
+        var qty = Number(t.수량)||0, unit = Number(t.단가)||0, amtIncl = lineAmtIncl(t);
+        var line = (qty>0 && unit!==0) ? qty*unit : Math.round(amtIncl/1.1); // 부가세 전 금액 (마이너스 단가=할인)
         rsub += line;
         // 마진은 부가세 포함끼리 비교 (청구액 amtIncl vs 대행비) — 대행비가 부가세 포함가라서
         var exec = execOfTask(t), mg = amtIncl-exec, rate = amtIncl>0?Math.round(mg/amtIncl*100):0;
@@ -3386,7 +3389,7 @@ function ntAuto(){ // 금액(부가세 전) = 식 × 단가
   var u=document.getElementById('nt단가');
   var unit=u?numVal(u.value):0;
   var amtEl=document.getElementById('nt금액');
-  if(amtEl && qty>0 && unit>0) amtEl.value=(qty*unit).toLocaleString('ko-KR');
+  if(amtEl && qty>0 && unit!==0) amtEl.value=(qty*unit).toLocaleString('ko-KR');
 }
 function ntEtc(){
   var sel=document.getElementById('nt품목').value;
