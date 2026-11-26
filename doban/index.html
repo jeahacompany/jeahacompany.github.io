@@ -366,6 +366,11 @@
   table.ss th.ss-drag, table.ss td.ss-drag { width:26px; min-width:26px; text-align:center; }
   table.ss td.ss-drag { color:#c3c3c3; cursor:grab; user-select:none; font-size:16px; line-height:1; }
   table.ss td.ss-drag:active { cursor:grabbing; color:#e8590c; }
+  /* 왼쪽 고정 조작칸: 드래그 손잡이 + 삭제(항상 보임, 가로 스크롤 필요 없음) */
+  table.ss th.ss-ctrl, table.ss td.ss-ctrl { width:56px; min-width:56px; text-align:center; position:sticky; left:0; background:#fff; z-index:2; }
+  table.ss td.ss-ctrl { white-space:nowrap; padding:0 4px; }
+  table.ss td.ss-ctrl .ss-grip { display:inline-block; color:#c3c3c3; cursor:grab; user-select:none; font-size:16px; line-height:1; vertical-align:middle; margin-right:3px; }
+  table.ss td.ss-ctrl .ss-grip:active { cursor:grabbing; color:#e8590c; }
   table.ss tbody tr.drag-over td { border-top:2px solid #e8590c; }
   table.ss .ss-st { font-weight:700; text-align:center; min-width:88px; }
   table.ss select.st-완료 { color:#c92a2a; } table.ss select.st-진행중 { color:#9a6700; }
@@ -3779,13 +3784,13 @@ function seedTableHTML(id, groups){
       return '<div class="seed-group">' +
         '<div class="seed-gh clickable" onclick="toggleSeed(\''+key+'\')">'+(open?'▼':'▶')+' 📄 '+esc(roundLabel(id,r))+(date?' <b class="sd-date">'+esc(date)+'</b>':'')+' <span>등록 '+list.length+(target?' / 견적 '+target+'명':'')+' · 완료 '+list.filter(seedDone).length+'</span></div>' +
         calc +
-        (open ? '<div class="ss-wrap"><table class="ss"><thead><tr><th class="ss-drag"></th>'+cols.map(function(c){return '<th'+(c.tip?' class="has-tip" title="'+esc(c.tip)+'"':'')+'>'+esc(c.label)+(c.tip?' <span class="tip-i">?</span>':'')+'</th>';}).join('')+'<th></th></tr></thead>' +
+        (open ? '<div class="ss-wrap"><table class="ss"><thead><tr><th class="ss-ctrl"></th>'+cols.map(function(c){return '<th'+(c.tip?' class="has-tip" title="'+esc(c.tip)+'"':'')+'>'+esc(c.label)+(c.tip?' <span class="tip-i">?</span>':'')+'</th>';}).join('')+'</tr></thead>' +
         '<tbody>'+(list.length?list.map(function(s){
           return '<tr ondragover="event.preventDefault()" ondrop="seedDropOn(event,\''+s.ID+'\')">' +
-            '<td class="ss-drag" draggable="true" ondragstart="seedDrag(event,\''+s.ID+'\')" title="드래그해서 순서 변경">⠿</td>' +
+            '<td class="ss-ctrl"><span class="ss-grip" draggable="true" ondragstart="seedDrag(event,\''+s.ID+'\')" title="드래그해서 순서 변경">⠿</span><button class="del-x" onclick="delSeed(\''+s.ID+'\')" title="이 줄 삭제">✕</button></td>' +
             cols.map(function(c){return '<td class="ct-'+c.type+(c.cls?' '+c.cls:'')+'">'+seedCellHTML(s,c)+'</td>';}).join('') +
-            '<td class="ss-act"><button class="del-x" onclick="delSeed(\''+s.ID+'\')" title="이 줄 삭제">✕</button></td></tr>';
-        }).join(''):'<tr><td colspan="'+(cols.length+2)+'" style="text-align:center;color:#bbb;padding:8px">비어있음</td></tr>')+'</tbody></table></div>' +
+            '</tr>';
+        }).join(''):'<tr><td colspan="'+(cols.length+1)+'" style="text-align:center;color:#bbb;padding:8px">비어있음</td></tr>')+'</tbody></table></div>' +
         (target!==list.length ? '<button class="add-row fill" onclick="this.disabled=true;this.textContent=\'맞추는 중…\';syncSeed(\''+id+'\','+r+')">🔄 견적수량('+target+'명)과 맞추기</button> ' : '') +
         '<button class="add-row" onclick="addSeedRow(\''+g[0]+'\','+r+')">+ 행 추가</button>' : '') + '</div>';
     }).join('') : '<div style="color:#bbb;padding:10px 2px;font-size:13px">견적에 '+g[0]+' 항목이 없어요 — 견적서 탭에서 추가하면 여기 생겨요</div>';
