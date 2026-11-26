@@ -91,6 +91,9 @@
   .bar div { height:100%; background:linear-gradient(90deg,#ff922b,#e8590c); border-radius:5px; }
   .sec { background:#fff; border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
   .sec h3 { font-size:14px; color:#e8590c; margin-bottom:10px; }
+  .csort { display:flex; align-items:center; gap:6px; font-size:12px; color:#999; margin:-4px 0 12px; }
+  .csort .cs { font-size:12px; font-weight:700; color:#777; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:15px; padding:5px 13px; cursor:pointer; }
+  .csort .cs.on { color:#fff; background:#e8590c; border-color:#e8590c; }
   .row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #f4f4f4; font-size:14px; }
   .row:last-child { border-bottom:none; }
   .row .grow { flex:1; }
@@ -277,8 +280,12 @@ function contentSection(list, only){
     var ha=(a.sort_no!=null&&a.sort_no!==''), hb=(b.sort_no!=null&&b.sort_no!=='');
     if(ha&&hb) return (Number(a.sort_no)||0)-(Number(b.sort_no)||0); if(ha) return -1; if(hb) return 1; return 0;
   };
+  // 업로드일정순(인스타 전용): 업로드일정 빠른 순, 미정은 아래, 같으면 촬영일정 보조
+  var upD=function(s){ var d=String(s.업로드일정||'').trim(); return /^\d{4}-\d{2}-\d{2}/.test(d)?d.slice(0,10):''; };
+  var upCmp=function(a,b){ var ua=upD(a), ub=upD(b); if(ua&&ub){ if(ua!==ub) return ua<ub?-1:1; } else if(ua) return -1; else if(ub) return 1; return ordCmp(a,b); };
+  var CMP = (only==='insta' && CLIENT_SORT==='upload') ? upCmp : ordCmp;
   var groups = rounds.map(function(r){
-    var arr=byR[r].slice().sort(ordCmp); // 관리자가 정한 순서대로 (점주도 동일)
+    var arr=byR[r].slice().sort(CMP); // 기본 촬영일정순, 인스타는 업로드일정순 토글 가능
     var up=arr.filter(function(s){return !!s.완료;}).length;
     var key=(only||'x')+'_'+r, open = ROPEN[key]!==false;
     var label = nameMap[r] || (r+'차 견적'); // 견적명(점심마케팅 등), 없으면 N차 견적
@@ -287,7 +294,10 @@ function contentSection(list, only){
     return '<div class="rgroup">'+hdr+body+'</div>';
   }).join('');
   var head = '<h3>'+title+' <span style="font-size:12px;color:#e8590c;font-weight:600">'+list.filter(function(s){return !!s.완료;}).length+'/'+list.length+' 완료</span></h3>';
-  return '<div class="sec">'+head+groups+'</div>';
+  var sortToggle = (only==='insta') ? '<div class="csort">정렬'+
+    '<button class="cs'+(CLIENT_SORT!=='upload'?' on':'')+'" onclick="setClientSort(\'shoot\')">촬영일정순</button>'+
+    '<button class="cs'+(CLIENT_SORT==='upload'?' on':'')+'" onclick="setClientSort(\'upload\')">업로드일정순</button></div>' : '';
+  return '<div class="sec">'+head+sortToggle+groups+'</div>';
 }
 
 function showTab(n, btn){
@@ -296,6 +306,8 @@ function showTab(n, btn){
   btn.classList.add('on'); window.scrollTo(0,0);
 }
 var ROPEN = {}; // 견적(차수) 그룹 펼침 상태 {키:false=접힘}
+var CLIENT_SORT = 'shoot'; // 인스타 나열순서: 'shoot'=촬영일정순(기본) / 'upload'=업로드일정순
+function setClientSort(mode){ CLIENT_SORT = (mode==='upload'?'upload':'shoot'); var it=document.getElementById('tab-insta'); if(it) it.innerHTML=contentSection(data.콘텐츠||[], 'insta'); }
 function toggleRound(key){
   ROPEN[key] = ROPEN[key]===false ? true : false; // 기본 펼침 → 처음 누르면 접힘
   var it=document.getElementById('tab-insta'); if(it) it.innerHTML=contentSection(data.콘텐츠||[], 'insta');
